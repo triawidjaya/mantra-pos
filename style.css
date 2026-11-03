@@ -432,7 +432,7 @@ body.light-theme #open-bank,
 .summary-info  { font-size: 0.8rem; color: var(--gray); text-align: center; margin-top: 10px; }
 
 .light-theme .shift-summary { border: 1px solid var(--border-color); box-shadow: var(--shadow); }
-.light-theme .btn:not(.primary):not(.danger):not(.success):not(.info) { background-color: #fff; border: 1px solid var(--border-color); color: var(--text-color); }
+.light-theme .btn:not(.primary):not(.danger):not(.success):not(.info):not(.active) { background-color: #fff; border: 1px solid var(--border-color); color: var(--text-color); }
 
 /* Settings modal — let textareas size by `rows` attribute, single scrollbar on modal-content if needed */
 #settings-modal .modal-content { max-width: 520px; width: 100%; }
@@ -529,8 +529,39 @@ body.light-theme #open-bank,
   .chart-bar { width: 10px; }
 }
 
+/* ── Daily cash flow chart ── */
+.chart-scope-group { display: flex; gap: 6px; }
+.chart-scope-group .chart-scope { padding: 5px 10px; font-size: 0.78rem; }
+.chart-scope-group .chart-scope.active { background-color: var(--primary); color: white; border-color: var(--primary); }
+.chart-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.chart-kpi { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.chart-kpi-label { font-size: 0.72rem; color: var(--gray); text-transform: uppercase; letter-spacing: 0.04em; }
+.chart-kpi-value { font-size: 1rem; font-weight: 700; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chart-kpi.in .chart-kpi-value  { color: var(--success); }
+.chart-kpi.out .chart-kpi-value { color: var(--danger); }
+.chart-kpi.bal .chart-kpi-value { color: var(--primary); }
+.chart-container .chart-legend { margin-bottom: 8px; }
+.legend-line { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: var(--primary); }
+.chart-svg-wrap { overflow-x: auto; }
+.chart-svg { display: block; }
+.chart-hit { fill: transparent; }
+.chart-day:hover .chart-hit { fill: var(--border-color); opacity: 0.35; }
+.chart-bar-svg.bar-in  { fill: var(--success); }
+.chart-bar-svg.bar-out { fill: var(--danger); }
+.chart-baseline { stroke: var(--border-color); stroke-width: 1; }
+.chart-balance-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; pointer-events: none; }
+.chart-balance-dot { fill: var(--primary); pointer-events: none; }
+.chart-axis-label { font-size: 11px; fill: var(--gray); }
+.chart-note { font-size: 0.75rem; color: var(--gray); margin-top: 8px; }
+@media (max-width: 768px) {
+  .chart-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* ── Date range filter ── */
-.date-presets { flex-wrap: wrap; }
+.filter-container { margin-bottom: 16px; }
+.date-presets { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; }
+.date-presets label { margin-right: 4px; }
+.date-custom { flex-direction: row; align-items: center; margin-top: 8px; }
 .date-presets .date-preset { padding: 5px 10px; font-size: 0.78rem; }
 .date-presets .date-preset.active {
   background-color: var(--primary); color: white; border-color: var(--primary);

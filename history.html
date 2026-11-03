@@ -125,10 +125,10 @@
   <div class="filter-container" id="hist-filter">
     <div class="filter-group date-presets">
       <label><i class="fas fa-calendar-alt"></i> <span id="hist-date-label">Date</span>:</label>
-      <button type="button" class="btn small date-preset active" data-preset="all">All</button>
+      <button type="button" class="btn small date-preset"        data-preset="all">All</button>
       <button type="button" class="btn small date-preset"        data-preset="today">Today</button>
       <button type="button" class="btn small date-preset"        data-preset="week">This Week</button>
-      <button type="button" class="btn small date-preset"        data-preset="month">This Month</button>
+      <button type="button" class="btn small date-preset active" data-preset="month">This Month</button>
       <button type="button" class="btn small date-preset"        data-preset="custom">Custom...</button>
     </div>
     <div class="filter-group date-custom" id="date-custom-group" style="display:none">
@@ -138,7 +138,7 @@
     </div>
   </div>
 
-  <!-- Income vs Outgoing chart (per shift) -->
+  <!-- Daily cash flow chart -->
   <div class="chart-container" id="chart-container"></div>
 
   <div class="shift-list" id="shift-list"></div>
@@ -235,7 +235,7 @@ function showAlert(message, type = 'info') {
 // Empty array until init runs; renderList() handles empty state.
 let history  = [];
 let selectedIds = new Set();
-let dateFilter  = { preset: 'all', from: null, to: null };
+let dateFilter  = { preset: 'month', from: null, to: null };
 
 // ── Date filter helpers ──
 function dateBounds() {
@@ -261,58 +261,184 @@ function dateBounds() {
   return null;
 }
 
+// A shift is in range when its open period overlaps the range: a month-end close
+// on the 1st still belongs to the month it covers.
 function getFilteredShifts() {
   const range = dateBounds();
   if (!range) return history;
   const [from, to] = range;
   return history.filter(s => {
-    const t = new Date(s.closedAt).getTime();
-    return t >= from && t <= to;
+    const end   = new Date(s.closedAt).getTime();
+    const start = s.startedAt ? new Date(s.startedAt).getTime() : end;
+    return start <= to && end >= from;
   });
 }
 
-// ── Chart: 1 bar per shift (closedAt × income/outgoing) ──
+// ── Chart: daily cash flow (WITA calendar days, from transaction time) ──
+const WITA_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit' });
+const dayKey  = (ms) => WITA_DAY.format(new Date(ms));
+const nextDay = (key) => { const d = new Date(`${key}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
+let chartScope = HistStorage.get('chart_scope', 'all') === 'cash' ? 'cash' : 'all';
+
+function isNonRevenueCategory(kategori) {
+  return kategori === 'START BALANCE'
+    || SYSTEM_NON_REVENUE.includes(kategori)
+    || (DataStore.settings.nonRevenueCategories || []).includes(kategori);
+}
+
+// Each shift opens with START BALANCE, so the balance runs per shift. The
+// end-of-day balance is the running balance after the last transaction that day.
+function buildDailyCashFlow() {
+  const inScope = (tx) => chartScope !== 'cash' || tx.metode === 'Cash';
+  const groups = [...history.map(s => s.transactions || []), DataStore.transactions || []];
+  const events = [];
+  groups.forEach(txs => {
+    let balance = 0;
+    txs.filter(inScope)
+      .map(tx => ({ tx, ms: new Date(tx.tanggalWaktu).getTime() }))
+      .filter(e => Number.isFinite(e.ms))
+      .sort((a, b) => a.ms - b.ms)
+      .forEach(e => { balance += Number(e.tx.jumlah) || 0; events.push({ ...e, balance }); });
+  });
+  if (events.length === 0) return [];
+  events.sort((a, b) => a.ms - b.ms);
+
+  const range = dateBounds();
+  const firstKey = range ? dayKey(range[0]) : dayKey(events[0].ms);
+  const lastKey  = dayKey(range ? Math.min(range[1], Date.now()) : Date.now());
+  if (firstKey > lastKey) return [];
+
+  const byDay = new Map();
+  let opening = null;
+  events.forEach(e => {
+    const key = dayKey(e.ms);
+    if (key < firstKey) { opening = e.balance; return; }
+    if (key > lastKey) return;
+    if (!byDay.has(key)) byDay.set(key, { income: 0, outgoing: 0, cats: {}, balance: null });
+    const day = byDay.get(key);
+    const amount = Number(e.tx.jumlah) || 0;
+    if (!isNonRevenueCategory(e.tx.kategori)) {
+      if (e.tx.jenis === 'INCOME') day.income += amount;
+      else day.outgoing += Math.abs(amount);
+      day.cats[e.tx.kategori] = (day.cats[e.tx.kategori] || 0) + amount;
+    }
+    day.balance = e.balance;
+  });
+
+  const days = [];
+  let carry = opening;
+  for (let key = firstKey; key <= lastKey; key = nextDay(key)) {
+    const day = byDay.get(key) || { income: 0, outgoing: 0, cats: {}, balance: null };
+    if (day.balance === null) day.balance = carry;
+    carry = day.balance;
+    days.push({ key, ...day });
+    if (days.length > 1000) break;
+  }
+  return days;
+}
+
 function renderChart() {
   const c = document.getElementById('chart-container');
   if (!c) return;
-  const shifts = getFilteredShifts().slice().reverse(); // oldest → newest left to right
-  if (shifts.length === 0) {
-    c.innerHTML = `
-      <div class="chart-header">
-        <h3><i class="fas fa-chart-bar"></i> ${t('chartTitle')}</h3>
-      </div>
-      <div class="chart-empty">${t('chartNoData')}</div>`;
+  const days = buildDailyCashFlow();
+  const scopeBtns = ['all', 'cash'].map(scope => `
+    <button type="button" class="btn small date-preset chart-scope${chartScope === scope ? ' active' : ''}" data-scope="${scope}">
+      ${t(scope === 'cash' ? 'chartScopeCash' : 'chartScopeAll')}
+    </button>`).join('');
+  const header = `
+    <div class="chart-header">
+      <h3><i class="fas fa-chart-line"></i> ${t('chartTitle')}</h3>
+      <div class="chart-scope-group">${scopeBtns}</div>
+    </div>`;
+  const bindScope = () => c.querySelectorAll('.chart-scope').forEach(btn => btn.addEventListener('click', () => {
+    chartScope = btn.dataset.scope;
+    HistStorage.set('chart_scope', chartScope);
+    renderChart();
+  }));
+
+  if (!days.some(d => d.income || d.outgoing || d.balance !== null)) {
+    c.innerHTML = `${header}<div class="chart-empty">${t('chartNoData')}</div>`;
+    bindScope();
     return;
   }
-  const max = Math.max(1, ...shifts.flatMap(s => [
-    s.summary?.totalIncome || 0,
-    Math.abs(s.summary?.totalOutgoing || 0),
-  ]));
-  const bars = shifts.map(s => {
-    const income   = s.summary?.totalIncome || 0;
-    const outgoing = Math.abs(s.summary?.totalOutgoing || 0);
-    const inH  = (income   / max) * 100;
-    const outH = (outgoing / max) * 100;
-    const d    = new Date(s.closedAt);
-    const label = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+
+  const totalIn  = days.reduce((s, d) => s + d.income, 0);
+  const totalOut = days.reduce((s, d) => s + d.outgoing, 0);
+  const net = totalIn - totalOut;
+  const endBalance = days[days.length - 1].balance;
+  const kpi = (label, value, cls = '') => `
+    <div class="chart-kpi ${cls}">
+      <div class="chart-kpi-label">${label}</div>
+      <div class="chart-kpi-value">${value}</div>
+    </div>`;
+  const kpis = `
+    <div class="chart-kpis">
+      ${kpi(t('chartIncome'), fmt(totalIn), 'in')}
+      ${kpi(t('chartOutgoing'), fmt(totalOut), 'out')}
+      ${kpi(t('chartNet'), fmt(net), net < 0 ? 'out' : '')}
+      ${kpi(t('chartAvgDay'), fmt(Math.round(net / days.length)))}
+      ${kpi(t('chartEndBalance'), endBalance === null ? '—' : fmt(endBalance), 'bal')}
+    </div>`;
+
+  const avail = Math.max(0, c.clientWidth - 34);
+  const colW = Math.max(44, Math.floor(avail / days.length));
+  const barW = Math.min(22, Math.round(colW * 0.3)), padTop = 14, plotH = 160, labelH = 22;
+  const width = Math.max(days.length * colW, 1);
+  const height = padTop + plotH + labelH;
+  const barMax = Math.max(1, ...days.flatMap(d => [d.income, d.outgoing]));
+  const balances = days.map(d => d.balance).filter(b => b !== null);
+  const balMin = Math.min(0, ...balances), balMax = Math.max(1, ...balances);
+  const yBar = (v) => padTop + plotH - (v / barMax) * plotH;
+  const yBal = (v) => padTop + plotH - ((v - balMin) / ((balMax - balMin) || 1)) * plotH;
+  const lang = LangManager.current === 'id' ? 'id-ID' : 'en-US';
+
+  const cols = days.map((d, i) => {
+    const x = i * colW;
+    const [yy, mm, dd] = d.key.split('-');
+    const dateLabel = new Date(Date.UTC(+yy, +mm - 1, +dd)).toLocaleDateString(lang, { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    const cats = Object.entries(d.cats).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .map(([k, v]) => `  ${k}: ${v < 0 ? '-' : '+'}${fmt(Math.abs(v))}`).join('\n');
+    const tip = [
+      dateLabel,
+      `${t('chartIncome')}: ${fmt(d.income)}`,
+      `${t('chartOutgoing')}: ${fmt(d.outgoing)}`,
+      `${t('chartNet')}: ${fmt(d.income - d.outgoing)}`,
+      `${t('chartEndBalance')}: ${d.balance === null ? '—' : fmt(d.balance)}`,
+      cats,
+    ].filter(Boolean).join('\n');
+    const inY = yBar(d.income), outY = yBar(d.outgoing);
     return `
-      <div class="chart-col">
-        <div class="chart-bars">
-          <div class="chart-bar bar-in"  style="height:${inH}%"  title="${t('chartIncome')}: ${fmt(income)}"></div>
-          <div class="chart-bar bar-out" style="height:${outH}%" title="${t('chartOutgoing')}: ${fmt(outgoing)}"></div>
-        </div>
-        <div class="chart-label">${escapeHtml(label)}</div>
-      </div>`;
+      <g class="chart-day">
+        <rect class="chart-hit" x="${x}" y="0" width="${colW}" height="${padTop + plotH}"><title>${escapeHtml(tip)}</title></rect>
+        ${d.income   ? `<rect class="chart-bar-svg bar-in"  x="${x + colW / 2 - barW - 1}" y="${inY}"  width="${barW}" height="${padTop + plotH - inY}"  rx="2"></rect>` : ''}
+        ${d.outgoing ? `<rect class="chart-bar-svg bar-out" x="${x + colW / 2 + 1}"        y="${outY}" width="${barW}" height="${padTop + plotH - outY}" rx="2"></rect>` : ''}
+        <text class="chart-axis-label" x="${x + colW / 2}" y="${padTop + plotH + 15}" text-anchor="middle">${dd}/${mm}</text>
+      </g>`;
   }).join('');
+  const points = days.map((d, i) => d.balance === null ? null : `${i * colW + colW / 2},${yBal(d.balance)}`).filter(Boolean);
+  const dots = days.map((d, i) => d.balance === null ? '' :
+    `<circle class="chart-balance-dot" cx="${i * colW + colW / 2}" cy="${yBal(d.balance)}" r="2.5"></circle>`).join('');
+
   c.innerHTML = `
-    <div class="chart-header">
-      <h3><i class="fas fa-chart-bar"></i> ${t('chartTitle')}</h3>
-      <div class="chart-legend">
-        <span class="legend-item"><span class="legend-dot bar-in"></span> ${t('chartIncome')}</span>
-        <span class="legend-item"><span class="legend-dot bar-out"></span> ${t('chartOutgoing')}</span>
-      </div>
+    ${header}
+    ${kpis}
+    <div class="chart-legend">
+      <span class="legend-item"><span class="legend-dot bar-in"></span> ${t('chartIncome')}</span>
+      <span class="legend-item"><span class="legend-dot bar-out"></span> ${t('chartOutgoing')}</span>
+      <span class="legend-item"><span class="legend-line"></span> ${t('chartBalance')}</span>
     </div>
-    <div class="chart-bars-wrap">${bars}</div>`;
+    <div class="chart-svg-wrap">
+      <svg class="chart-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(t('chartTitle'))}">
+        <line class="chart-baseline" x1="0" x2="${width}" y1="${padTop + plotH}" y2="${padTop + plotH}"></line>
+        ${cols}
+        ${points.length > 1 ? `<polyline class="chart-balance-line" points="${points.join(' ')}"></polyline>` : ''}
+        ${dots}
+      </svg>
+    </div>
+    <div class="chart-note">${t('chartNote')}</div>`;
+  bindScope();
+  const wrap = c.querySelector('.chart-svg-wrap');
+  wrap.scrollLeft = wrap.scrollWidth;
 }
 
 // ── Render ──
@@ -728,6 +854,8 @@ initTheme();          // sync — theme persisted in localStorage, doesn't need 
   // Realtime: re-render when shifts table changes from another device.
   DataStore.subscribeRealtime();
   DataStore.on('shifts', () => { renderList(); renderChart(); });
+  DataStore.on('transactions', renderChart);
+  DataStore.on('settings', renderChart);
 
   applyLang();
   renderChart();

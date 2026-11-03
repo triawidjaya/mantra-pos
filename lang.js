@@ -107,7 +107,10 @@ const STRINGS = {
     // Settings UI polish
     staffViewOnly:'Staff (managed via Manage Users — view only)',
     dateRange:'Date',dateAll:'All',dateToday:'Today',dateWeek:'This Week',dateMonth:'This Month',dateCustom:'Custom...',
-    chartTitle:'Income vs Outgoing',chartIncome:'Income',chartOutgoing:'Outgoing',chartNoData:'No transactions yet',
+    chartTitle:'Daily cash flow',chartIncome:'Income',chartOutgoing:'Outgoing',chartNoData:'No transactions yet',
+    chartNet:'Net',chartAvgDay:'Avg net / day',chartEndBalance:'Ending balance',chartBalance:'Balance (end of day)',
+    chartScopeAll:'All methods',chartScopeCash:'Cash only',
+    chartNote:'Income and outgoing leave out non-revenue categories (START BALANCE, TarikTunai, PETTY-CASH, CashBon). The balance line includes them, because they move money. Hover a day for details.',
     noResultsRange:'No shifts in this date range',
     helpTitle:'Quick Start Guide',
     helpReadFirst:'Read Quick Start Guide first',
@@ -377,7 +380,10 @@ const STRINGS = {
     // Settings UI polish
     staffViewOnly:'Staff (dikelola via Manage Users — tampilan saja)',
     dateRange:'Tanggal',dateAll:'Semua',dateToday:'Hari Ini',dateWeek:'Minggu Ini',dateMonth:'Bulan Ini',dateCustom:'Custom...',
-    chartTitle:'Pemasukan vs Pengeluaran',chartIncome:'Pemasukan',chartOutgoing:'Pengeluaran',chartNoData:'Belum ada transaksi',
+    chartTitle:'Pergerakan kas harian',chartIncome:'Pemasukan',chartOutgoing:'Pengeluaran',chartNoData:'Belum ada transaksi',
+    chartNet:'Net',chartAvgDay:'Rata-rata net / hari',chartEndBalance:'Saldo akhir',chartBalance:'Saldo (akhir hari)',
+    chartScopeAll:'Semua metode',chartScopeCash:'Cash saja',
+    chartNote:'Pemasukan dan pengeluaran tidak menghitung kategori non-revenue (START BALANCE, TarikTunai, PETTY-CASH, CashBon). Garis saldo tetap menghitungnya karena memindahkan uang. Arahkan kursor ke satu hari untuk rinciannya.',
     noResultsRange:'Tidak ada shift di rentang tanggal ini',
     helpTitle:'Panduan Singkat',
     helpReadFirst:'Lihat Panduan Singkat dulu',

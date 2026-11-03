@@ -220,7 +220,7 @@ DEFAULT_BRAND      = 'My Business'
 - [x] Transactions auto-attribute to current user (cashier locked, admin can override)
 - [x] Mobile card view for transactions (auto-switch < 769px)
 - [x] Date range filter on **history page** (preset: Today/Week/Month + Custom range, filters by `closedAt`)
-- [x] Income vs Outgoing bar chart on **history page** (1 bar per shift, pure CSS, no deps)
+- [x] Daily cash flow chart on **history page**: one bar pair per WITA day from transaction time (closed shifts + active shift), end-of-day balance line, KPI cards, All methods / Cash only toggle. Non-revenue categories stay out of the bars but move the balance. Inline SVG, no deps. Default range This Month; the shift list matches shifts whose open period overlaps the range.
 - [x] In-app Help modal (Quick Start guide, EN + ID)
 - [x] localStorage migration `hostel_*` → `pos_*` (auto, one-time, idempotent)
 - [x] Transaction CRUD (Income / Outgoing)
