@@ -464,6 +464,12 @@ body.light-theme #open-bank,
 #rental-form select:invalid { color: var(--gray); }
 #rental-form select option { color: var(--text-color); }
 #rental-form .form-actions { grid-column: 1 / -1; margin-top: 2px; }
+#rental-modal .modal-content { container-type: inline-size; }
+@container (max-width: 640px) {
+  #rental-form { grid-template-columns: 1fr; row-gap: 12px; }
+  #rental-form .rental-grid-gap { display: none; }
+  #rental-form .form-group label { white-space: normal; }
+}
 #settings-modal textarea {
   width: 100%;
   resize: vertical;
