@@ -1184,43 +1184,6 @@ class ChillPOS {
     document.getElementById('rental-guest').addEventListener('input', () => this._formatMoneyField(document.getElementById('rental-guest')));
     document.getElementById('rental-owner-share').addEventListener('input', () => this._formatMoneyField(document.getElementById('rental-owner-share')));
 
-    document.getElementById('open-rental-fleet').addEventListener('click', () => this.showRentalFleet());
-    document.getElementById('close-rental-fleet').addEventListener('click', () => this.hideRentalFleet());
-    document.getElementById('fleet-batal').addEventListener('click', () => this.hideRentalFleet());
-    document.getElementById('fleet-save').addEventListener('click', () => this.saveRentalFleet());
-    document.getElementById('fleet-add-owner').addEventListener('click', () => this._addFleetOwner());
-    document.getElementById('fleet-add-bike').addEventListener('click', () => this._addFleetBike());
-    document.getElementById('fleet-owner-list').addEventListener('click', (e) => {
-      const btn = e.target.closest('.fo-delete');
-      if (!btn) return;
-      const id = btn.closest('[data-id]')?.dataset.id;
-      this._scrapeFleetDraft();
-      this._fleetDraft.owners = this._fleetDraft.owners.filter(o => o.id !== id);
-      this._renderFleetLists();
-    });
-    document.getElementById('fleet-bike-list').addEventListener('click', (e) => {
-      const btn = e.target.closest('.rb-delete');
-      if (!btn) return;
-      const id = btn.closest('[data-id]')?.dataset.id;
-      this._scrapeFleetDraft();
-      this._fleetDraft.bikes = this._fleetDraft.bikes.filter(b => b.id !== id);
-      this._renderFleetLists();
-    });
-    document.getElementById('fleet-bike-list').addEventListener('input', (e) => {
-      const el = e.target;
-      if (el.classList.contains('rb-hour') || el.classList.contains('rb-day')) this._formatMoneyField(el);
-      if (el.classList.contains('rb-share')) {
-        const type = el.closest('.rental-bike')?.querySelector('.rb-share-type')?.value;
-        if (type === 'fixed') this._formatMoneyField(el);
-      }
-    });
-    document.getElementById('fleet-bike-list').addEventListener('change', (e) => {
-      if (!e.target.classList.contains('rb-share-type')) return;
-      const share = e.target.closest('.rental-bike')?.querySelector('.rb-share');
-      if (!share) return;
-      share.value = '';
-      share.dataset.raw = '';
-    });
     document.getElementById('close-settings').addEventListener('click', () => this.hideSettings());
     document.getElementById('confirm-cancel').addEventListener('click', () => this.hideConfirm());
     document.getElementById('confirm-ok').addEventListener('click',     () => this.executeConfirm());
@@ -1477,8 +1440,6 @@ class ChillPOS {
       if (cashout?.style.display === 'flex') this.hideCashoutForm();
       const bank = document.getElementById('bank-modal');
       if (bank?.style.display === 'flex') this.hideBankForm();
-      const fleet = document.getElementById('rental-fleet-modal');
-      if (fleet?.style.display === 'flex') this.hideRentalFleet();
       const help = document.getElementById('help-modal');
       if (help.style.display === 'flex') this.hideHelp();
       const users = document.getElementById('users-modal');
@@ -1942,8 +1903,7 @@ class ChillPOS {
     }
 
     const types = DataStore.settings.categoryTypes || {};
-    const fleet = this._rentalFleet();
-    const viaRentalButton = [fleet.guestCategory, fleet.ownerCategory];
+    const viaRentalButton = [RENTAL_GUEST_CATEGORY, RENTAL_OWNER_CATEGORY];
     const names = this.categories.filter(cat =>
       !SYSTEM_CATEGORIES.includes(cat)
       && !SYSTEM_NON_REVENUE.includes(cat)
@@ -2379,10 +2339,6 @@ class ChillPOS {
     if (preview) preview.textContent = n ? this.formatCurrency(n) : '';
   }
 
-  _rentalFleet() {
-    return normalizeRentalFleet(DataStore.settings.rentalFleet);
-  }
-
   _rentalPair(tx) {
     const link = parseRentalNote(tx?.keterangan);
     if (!link?.id) return null;
@@ -2494,7 +2450,6 @@ class ChillPOS {
   }
 
   async simpanSewa() {
-    const fleet = this._rentalFleet();
     const ownerName = document.getElementById('rental-owner-name').value.trim();
     const plate = document.getElementById('rental-plate').value.trim();
     const guestName = document.getElementById('rental-guest-name').value.trim();
@@ -2528,7 +2483,7 @@ class ChillPOS {
     const income = {
       id: incomeBase?.id || crypto.randomUUID(),
       jenis: 'INCOME',
-      kategori: incomeBase?.kategori || fleet.guestCategory,
+      kategori: incomeBase?.kategori || RENTAL_GUEST_CATEGORY,
       deskripsi,
       jumlah: guest,
       metode: guestMethod,
@@ -2539,7 +2494,7 @@ class ChillPOS {
     const outgoing = {
       id: outgoingBase?.id || crypto.randomUUID(),
       jenis: 'OUTGOING',
-      kategori: outgoingBase?.kategori || fleet.ownerCategory,
+      kategori: outgoingBase?.kategori || RENTAL_OWNER_CATEGORY,
       deskripsi,
       jumlah: -share,
       metode: ownerMethod,
@@ -2852,192 +2807,6 @@ class ChillPOS {
     } finally {
       submitBtn.disabled = false;
       submitBtn.innerHTML = originalHTML;
-    }
-  }
-
-  showRentalFleet() {
-    if (!Auth.can(PERMISSIONS.MANAGE_SETTINGS)) {
-      this.showAlert(t('noPermission'), 'error'); return;
-    }
-    this.hideSettings();
-    this._fleetDraft = this._rentalFleet();
-    document.getElementById('fleet-guest-cat').value = this._fleetDraft.guestCategory;
-    document.getElementById('fleet-owner-cat').value = this._fleetDraft.ownerCategory;
-    document.getElementById('fleet-new-owner').value = '';
-    this._renderFleetLists();
-    document.getElementById('rental-fleet-modal').style.display = 'flex';
-  }
-
-  hideRentalFleet() {
-    document.getElementById('rental-fleet-modal').style.display = 'none';
-  }
-
-  _scrapeFleetDraft() {
-    const owners = [];
-    document.querySelectorAll('#fleet-owner-list .cat-row').forEach(row => {
-      owners.push({
-        id: row.dataset.id,
-        name: row.querySelector('.fo-name')?.value.trim() || '',
-      });
-    });
-    const bikes = [];
-    document.querySelectorAll('#fleet-bike-list .rental-bike').forEach(row => {
-      const shareType = row.querySelector('.rb-share-type').value === 'fixed' ? 'fixed' : 'percent';
-      const shareEl = row.querySelector('.rb-share');
-      let shareValue = 0;
-      if (shareType === 'fixed') {
-        shareValue = this._moneyFromInput(shareEl);
-      } else {
-        const rawShare = String(shareEl.value || '').trim();
-        const n = parseFloat(rawShare.replace(',', '.'));
-        shareValue = rawShare === '' ? 0 : (Number.isFinite(n) ? Math.round(n * 10) / 10 : NaN);
-      }
-      bikes.push({
-        id: row.dataset.id,
-        name: row.querySelector('.rb-name')?.value.trim() || '',
-        rateHour: this._moneyFromInput(row.querySelector('.rb-hour')),
-        rateDay: this._moneyFromInput(row.querySelector('.rb-day')),
-        shareType,
-        shareValue,
-      });
-    });
-    this._fleetDraft = {
-      owners,
-      bikes,
-      guestCategory: document.getElementById('fleet-guest-cat').value.trim(),
-      ownerCategory: document.getElementById('fleet-owner-cat').value.trim(),
-    };
-  }
-
-  _renderFleetLists() {
-    const draft = this._fleetDraft || this._rentalFleet();
-    const ownerList = document.getElementById('fleet-owner-list');
-    const bikeList = document.getElementById('fleet-bike-list');
-    ownerList.innerHTML = '';
-    if (draft.owners.length === 0) {
-      ownerList.innerHTML = `<div class="wizard-hint">${this.escapeHtml(t('rentalNoOwners'))}</div>`;
-    }
-    draft.owners.forEach(o => {
-      const row = document.createElement('div');
-      row.className = 'cat-row';
-      row.dataset.id = o.id;
-      row.innerHTML = `
-        <input type="text" class="fo-name" maxlength="40" value="${this.escapeHtml(o.name)}">
-        <button type="button" class="cat-btn fo-delete" title="${this.escapeHtml(t('rentalRemove'))}"><i class="fas fa-times"></i></button>
-      `;
-      ownerList.appendChild(row);
-    });
-    bikeList.innerHTML = '';
-    if (draft.bikes.length === 0) {
-      bikeList.innerHTML = `<div class="wizard-hint">${this.escapeHtml(t('rentalNoBikes'))}</div>`;
-    }
-    draft.bikes.forEach(b => {
-      const percent = b.shareType !== 'fixed';
-      const row = document.createElement('div');
-      row.className = 'rental-bike';
-      row.dataset.id = b.id;
-      row.innerHTML = `
-        <div class="rental-bike-head">
-          <input type="text" class="rb-name" maxlength="40" value="${this.escapeHtml(b.name)}" placeholder="${this.escapeHtml(t('rentalBikeName'))}">
-          <button type="button" class="cat-btn rb-delete" title="${this.escapeHtml(t('rentalRemove'))}"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="rental-bike-grid">
-          <div>
-            <label>${this.escapeHtml(t('rentalRateHour'))}</label>
-            <input type="text" class="rb-hour" inputmode="numeric" autocomplete="off" placeholder="0">
-          </div>
-          <div>
-            <label>${this.escapeHtml(t('rentalRateDay'))}</label>
-            <input type="text" class="rb-day" inputmode="numeric" autocomplete="off" placeholder="0">
-          </div>
-        </div>
-        <div class="rental-share-row">
-          <div>
-            <label>${this.escapeHtml(t('rentalShareType'))}</label>
-            <select class="rb-share-type">
-              <option value="percent"${percent ? ' selected' : ''}>${this.escapeHtml(t('rentalSharePercent'))}</option>
-              <option value="fixed"${percent ? '' : ' selected'}>${this.escapeHtml(t('rentalShareFixed'))}</option>
-            </select>
-          </div>
-          <div>
-            <label>${this.escapeHtml(t('rentalOwnerShare'))}</label>
-            <input type="text" class="rb-share" inputmode="decimal" autocomplete="off" placeholder="0">
-          </div>
-        </div>
-      `;
-      bikeList.appendChild(row);
-      this._setMoneyInput(row.querySelector('.rb-hour'), b.rateHour);
-      this._setMoneyInput(row.querySelector('.rb-day'), b.rateDay);
-      const share = row.querySelector('.rb-share');
-      if (percent) share.value = b.shareValue ? String(b.shareValue) : '';
-      else this._setMoneyInput(share, b.shareValue);
-    });
-  }
-
-  _addFleetOwner() {
-    this._scrapeFleetDraft();
-    const name = document.getElementById('fleet-new-owner').value.trim();
-    if (!name) return;
-    if (this._fleetDraft.owners.some(o => o.name.toLowerCase() === name.toLowerCase())) {
-      this.showAlert(t('rentalDuplicate'), 'error'); return;
-    }
-    this._fleetDraft.owners.push({ id: crypto.randomUUID(), name });
-    document.getElementById('fleet-new-owner').value = '';
-    this._renderFleetLists();
-  }
-
-  _addFleetBike() {
-    this._scrapeFleetDraft();
-    this._fleetDraft.bikes.push({
-      id: crypto.randomUUID(),
-      name: '',
-      rateHour: 0,
-      rateDay: 0,
-      shareType: 'percent',
-      shareValue: 0,
-    });
-    this._renderFleetLists();
-    const names = document.querySelectorAll('#fleet-bike-list .rb-name');
-    names[names.length - 1]?.focus();
-  }
-
-  async saveRentalFleet() {
-    this._scrapeFleetDraft();
-    const draft = this._fleetDraft;
-    if (!draft.guestCategory || !draft.ownerCategory) {
-      this.showAlert(t('rentalBadCategory'), 'error'); return;
-    }
-    if (draft.guestCategory === draft.ownerCategory || SYSTEM_CATEGORIES.includes(draft.guestCategory) || SYSTEM_CATEGORIES.includes(draft.ownerCategory)) {
-      this.showAlert(t('rentalBadCategory'), 'error'); return;
-    }
-    const ownerNames = new Set();
-    for (const o of draft.owners) {
-      if (!o.name) { this.showAlert(t('rentalFillForm'), 'error'); return; }
-      const key = o.name.toLowerCase();
-      if (ownerNames.has(key)) { this.showAlert(t('rentalDuplicate'), 'error'); return; }
-      ownerNames.add(key);
-    }
-    const bikeNames = new Set();
-    for (const b of draft.bikes) {
-      if (!b.name) { this.showAlert(t('rentalFillForm'), 'error'); return; }
-      const key = b.name.toLowerCase();
-      if (bikeNames.has(key)) { this.showAlert(t('rentalDuplicate'), 'error'); return; }
-      bikeNames.add(key);
-      if (b.rateHour <= 0 && b.rateDay <= 0) { this.showAlert(t('rentalNeedRate'), 'error'); return; }
-      if (b.shareType === 'percent' && !(b.shareValue >= 0 && b.shareValue <= 100)) {
-        this.showAlert(t('rentalBadPercent'), 'error'); return;
-      }
-      if (b.shareType === 'fixed' && !(b.shareValue >= 0)) {
-        this.showAlert(t('rentalFillForm'), 'error'); return;
-      }
-    }
-    const clean = normalizeRentalFleet(draft);
-    try {
-      await DataStore.saveSetting('rental_fleet', clean);
-      this.hideRentalFleet();
-      this.showAlert(t('rentalFleetSaved'), 'success');
-    } catch (e) {
-      this.showAlert(e?.message || t('rentalFillForm'), 'error');
     }
   }
 

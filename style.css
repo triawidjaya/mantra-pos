@@ -443,7 +443,6 @@ body.light-theme #open-bank,
   flex: 0 0 auto;
 }
 #rental-modal h2 { margin: 0 28px 16px 0; line-height: 1.25; }
-#rental-fleet-modal .modal-content { max-width: 560px; width: 100%; }
 #rental-form {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -465,36 +464,6 @@ body.light-theme #open-bank,
 #rental-form select:invalid { color: var(--gray); }
 #rental-form select option { color: var(--text-color); }
 #rental-form .form-actions { grid-column: 1 / -1; margin-top: 2px; }
-#rental-fleet-modal .cat-list { max-height: 240px; }
-.rental-add-row { display: flex; gap: 8px; margin-top: 8px; }
-.rental-add-row input { flex: 1; }
-.rental-bike {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 10px; border: 1px solid var(--border-color); border-radius: 8px;
-  background: rgba(0,0,0,0.03);
-}
-.dark-theme .rental-bike { background: rgba(255,255,255,0.03); }
-.rental-bike-head { display: flex; gap: 8px; align-items: center; }
-.rental-bike-head input { flex: 1; }
-.rental-bike input,
-.rental-bike select,
-#fleet-owner-list .fo-name {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  font-size: 0.9rem;
-  background: var(--card-bg);
-  color: var(--text-color);
-}
-#fleet-owner-list .fo-name { width: auto; flex: 1; min-width: 0; }
-.rental-bike-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.rental-bike-grid label,
-.rental-share-row label { display: block; font-size: 0.75rem; color: var(--gray); margin-bottom: 4px; }
-.rental-share-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
-@media (max-width: 560px) {
-  .rental-bike-grid, .rental-share-row { grid-template-columns: 1fr; }
-}
 #settings-modal textarea {
   width: 100%;
   resize: vertical;
@@ -877,7 +846,6 @@ option { font-size: 10px; }
 .user-menu-popup,
 .shift-card,
 .history-toolbar,
-.rental-bike,
 .detail-table-wrap,
 .detail-saldo-item {
   border: 1px solid var(--border-color);
@@ -887,9 +855,6 @@ option { font-size: 10px; }
 }
 .filter-group select,
 .date-custom input[type="date"],
-.rental-bike input,
-.rental-bike select,
-#fleet-owner-list .fo-name,
 .user-role-select,
 .ts-note-group textarea {
   border: 1px solid var(--border-color);

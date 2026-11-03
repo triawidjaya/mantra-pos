@@ -69,42 +69,6 @@ function normalizeCategoryTypes(raw) {
   return out;
 }
 
-// Per-shop rental catalog. Rates live here, never as constants in the app.
-// shareType 'percent' = share of the guest total. 'fixed' = IDR per hour or per day.
-function normalizeRentalFleet(raw) {
-  const src = raw && typeof raw === 'object' ? raw : {};
-  const owners = (Array.isArray(src.owners) ? src.owners : []).map(o => ({
-    id:   String(o?.id || '').trim(),
-    name: String(o?.name || '').trim(),
-  })).filter(o => o.id && o.name);
-  const bikes = (Array.isArray(src.bikes) ? src.bikes : []).map(b => ({
-    id:         String(b?.id || '').trim(),
-    name:       String(b?.name || '').trim(),
-    rateHour:   Math.max(0, Math.round(Number(b?.rateHour) || 0)),
-    rateDay:    Math.max(0, Math.round(Number(b?.rateDay) || 0)),
-    shareType:  b?.shareType === 'fixed' ? 'fixed' : 'percent',
-    shareValue: Math.max(0, Number(b?.shareValue) || 0),
-  })).filter(b => b.id && b.name);
-  const pick = (value, fallback) => {
-    const name = String(value || '').trim();
-    return name || fallback;
-  };
-  const guestCategory = pick(src.guestCategory, RENTAL_GUEST_CATEGORY);
-  const ownerCategory = pick(src.ownerCategory, RENTAL_OWNER_CATEGORY);
-  return { owners, bikes, guestCategory, ownerCategory };
-}
-
-// Guest total and owner share for one rental. qty is hours or days.
-function quoteRental(bike, unit, qty) {
-  const q = Math.max(0, Math.floor(Number(qty) || 0));
-  const unitRate = unit === 'hari' ? (Number(bike?.rateDay) || 0) : (Number(bike?.rateHour) || 0);
-  const guest = Math.round(unitRate * q);
-  const owner = bike?.shareType === 'fixed'
-    ? Math.round((Number(bike.shareValue) || 0) * q)
-    : Math.round(guest * (Number(bike?.shareValue) || 0) / 100);
-  return { guest, owner };
-}
-
 // Pair link for one rental. Lives inside keterangan so it round-trips through
 // the existing column. The cashbook never prints this string; it prints
 // rentalNoteDisplay() instead.
@@ -339,7 +303,6 @@ const DataStore = {
     nonRevenueCategories: [], // category names excluded from revenue/expense totals (transfer, receivable, opening balance)
     categoryTypes:   {},   // { name: 'INCOME' | 'OUTGOING' }; missing = usable on both sides
     logoData:        null, // base64 PNG of custom logo (cloud only); null = use static logo.png
-    rentalFleet:     { owners: [], bikes: [], guestCategory: RENTAL_GUEST_CATEGORY, ownerCategory: RENTAL_OWNER_CATEGORY },
   },
 
   _listeners: {
@@ -372,7 +335,6 @@ const DataStore = {
     this.settings.categoryTypes   = {};
     this.settings.templateApplied = false;
     this.settings.logoData        = null;
-    this.settings.rentalFleet     = { owners: [], bikes: [], guestCategory: RENTAL_GUEST_CATEGORY, ownerCategory: RENTAL_OWNER_CATEGORY };
     this.hydrated = false;
   },
 
@@ -460,15 +422,6 @@ const DataStore = {
     });
     if (adoptTemplate || changed(types, s.categoryTypes)) await this.saveSetting('category_types', types);
     if (!s.templateApplied && (adoptTemplate || hasTypes)) await this.saveSetting('template_applied', true);
-
-    const fleet = s.rentalFleet;
-    if (RENAMED[fleet.guestCategory] || RENAMED[fleet.ownerCategory]) {
-      await this.saveSetting('rental_fleet', {
-        ...fleet,
-        guestCategory: rename(fleet.guestCategory),
-        ownerCategory: rename(fleet.ownerCategory),
-      });
-    }
   },
 
   _hydrateLocal() {
@@ -489,7 +442,6 @@ const DataStore = {
     this.settings.categoryTypes   = normalizeCategoryTypes(_lsGet('pos_category_types', {}));
     this.settings.templateApplied = _lsGet('pos_template_applied', false) === true;
     this.settings.logoData        = _lsGet('pos_logo_data',         null);
-    this.settings.rentalFleet     = normalizeRentalFleet(_lsGet('pos_rental_fleet', null));
     this.hydrated = true;
   },
 
@@ -533,7 +485,6 @@ const DataStore = {
     this.settings.categoryTypes   = normalizeCategoryTypes(map.category_types);
     this.settings.templateApplied = map.template_applied === true;
     this.settings.logoData        = map.logo_data        ?? null;
-    this.settings.rentalFleet     = normalizeRentalFleet(map.rental_fleet);
 
     this.hydrated = true;
   },
@@ -630,7 +581,6 @@ const DataStore = {
     else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
     else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
-    else if (key === 'rental_fleet')     this.settings.rentalFleet     = normalizeRentalFleet(value);
     this._fire('settings');
   },
 
@@ -894,7 +844,6 @@ const DataStore = {
       else if (key === 'category_types')   { this.settings.categoryTypes   = normalizeCategoryTypes(value); _lsSet('pos_category_types', this.settings.categoryTypes); }
       else if (key === 'template_applied') { this.settings.templateApplied = value === true; _lsSet('pos_template_applied', value === true); }
       else if (key === 'logo_data')        { this.settings.logoData       = value; _lsSet('pos_logo_data',         value); }
-      else if (key === 'rental_fleet')     { this.settings.rentalFleet     = normalizeRentalFleet(value); _lsSet('pos_rental_fleet', this.settings.rentalFleet); }
       this._fire('settings');
       return;
     }
@@ -908,7 +857,6 @@ const DataStore = {
     else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
     else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
-    else if (key === 'rental_fleet')     this.settings.rentalFleet     = normalizeRentalFleet(value);
   },
 };
 
@@ -1106,7 +1054,6 @@ async function migrateLocalToCloud(url, key) {
   // 3. Write to cloud. Order matters only for FK / unique constraints.
   await client.from('pos_settings').upsert({ key: 'brand',        value: localBrand });
   await client.from('pos_settings').upsert({ key: 'shift_active', value: localShiftActive });
-  await client.from('pos_settings').upsert({ key: 'rental_fleet', value: normalizeRentalFleet(DataStore.settings.rentalFleet) });
   await client.from('pos_settings').upsert({ key: 'admin_categories',       value: DataStore.settings.adminCategories || [] });
   await client.from('pos_settings').upsert({ key: 'non_revenue_categories', value: DataStore.settings.nonRevenueCategories || [] });
   await client.from('pos_settings').upsert({ key: 'category_types',         value: normalizeCategoryTypes(DataStore.settings.categoryTypes) });
