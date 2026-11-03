@@ -688,13 +688,8 @@ initTheme();          // sync — theme persisted in localStorage, doesn't need 
 
 // Async bootstrap: check config → hydrate → auth → bind data → realtime → render.
 (async function init() {
-  const mode = DataStore.loadMode();
-  if (!mode) {
-    window.location.replace('index.html');
-    return;
-  }
-  DataStore.setMode(mode);
-  if (mode === 'cloud' && !SupabaseConfig.load()) {
+  DataStore.setMode('cloud');
+  if (!SupabaseConfig.load()) {
     window.location.replace('index.html');
     return;
   }

@@ -216,67 +216,28 @@
   </div>
 </div>
 
-<!-- Mode Choice Modal — pick Local (Basic) or Cloud (Premium) -->
-<div class="modal" id="mode-choice-modal">
-  <div class="modal-content small">
-    <h2><i class="fas fa-route" style="color:var(--primary)"></i>
-        <span data-i18n="modeChoiceTitle">Choose Mode</span></h2>
-    <p class="wizard-hint" data-i18n="modeChoiceHint">
-      Pick where your data should live. You can upgrade Local → Cloud later.
-    </p>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
-      <button type="button" class="btn primary" id="mode-cloud-btn" style="padding:14px;text-align:left;justify-content:flex-start">
-        <i class="fas fa-cloud" style="font-size:1.4rem;margin-right:10px"></i>
-        <div style="flex:1">
-          <div style="font-weight:600"><span data-i18n="modeCloud">Cloud Mode</span> <span style="background:#fbbf24;color:#78350f;font-size:0.65rem;padding:1px 6px;border-radius:10px;margin-left:6px;vertical-align:middle">PREMIUM</span></div>
-          <div style="font-size:0.78rem;opacity:0.85;margin-top:2px;font-weight:400" data-i18n="modeCloudDesc">Multi-device realtime sync. Needs a Supabase project.</div>
-        </div>
-      </button>
-      <button type="button" class="btn" id="mode-local-btn" style="padding:14px;text-align:left;justify-content:flex-start;background:var(--card-bg);border:1px solid var(--border-color)">
-        <i class="fas fa-laptop" style="font-size:1.4rem;margin-right:10px;color:var(--gray)"></i>
-        <div style="flex:1">
-          <div style="font-weight:600"><span data-i18n="modeLocal">Local Mode</span> <span style="background:#a7f3d0;color:#065f46;font-size:0.65rem;padding:1px 6px;border-radius:10px;margin-left:6px;vertical-align:middle">BASIC</span></div>
-          <div style="font-size:0.78rem;opacity:0.85;margin-top:2px;font-weight:400" data-i18n="modeLocalDesc">Data stays in this browser only. No setup needed.</div>
-        </div>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Cloud Setup Modal — pair this browser with a Supabase project -->
+<!-- Cloud Setup Modal — pair this device with the Mantra Lombok POS project -->
 <div class="modal" id="sb-setup-modal">
   <div class="modal-content small">
     <h2><i class="fas fa-cloud" style="color:var(--primary)"></i>
         <span data-i18n="sbSetupTitle">Connect to Cloud</span></h2>
     <p class="wizard-hint" data-i18n="sbSetupHint">
-      Paste your Supabase Project URL and Publishable Key. Same URL + key on every device = shared data.
+      Paste the Publishable Key of the Mantra Lombok POS project. Needed once per device.
     </p>
-    <p class="wizard-hint" style="font-size:0.78rem;color:var(--gray);margin-top:-6px;margin-bottom:14px" data-i18n="supabaseHint">
-      Get these from your Supabase project: Settings → Data API (URL) and API Keys (Publishable key).
+    <p class="wizard-hint" style="font-size:0.78rem;color:var(--gray);margin-top:-6px;margin-bottom:14px" data-i18n="sbKeyWhere">
+      Supabase → Mantra Lombok POS → Project Settings → API Keys.
     </p>
     <form id="sb-setup-form">
-      <div class="form-group">
-        <label for="sb-setup-url" data-i18n="supabaseUrl">Supabase Project URL</label>
-        <input type="url" id="sb-setup-url" placeholder="https://xxxx.supabase.co" autocomplete="off" required>
-      </div>
       <div class="form-group">
         <label for="sb-setup-key" data-i18n="supabaseKey">Publishable Key</label>
         <input type="text" id="sb-setup-key" placeholder="sb_publishable_..." autocomplete="off" required>
       </div>
       <div class="form-actions" style="grid-column:span 1;display:flex;gap:8px">
-        <button type="button" class="btn" id="sb-setup-back" style="flex:0 0 auto">
-          <i class="fas fa-arrow-left"></i> <span data-i18n="back">Back</span>
-        </button>
         <button type="submit" class="btn primary" id="sb-setup-submit" style="flex:1;justify-content:center">
           <i class="fas fa-plug"></i> <span data-i18n="sbSetupConnect">Connect</span>
         </button>
       </div>
     </form>
-    <div style="text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color)">
-      <button type="button" class="link-btn" id="sb-setup-use-basic" data-i18n="noSupabaseUseBasic">
-        No Supabase yet? Use Basic Mode →
-      </button>
-    </div>
   </div>
 </div>
 

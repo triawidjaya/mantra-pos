@@ -306,17 +306,11 @@ class ChillPOS {
       this.showAccessGate();
       return;
     }
-    // Mode choice (Local Basic vs Cloud Premium) — persisted per browser.
-    let mode = DataStore.loadMode();
-    if (!mode) {
-      this.showModeChoiceModal();
-      return;
-    }
-    DataStore.setMode(mode);
+    DataStore.setMode('cloud');
     this._applyModeBanner();
     this._bindOfflineQueueBanner();
 
-    if (mode === 'cloud' && !SupabaseConfig.load()) {
+    if (!SupabaseConfig.load()) {
       this.showSupabaseSetupModal();
       return;
     }
@@ -331,22 +325,6 @@ class ChillPOS {
     this._registerRealtimeListeners();
     this.renderAll();
     await this.bootstrapAuth();
-  }
-
-  // Show choose-your-mode modal. On click, save mode + restart bootstrap().
-  showModeChoiceModal() {
-    const modal = document.getElementById('mode-choice-modal');
-    modal.style.display = 'flex';
-    document.getElementById('mode-cloud-btn').onclick = () => {
-      DataStore.setMode('cloud');
-      modal.style.display = 'none';
-      this.bootstrap();
-    };
-    document.getElementById('mode-local-btn').onclick = () => {
-      DataStore.setMode('local');
-      modal.style.display = 'none';
-      this.bootstrap();
-    };
   }
 
   // Show or hide the local-mode warning banner above the header.
@@ -407,37 +385,21 @@ class ChillPOS {
     }
   }
 
-  // Show the dedicated cloud-pairing modal. On submit: validate, save config,
-  // hydrate, then continue via bootstrap() which will route to the right next
-  // step (first-run wizard if brand is default, otherwise login / setup-admin).
+  // Pair this device with the Mantra Lombok POS project: only the publishable
+  // key is asked for (the URL is fixed). On submit: save config, hydrate, then
+  // continue to the first-run wizard or login.
   showSupabaseSetupModal() {
     const modal = document.getElementById('sb-setup-modal');
     const form  = document.getElementById('sb-setup-form');
     const btn   = document.getElementById('sb-setup-submit');
-    document.getElementById('sb-setup-url').value = '';
     document.getElementById('sb-setup-key').value = '';
     modal.style.display = 'flex';
-    setTimeout(() => document.getElementById('sb-setup-url').focus(), 50);
-
-    // Back — clear the saved mode and return to the Basic/Premium choice.
-    document.getElementById('sb-setup-back').onclick = () => {
-      DataStore.clearMode();
-      modal.style.display = 'none';
-      this.showModeChoiceModal();
-    };
-
-    // Shortcut — user has no Supabase, switch straight to Local (Basic) mode.
-    document.getElementById('sb-setup-use-basic').onclick = () => {
-      DataStore.setMode('local');
-      modal.style.display = 'none';
-      this.bootstrap();
-    };
+    setTimeout(() => document.getElementById('sb-setup-key').focus(), 50);
 
     form.onsubmit = async (e) => {
       e.preventDefault();
-      const url = document.getElementById('sb-setup-url').value;
+      const url = MANTRA_SUPABASE_URL;
       const key = document.getElementById('sb-setup-key').value;
-      if (!SupabaseConfig.isValidUrl(url)) { this.showAlert(t('invalidSupabaseUrl'), 'error'); return; }
       if (!SupabaseConfig.isValidKey(key)) { this.showAlert(t('invalidSupabaseKey'), 'error'); return; }
       const originalHTML = btn.innerHTML;
       btn.disabled = true;

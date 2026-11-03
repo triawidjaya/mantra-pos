@@ -190,17 +190,23 @@ function parseBankNote(raw) {
 
 // ── Config storage ──
 const SB_CONFIG_KEY = 'pos_sb_config';
+// mantra-pos only ever talks to the Mantra Lombok POS project. The URL is not
+// secret; the publishable key is, because RLS lets that key read and write
+// everything, so it is pasted once per device and never committed.
+const MANTRA_SUPABASE_URL = 'https://ohcnosdjgkkctripdzlj.supabase.co';
 
 const SupabaseConfig = {
   load() {
     try {
       const raw = appStorage.get(SB_CONFIG_KEY);
-      return raw ? JSON.parse(raw) : null;
+      const cfg = raw ? JSON.parse(raw) : null;
+      return cfg && cfg.url === MANTRA_SUPABASE_URL && cfg.key ? cfg : null;
     } catch { return null; }
   },
   save(url, key) {
-    const cleanUrl = this._normalizeUrl(url);
+    const cleanUrl = this._normalizeUrl(url || MANTRA_SUPABASE_URL);
     const cleanKey = String(key || '').trim();
+    if (cleanUrl !== MANTRA_SUPABASE_URL) throw new Error('invalidSupabaseUrl');
     if (!this.isValidUrl(cleanUrl)) throw new Error('invalidSupabaseUrl');
     if (!this.isValidKey(cleanKey)) throw new Error('invalidSupabaseKey');
     appStorage.set(SB_CONFIG_KEY, JSON.stringify({ url: cleanUrl, key: cleanKey }));
@@ -307,23 +313,16 @@ const toDbShift = (s) => ({
 // would break the shared reference and silently desync the UI.
 // ============================================================
 
-const MODE_KEY = 'pos_mode';   // 'local' | 'cloud'
-
+// Every Mantra device shares one Supabase project, so mantra-pos is
+// cloud-only. The local-mode branches below stay for the shared code path
+// but are never reached.
 const DataStore = {
   hydrated: false,
-  _mode: null,                 // set via setMode() during bootstrap
+  _mode: 'cloud',
 
-  setMode(mode) {
-    this._mode = mode;
-    try { appStorage.set(MODE_KEY, JSON.stringify(mode)); } catch {}
-  },
-  clearMode() {
-    this._mode = null;
-    try { appStorage.remove(MODE_KEY); } catch {}
-  },
-  loadMode() {
-    try { return JSON.parse(appStorage.get(MODE_KEY)); } catch { return null; }
-  },
+  setMode() { this._mode = 'cloud'; },
+  clearMode() {},
+  loadMode() { return 'cloud'; },
   isLocal() { return this._mode === 'local'; },
   isCloud() { return this._mode === 'cloud'; },
 
