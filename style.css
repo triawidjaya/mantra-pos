@@ -312,14 +312,14 @@ th[data-kolom] .fa-sort-down { opacity: 1; }
 @keyframes fa-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 .fa-spin { animation: fa-spin 0.8s linear infinite; }
 
-.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
-.modal-content { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius); max-height: 90vh; padding: 24px; position: relative; overflow: auto; box-shadow: var(--shadow-lg); color: var(--text-color); }
+.modal { display: none; position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; box-sizing: border-box; padding: 16px; background-color: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: flex-start; overflow: auto; }
+.modal-content { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius); max-width: 100%; max-height: calc(100vh - 32px); max-height: calc(100svh - 32px); margin: auto; padding: 24px; position: relative; overflow: auto; box-shadow: var(--shadow-lg); color: var(--text-color); }
 .modal-content.small { max-width: 500px; }
 
 .close-btn { position: absolute; top: 15px; right: 15px; font-size: 1.5rem; cursor: pointer; color: var(--gray); }
 .close-btn:hover { color: var(--danger); }
 
-#form-modal .modal-content { max-width: 440px; width: min(440px, calc(100vw - 32px)); }
+#form-modal .modal-content { max-width: 440px; width: min(440px, 100%); }
 #transaksi-form { display: flex; flex-direction: column; gap: 12px; }
 .tx-staff-name {
   border: 1px solid var(--border-color);
@@ -389,7 +389,7 @@ body.light-theme #open-bank,
 .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: var(--gray); }
 .form-group input,
 .form-group select,
-.form-group textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.9rem; background-color: var(--card-bg); color: var(--text-color); font-weight: 500; }
+.form-group textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 1rem; background-color: var(--card-bg); color: var(--text-color); font-weight: 500; }
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus { outline: 3px solid rgba(0, 102, 204, 0.25); outline-offset: 1px; border-color: var(--primary-500); background: var(--card-bg); }
@@ -401,7 +401,7 @@ body.light-theme #open-bank,
 .type-btn.income.active   { background-color: var(--success); }
 .type-btn.outgoing.active { background-color: var(--danger); }
 #open-sewa, #open-cashout, #open-bank { width: 100%; justify-content: center; }
-#cashout-modal .modal-content, #bank-modal .modal-content { max-width: 440px; width: 100%; }
+#cashout-modal .modal-content, #bank-modal .modal-content { max-width: 440px; width: min(440px, 100%); }
 #cashout-modal h2, #bank-modal h2 { margin: 0 28px 16px 0; line-height: 1.25; }
 #cashout-form .form-actions, #bank-form .form-actions { grid-column: auto; }
 #cashout-form input[readonly], #bank-form input[readonly] { background: var(--neutral-50); color: var(--neutral-700); font-weight: 600; }
@@ -437,9 +437,9 @@ body.light-theme #open-bank,
 /* Settings modal — let textareas size by `rows` attribute, single scrollbar on modal-content if needed */
 #settings-modal .modal-content { max-width: 520px; width: 100%; }
 #rental-modal .modal-content {
-  width: min(920px, calc(100vw - 32px));
+  width: min(920px, 100%);
   max-width: 920px;
-  min-width: min(720px, calc(100vw - 32px));
+  min-width: 0;
   flex: 0 0 auto;
 }
 #rental-modal h2 { margin: 0 28px 16px 0; line-height: 1.25; }
