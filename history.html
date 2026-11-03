@@ -308,33 +308,129 @@ function buildDailyCashFlow() {
   const lastKey  = dayKey(range ? Math.min(range[1], Date.now()) : Date.now());
   if (firstKey > lastKey) return [];
 
+  const emptyDay = () => ({ income: 0, outgoing: 0, cats: {}, nonRev: {}, txs: [], balance: null });
   const byDay = new Map();
   let opening = null;
   events.forEach(e => {
     const key = dayKey(e.ms);
     if (key < firstKey) { opening = e.balance; return; }
     if (key > lastKey) return;
-    if (!byDay.has(key)) byDay.set(key, { income: 0, outgoing: 0, cats: {}, balance: null });
+    if (!byDay.has(key)) byDay.set(key, emptyDay());
     const day = byDay.get(key);
     const amount = Number(e.tx.jumlah) || 0;
     if (!isNonRevenueCategory(e.tx.kategori)) {
       if (e.tx.jenis === 'INCOME') day.income += amount;
       else day.outgoing += Math.abs(amount);
       day.cats[e.tx.kategori] = (day.cats[e.tx.kategori] || 0) + amount;
+    } else {
+      day.nonRev[e.tx.kategori] = (day.nonRev[e.tx.kategori] || 0) + amount;
     }
+    day.txs.push(e.tx);
     day.balance = e.balance;
   });
 
   const days = [];
   let carry = opening;
   for (let key = firstKey; key <= lastKey; key = nextDay(key)) {
-    const day = byDay.get(key) || { income: 0, outgoing: 0, cats: {}, balance: null };
+    const day = byDay.get(key) || emptyDay();
     if (day.balance === null) day.balance = carry;
     carry = day.balance;
     days.push({ key, ...day });
     if (days.length > 1000) break;
   }
+  days.opening = opening;
   return days;
+}
+
+function exportDailyCashFlow() {
+  const days = buildDailyCashFlow();
+  if (!days.length) { showAlert(t('chartNoData'), 'info'); return; }
+  const lang = LangManager.current === 'id' ? 'id-ID' : 'en-US';
+  const toDate = (key) => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d); };
+  const weekday = (key) => toDate(key).toLocaleDateString(lang, { weekday: 'long' });
+  const sumBy = (field) => {
+    const totals = {};
+    days.forEach(d => Object.entries(d[field]).forEach(([k, v]) => { totals[k] = (totals[k] || 0) + v; }));
+    return totals;
+  };
+  const orderCats = (totals) => Object.keys(totals).sort((a, b) => (totals[b] > 0) - (totals[a] > 0) || Math.abs(totals[b]) - Math.abs(totals[a]));
+  const revTotals = sumBy('cats'), nonRevTotals = sumBy('nonRev');
+  const revCats = orderCats(revTotals), nonRevCats = orderCats(nonRevTotals);
+  const money = '#,##0;-#,##0';
+
+  const header = [t('xlDate'), t('xlDay'), t('chartIncome'), t('chartOutgoing'), t('chartNet'),
+    ...revCats.map(sanitizeForExcel), ...nonRevCats.map(k => `${sanitizeForExcel(k)} (${t('xlNonRevenue')})`),
+    t('chartEndBalance'), t('xlTxCount')];
+  const rows = days.map(d => [toDate(d.key), weekday(d.key), d.income, d.outgoing, d.income - d.outgoing,
+    ...revCats.map(k => d.cats[k] || 0), ...nonRevCats.map(k => d.nonRev[k] || 0),
+    d.balance, d.txs.length]);
+  const totalIn  = days.reduce((s, d) => s + d.income, 0);
+  const totalOut = days.reduce((s, d) => s + d.outgoing, 0);
+  const endBalance = days[days.length - 1].balance;
+  rows.push([t('xlTotal'), '', totalIn, totalOut, totalIn - totalOut,
+    ...revCats.map(k => revTotals[k]), ...nonRevCats.map(k => nonRevTotals[k]),
+    endBalance, days.reduce((s, d) => s + d.txs.length, 0)]);
+  const daily = XLSX.utils.aoa_to_sheet([header, ...rows], { cellDates: true });
+  const range = XLSX.utils.decode_range(daily['!ref']);
+  for (let r = 1; r <= range.e.r; r++) {
+    for (let c = 0; c <= range.e.c; c++) {
+      const cell = daily[XLSX.utils.encode_cell({ r, c })];
+      if (!cell) continue;
+      if (c === 0 && cell.t === 'd') { cell.z = 'dd/mm/yyyy'; delete cell.w; }
+      else if (c >= 2 && c < range.e.c && cell.t === 'n') { cell.z = money; delete cell.w; }
+    }
+  }
+  daily['!cols'] = header.map((h, i) => ({ wch: i === 0 ? 12 : Math.max(12, String(h).length + 2) }));
+  daily['!freeze'] = { xSplit: 2, ySplit: 1 };
+
+  const period = `${days[0].key} – ${days[days.length - 1].key}`;
+  const summary = XLSX.utils.aoa_to_sheet([
+    [t('chartTitle')],
+    [t('xlPeriod'), period],
+    [t('xlScope'), t(chartScope === 'cash' ? 'chartScopeCash' : 'chartScopeAll')],
+    [t('xlDays'), days.length],
+    [t('xlOpening'), days.opening ?? 0],
+    [t('chartIncome'), totalIn],
+    [t('chartOutgoing'), totalOut],
+    [t('chartNet'), totalIn - totalOut],
+    [t('chartAvgDay'), Math.round((totalIn - totalOut) / days.length)],
+    [t('chartEndBalance'), endBalance ?? 0],
+    [],
+    [t('xlNoteSummary')],
+  ]);
+  for (let r = 4; r <= 9; r++) {
+    const cell = summary[XLSX.utils.encode_cell({ r, c: 1 })];
+    if (cell) cell.z = money;
+  }
+  summary['!cols'] = [{ wch: 24 }, { wch: 28 }];
+
+  const nonRevenueLabel = (k) => t(isNonRevenueCategory(k) ? 'xlYes' : 'xlNo');
+  const txRows = days.flatMap(d => d.txs).map(tx => [
+    new Date(tx.tanggalWaktu).toLocaleString(lang, { timeZone: 'Asia/Makassar' }),
+    sanitizeForExcel(tx.jenis),
+    sanitizeForExcel(tx.kategori),
+    nonRevenueLabel(tx.kategori),
+    sanitizeForExcel(rentalDeskripsiDisplay(tx)),
+    Number(tx.jumlah) || 0,
+    sanitizeForExcel(tx.metode),
+    sanitizeForExcel(ledgerNote(tx.keterangan) || ''),
+    sanitizeForExcel(tx.staff),
+  ]);
+  const txSheet = XLSX.utils.aoa_to_sheet([[t('xlDateTime'), t('xlType'), t('xlCategory'), t('xlNonRevenue'),
+    t('xlDesc'), t('xlAmount'), t('xlMethod'), t('xlNote'), t('xlStaff')], ...txRows]);
+  for (let r = 1; r <= txRows.length; r++) {
+    const cell = txSheet[XLSX.utils.encode_cell({ r, c: 5 })];
+    if (cell) cell.z = money;
+  }
+  txSheet['!cols'] = [{ wch: 22 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 28 }, { wch: 14 }, { wch: 10 }, { wch: 24 }, { wch: 10 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, daily, t('xlDaily'));
+  XLSX.utils.book_append_sheet(wb, summary, t('xlSummary'));
+  XLSX.utils.book_append_sheet(wb, txSheet, t('xlTransactions'));
+  const suffix = chartScope === 'cash' ? '_cash' : '';
+  XLSX.writeFile(wb, `cash-flow_${days[0].key}_${days[days.length - 1].key}${suffix}.xlsx`);
+  showAlert(t('alertExcelOk'), 'success');
 }
 
 function renderChart() {
@@ -348,13 +444,21 @@ function renderChart() {
   const header = `
     <div class="chart-header">
       <h3><i class="fas fa-chart-line"></i> ${t('chartTitle')}</h3>
-      <div class="chart-scope-group">${scopeBtns}</div>
+      <div class="chart-scope-group">
+        ${scopeBtns}
+        <button type="button" class="btn small success" id="chart-export">
+          <i class="fas fa-file-excel"></i> ${t('chartExport')}
+        </button>
+      </div>
     </div>`;
-  const bindScope = () => c.querySelectorAll('.chart-scope').forEach(btn => btn.addEventListener('click', () => {
-    chartScope = btn.dataset.scope;
-    HistStorage.set('chart_scope', chartScope);
-    renderChart();
-  }));
+  const bindScope = () => {
+    c.querySelectorAll('.chart-scope').forEach(btn => btn.addEventListener('click', () => {
+      chartScope = btn.dataset.scope;
+      HistStorage.set('chart_scope', chartScope);
+      renderChart();
+    }));
+    c.querySelector('#chart-export')?.addEventListener('click', exportDailyCashFlow);
+  };
 
   if (!days.some(d => d.income || d.outgoing || d.balance !== null)) {
     c.innerHTML = `${header}<div class="chart-empty">${t('chartNoData')}</div>`;

@@ -530,7 +530,7 @@ body.light-theme #open-bank,
 }
 
 /* ── Daily cash flow chart ── */
-.chart-scope-group { display: flex; gap: 6px; }
+.chart-scope-group { display: flex; gap: 6px; flex-wrap: wrap; }
 .chart-scope-group .chart-scope { padding: 5px 10px; font-size: 0.78rem; }
 .chart-scope-group .chart-scope.active { background-color: var(--primary); color: white; border-color: var(--primary); }
 .chart-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
