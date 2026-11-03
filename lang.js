@@ -238,7 +238,9 @@ const STRINGS = {
     cashoutUpdated:'Cash out updated. Both rows were saved.',
     cashoutDeleted:'Cash out deleted. The incoming payment and the cash paid out were both removed.',
     confirmDeleteCashout:'Delete this cash out? The incoming payment and the cash paid out are both removed.',
-    cashoutFill:'Enter the amount and choose how the money comes in.',
+    cashoutFill:'Enter the amount, choose how the money comes in, and write a note.',
+    cashoutNote:'Note',
+    cashoutNotePh:'Why is cash withdrawn? e.g. change for a guest',
     bankBtn:'Cash from bank',
     bankTitle:'Cash from bank',
     bankEditTitle:'Edit cash from bank',
@@ -513,7 +515,9 @@ const STRINGS = {
     cashoutUpdated:'Tarik tunai diperbarui. Kedua baris ikut tersimpan.',
     cashoutDeleted:'Tarik tunai dihapus. Uang masuk dan uang keluar tunai ikut terhapus.',
     confirmDeleteCashout:'Hapus tarik tunai ini? Uang masuk dan uang keluar tunai ikut terhapus.',
-    cashoutFill:'Isi nominal dan pilih metode uang masuk.',
+    cashoutFill:'Isi nominal, pilih metode uang masuk, dan tulis catatan.',
+    cashoutNote:'Catatan',
+    cashoutNotePh:'Kenapa tarik tunai? contoh: uang kembalian tamu',
     bankBtn:'Kas dari bank',
     bankTitle:'Kas dari bank',
     bankEditTitle:'Edit kas dari bank',
@@ -613,8 +617,15 @@ function bankNoteDisplay(raw) {
   return t('bankNote');
 }
 
+function cashoutReason(raw) {
+  const link = typeof parseCashoutNote === 'function' ? parseCashoutNote(raw) : null;
+  return link?.note || '';
+}
+
 function ledgerNote(raw) {
-  return bankNoteDisplay(raw) || cashoutNoteDisplay(raw) || rentalNoteDisplay(raw);
+  const cashout = cashoutNoteDisplay(raw);
+  if (cashout) return [cashout, cashoutReason(raw)].filter(Boolean).join(' · ');
+  return bankNoteDisplay(raw) || rentalNoteDisplay(raw);
 }
 
 function rentalDeskripsiDisplay(tx) {
@@ -638,7 +649,8 @@ function ledgerDescription(tx) {
 
 function ledgerNoteShort(tx) {
   const raw = tx?.keterangan;
-  if (bankNoteDisplay(raw) || cashoutNoteDisplay(raw)) return '';
+  if (cashoutNoteDisplay(raw)) return cashoutReason(raw);
+  if (bankNoteDisplay(raw)) return '';
   const link = typeof parseRentalNote === 'function' ? parseRentalNote(raw) : null;
   if (link) {
     return [

@@ -2607,9 +2607,11 @@ class ChillPOS {
       const method = pair?.income?.metode
         || (existingTx.jenis === 'INCOME' ? existingTx.metode : pair?.link?.method || '');
       this._setCashoutMethod(method);
+      document.getElementById('cashout-note').value = parseCashoutNote(existingTx.keterangan)?.note || '';
     } else {
       this._setMoneyInput(amountEl, 0);
       this._setCashoutMethod('');
+      document.getElementById('cashout-note').value = '';
     }
     document.getElementById('cashout-modal').style.display = 'flex';
     amountEl.focus();
@@ -2624,8 +2626,9 @@ class ChillPOS {
   async simpanCashout() {
     const amount = this._moneyFromInput(document.getElementById('cashout-amount'));
     const method = document.getElementById('cashout-method').value;
+    const note = document.getElementById('cashout-note').value.trim();
     const staff = Auth.currentUser()?.username || '';
-    if (amount <= 0 || !CASHOUT_IN_METHODS.includes(method) || !staff) {
+    if (amount <= 0 || !CASHOUT_IN_METHODS.includes(method) || !note || !staff) {
       this.showAlert(t('cashoutFill'), 'error'); return;
     }
 
@@ -2636,7 +2639,7 @@ class ChillPOS {
 
     const editing = this._cashoutEdit;
     const cashoutId = editing?.id || crypto.randomUUID();
-    const keterangan = packCashoutNote({ id: cashoutId, method });
+    const keterangan = packCashoutNote({ id: cashoutId, method, note });
     const deskripsi = CASHOUT_CATEGORY;
     const tanggalWaktu = new Date().toISOString();
     const incomeBase = editing?.income || null;

@@ -122,8 +122,9 @@ function parseRentalNote(raw) {
 
 // Pair link for one cash-out (tarik tunai). Same keterangan column, different tag
 // from a rental, so the cashbook can hide the id and show a short note.
-function packCashoutNote({ id, method }) {
-  return `[tunai:${id}|${encodeURIComponent(String(method ?? ''))}]`;
+function packCashoutNote({ id, method, note }) {
+  const parts = [method, note].map(v => encodeURIComponent(String(v ?? '').trim()));
+  return `[tunai:${id}|${parts.join('|')}]`;
 }
 
 function parseCashoutNote(raw) {
@@ -132,9 +133,9 @@ function parseCashoutNote(raw) {
   const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
   const packed = text.match(new RegExp(`^\\[tunai:(${uuid})\\|([^\\]]*)\\]$`, 'i'));
   if (!packed) return null;
-  let method = packed[2];
-  try { method = decodeURIComponent(method); } catch { /* keep raw */ }
-  return { id: packed[1], method };
+  const decode = (v) => { try { return decodeURIComponent(v ?? ''); } catch { return v ?? ''; } };
+  const [method, note] = packed[2].split('|').map(decode);
+  return { id: packed[1], method, note: note || '' };
 }
 
 // Card settlement moved into the cash box. Not a sale and not tarik tunai.
