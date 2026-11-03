@@ -286,7 +286,7 @@
     <h2><i class="fas fa-rocket" style="color:var(--primary)"></i>
         <span data-i18n="welcomeTitle">Welcome! Let's set up your POS</span></h2>
     <p class="wizard-hint" data-i18n="welcomeHint">
-      Customize the basics now — you can change them anytime in Settings.
+      Scooter-rental categories are ready. Add staff and change categories later in Settings.
     </p>
     <button type="button" class="btn" id="wizard-help" style="width:100%;justify-content:center;margin-bottom:16px;background:rgba(67,97,238,0.08);border:1px dashed var(--primary);color:var(--primary)">
       <i class="fas fa-question-circle"></i> <span data-i18n="helpReadFirst">Read Quick Start Guide first</span>
@@ -297,16 +297,8 @@
         <input type="text" id="fr-brand" maxlength="50" required placeholder="e.g. Warung Pak Budi">
       </div>
       <div class="form-group">
-        <label for="fr-categories" data-i18n="categoriesPerLine">Categories (one per line)</label>
-        <textarea id="fr-categories" required></textarea>
-      </div>
-      <div class="form-group">
-        <label for="fr-staff" data-i18n="staffPerLine">Staff (one per line)</label>
-        <textarea id="fr-staff" required></textarea>
-      </div>
-      <div class="form-group">
-        <label for="fr-admin-name" data-i18n="adminUser">Admin User (from staff list above)</label>
-        <select id="fr-admin-name" required></select>
+        <label for="fr-admin-name" data-i18n="frAdminName">Admin name</label>
+        <input type="text" id="fr-admin-name" maxlength="40" required autocomplete="off">
       </div>
       <div class="form-group">
         <label for="fr-admin-pin" data-i18n="adminPin">Admin PIN (4-6 digits)</label>

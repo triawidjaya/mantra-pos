@@ -51,10 +51,10 @@ When you first open CHILL POS, you will need to enter an access code and choose 
 
 #### Step 3: Initial Setup
 1. Enter your business name (e.g., "Warung Pak Budi")
-2. Add transaction categories (one per line)
-3. Add staff names (one per line)
-4. Select admin user and set a 4-6 digit PIN
-5. Click "Finish Setup"
+2. Enter the admin name and set a 4-6 digit PIN
+3. Click "Finish Setup"
+
+Scooter-rental categories are set up for you. Add other staff later in Manage Users.
 
 ---
 

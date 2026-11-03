@@ -38,7 +38,7 @@ chill-pos/
 - **URL:** `https://triawidjaya.github.io/mantra-pos/` (repo `triawidjaya/mantra-pos`, GitHub Pages from `main`). It shares the `triawidjaya.github.io` origin with the older `chill-poss` app, which is still in daily use, so every localStorage key is written as `mantra:<key>` through `appStorage` in `supabase.js` (inline theme scripts read `mantra:theme`). Key names below are shown without the prefix. Never use `localStorage` directly, or the two apps start reading each other's Supabase config and data.
 - **Own Supabase project:** mantra-pos must be paired with its own Supabase project, never the one chill-poss operations use. On load, `DataStore._renameLegacyCategories()` rewrites old category names and adopts the rental template, so pointing it at the chill-poss project would change live data.
 - **One codebase, many businesses:** the same GitHub Pages URL serves every deployment. Each browser is paired with a Supabase project via the first-run wizard (URL + publishable key persisted in `pos_sb_config` localStorage). Data is fully isolated at the Supabase project level.
-- **First-run wizard:** runs when `SupabaseConfig.load()` returns null OR when `brand === DEFAULT_BRAND`. Collects Supabase URL/key (first device only; hidden on subsequent devices) plus brand + categories + staff + admin user + PIN. On submit: saves config, hydrates the cache, then writes brand/categories/users to Supabase and logs in the chosen admin.
+- **First-run wizard:** runs when `SupabaseConfig.load()` returns null OR when `brand === DEFAULT_BRAND`. Collects Supabase URL/key (first device only; hidden on subsequent devices) plus brand + admin name + PIN. Categories always come from `RENTAL_SHOP_DEFAULTS`; the admin is the only user created (other staff via Manage Users). On submit: saves config, hydrates the cache, then writes brand/categories/admin to Supabase and logs the admin in.
 - **Setup-admin fallback:** when hydrate succeeds, brand is set, but `pos_users` is empty (e.g. data initialised via SQL), a one-time "Set Up Admin Account" modal appears.
 - **Access gate:** before the wizard, an `APP_ACCESS_CODE` local prompt blocks unrecognised browsers. Granted state is per-browser in `pos_access_granted`.
 
@@ -210,7 +210,7 @@ DEFAULT_BRAND      = 'My Business'
 ## Features Complete
 - [x] White-label template (generic defaults, no business-specific terms)
 - [x] Vendored deps (Font Awesome, xlsx, papaparse) → offline-capable
-- [x] First-run wizard (brand + categories + staff + admin PIN)
+- [x] First-run wizard (brand + admin name + PIN; rental categories applied automatically)
 - [x] Setup-admin fallback for legacy installs without users
 - [x] Local Auth service: PIN hashing (SHA-256 + salt), session, role-based permissions
 - [x] User Management UI (admin only): add/delete user, set/reset PIN, change role
@@ -260,7 +260,7 @@ Serve via any static HTTP server (the Supabase JS SDK won't run reliably from `f
 ## Deploying for a New Business
 1. Owner provisions a Supabase project per `SUPABASE_SETUP.md` (or you do it on their behalf).
 2. Owner opens the production GitHub Pages URL on each device (cashier PC, owner phone, etc.).
-3. On the first device: enter the access code → first-run wizard collects Supabase URL + publishable key + brand/categories/staff/admin PIN.
+3. On the first device: enter the access code → first-run wizard collects Supabase URL + publishable key + brand/admin name/PIN.
 4. On subsequent devices: enter the access code → wizard hides the Supabase section (config already known? No — config is per-browser, see note below) and re-collects URL + key. Same project = same data.
 
 > **Per-browser config:** each browser independently stores `pos_sb_config`. Sharing data across devices means re-entering the same URL + key on each device's first launch. There's currently no QR-code / paste-link onboarding — that's a future enhancement.

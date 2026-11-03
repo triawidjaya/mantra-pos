@@ -51,10 +51,10 @@ Saat pertama kali membuka CHILL POS, Anda perlu memasukkan kode akses dan memili
 
 #### Langkah 3: Pengaturan Awal
 1. Masukkan nama bisnis Anda (misalnya "Warung Pak Budi")
-2. Tambahkan kategori transaksi (satu per baris)
-3. Tambahkan nama staf (satu per baris)
-4. Pilih pengguna admin dan atur PIN 4-6 digit
-5. Klik "Selesaikan Setup"
+2. Masukkan nama admin dan atur PIN 4-6 digit
+3. Klik "Selesaikan Setup"
+
+Kategori penyewaan motor sudah disiapkan otomatis. Staf lain ditambahkan nanti lewat Kelola Pengguna.
 
 ---
 

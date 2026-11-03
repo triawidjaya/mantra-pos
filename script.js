@@ -1018,11 +1018,9 @@ class ChillPOS {
 
   showFirstRunWizard() {
     document.getElementById('fr-brand').value      = '';
-    document.getElementById('fr-categories').value = DEFAULT_CATEGORIES.join('\n');
-    document.getElementById('fr-staff').value      = DEFAULT_STAFF.join('\n');
+    document.getElementById('fr-admin-name').value = '';
     document.getElementById('fr-admin-pin').value  = '';
     document.getElementById('fr-admin-pin2').value = '';
-    this._refreshAdminNameDropdown();
     document.getElementById('first-run-modal').style.display = 'flex';
   }
 
@@ -1040,41 +1038,21 @@ class ChillPOS {
     await DataStore.saveSetting('template_applied', true);
   }
 
-  // Sync the admin-name dropdown with current staff textarea content
-  _refreshAdminNameDropdown() {
-    const staff = document.getElementById('fr-staff').value
-                    .split('\n').map(s => s.trim()).filter(Boolean);
-    const sel = document.getElementById('fr-admin-name');
-    const prev = sel.value;
-    sel.innerHTML = '';
-    staff.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s; opt.textContent = s;
-      sel.appendChild(opt);
-    });
-    if (staff.includes(prev)) sel.value = prev;
-  }
-
   async saveFirstRunWizard() {
     const brand = document.getElementById('fr-brand').value.trim();
-    const cats  = document.getElementById('fr-categories').value
-                    .split('\n').map(s => s.trim()).filter(Boolean);
-    const staff = document.getElementById('fr-staff').value
-                    .split('\n').map(s => s.trim()).filter(Boolean);
-    const adminName = document.getElementById('fr-admin-name').value;
+    const adminName = document.getElementById('fr-admin-name').value.trim();
     const pin       = document.getElementById('fr-admin-pin').value;
     const pin2      = document.getElementById('fr-admin-pin2').value;
+    // Categories come from the rental template and other staff are added in
+    // Manage Users, so setup only needs the brand and the first admin.
+    const cats  = [...DEFAULT_CATEGORIES];
+    const staff = [adminName];
 
-    if (!brand || cats.length === 0 || staff.length === 0) {
-      this.showAlert(t('alertCategoryEmpty'), 'error'); return;
-    }
-    if (!staff.includes(adminName)) {
-      this.showAlert(t('userNotFound'), 'error'); return;
+    if (!brand || !adminName) {
+      this.showAlert(t('frFillBrandAdmin'), 'error'); return;
     }
     if (!/^\d{4,6}$/.test(pin)) { this.showAlert(t('pinTooShort'), 'error'); return; }
     if (pin !== pin2)           { this.showAlert(t('pinMismatch'), 'error'); return; }
-
-    if (!cats.includes('START BALANCE')) cats.unshift('START BALANCE');
 
     // Persist business setup. Brand + categories awaited so we know they're
     // durable before creating users (which is the point of no return).
@@ -1090,15 +1068,8 @@ class ChillPOS {
     this.staffList = staff;
     Storage.set('pos_staff', staff);   // local cache for offline UI fallback
 
-    // Create users: chosen admin gets PIN, others are cashier with no PIN
     try {
-      for (const s of staff) {
-        await Auth.createUser({
-          username: s,
-          pin:  s === adminName ? pin : null,
-          role: s === adminName ? 'admin' : 'cashier',
-        });
-      }
+      await Auth.createUser({ username: adminName, pin, role: 'admin' });
       const result = await Auth.login(adminName, pin);
       if (!result.ok) { this.showAlert(t('userNotFound'), 'error'); return; }
     } catch (e) {
@@ -1454,7 +1425,6 @@ class ChillPOS {
       e.preventDefault();
       this.saveFirstRunWizard();
     });
-    document.getElementById('fr-staff').addEventListener('input', () => this._refreshAdminNameDropdown());
 
     // Setup-admin (existing-data fallback) submit
     document.getElementById('setup-admin-form').addEventListener('submit', (e) => {

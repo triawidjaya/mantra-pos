@@ -78,7 +78,8 @@ const STRINGS = {
     noResults:(q) => `No results for "${q}"`,
     kembali:'Back',
     welcomeTitle:"Welcome! Let's set up your POS",
-    welcomeHint:'Customize the basics now — you can change them anytime in Settings.',
+    welcomeHint:'Scooter-rental categories are ready. Add staff and change categories later in Settings.',
+    frAdminName:'Admin name',frFillBrandAdmin:'Fill in the brand name and admin name.',
     finishSetup:'Finish Setup',
     // Auth
     loginTitle:'Sign In',signIn:'Sign In',selectUser:'Select User',enterPin:'Enter PIN',
@@ -114,8 +115,8 @@ const STRINGS = {
 <h3><i class="fas fa-rocket"></i> First-time setup</h3>
 <ol>
   <li>When you first open the app, the <b>Welcome wizard</b> appears.</li>
-  <li>Fill in your <b>brand name</b>, <b>categories</b> (one per line), and <b>staff names</b> (one per line).</li>
-  <li>Pick which staff is the <b>Admin</b> and set a <b>4-6 digit PIN</b>.</li>
+  <li>Fill in your <b>brand name</b> and the <b>admin name</b>, then set a <b>4-6 digit PIN</b>.</li>
+  <li>Scooter-rental categories are set up for you. Add other staff later in <b>Manage Users</b>.</li>
   <li>Click <b>Finish Setup</b>. You'll be auto-logged in as Admin and the Start Shift screen appears.</li>
 </ol>
 
@@ -371,7 +372,8 @@ const STRINGS = {
     noResults:(q) => `Tidak ada hasil untuk "${q}"`,
     kembali:'Kembali',
     welcomeTitle:'Selamat Datang! Atur POS Anda',
-    welcomeHint:'Sesuaikan dasar-dasarnya sekarang — bisa diubah kapan saja di Pengaturan.',
+    welcomeHint:'Kategori penyewaan motor sudah disiapkan. Staf dan kategori bisa diubah nanti di Pengaturan.',
+    frAdminName:'Nama admin',frFillBrandAdmin:'Isi nama brand dan nama admin.',
     finishSetup:'Selesai',
     // Auth
     loginTitle:'Masuk',signIn:'Masuk',selectUser:'Pilih Pengguna',enterPin:'Masukkan PIN',
@@ -407,8 +409,8 @@ const STRINGS = {
 <h3><i class="fas fa-rocket"></i> Setup pertama kali</h3>
 <ol>
   <li>Saat pertama buka app, <b>Welcome wizard</b> akan muncul.</li>
-  <li>Isi <b>nama brand</b>, <b>kategori</b> (satu per baris), dan <b>nama staff</b> (satu per baris).</li>
-  <li>Pilih staff mana yang jadi <b>Admin</b> dan set <b>PIN 4-6 digit</b>.</li>
+  <li>Isi <b>nama brand</b> dan <b>nama admin</b>, lalu set <b>PIN 4-6 digit</b>.</li>
+  <li>Kategori penyewaan motor sudah disiapkan. Staf lain ditambahkan nanti lewat <b>Kelola Pengguna</b>.</li>
   <li>Klik <b>Selesai</b>. Anda otomatis login sebagai Admin dan layar Mulai Shift muncul.</li>
 </ol>
 
