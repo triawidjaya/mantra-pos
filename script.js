@@ -2585,7 +2585,7 @@ class ChillPOS {
     const cashout = document.getElementById('cashout-flow');
     if (cashout) {
       const method = document.getElementById('cashout-method')?.value;
-      const flow = method ? `${b(method)} → ${b('Cash')}` : this.escapeHtml(t('cashoutLeavesDrawer'));
+      const flow = `${method ? b(method) : this.escapeHtml(t('cashoutPickedMethod'))} → ${b('Cash')}`;
       cashout.innerHTML = `<i class="fas fa-circle-info"></i> ${flow} · ${recorded(CASHOUT_CATEGORY)}`;
     }
     const bank = document.getElementById('bank-flow');
