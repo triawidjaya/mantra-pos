@@ -186,6 +186,7 @@ DEFAULT_CATEGORIES = RENTAL_SHOP_DEFAULTS.categories   // supabase.js, from the 
 // RENTAL_SHOP_DEFAULTS.nonRevenue — START BALANCE, TarikTunai, PETTY-CASH, CashBon
 RENTAL_GUEST_CATEGORY = 'RENTAL PAYMENT', RENTAL_OWNER_CATEGORY = 'PAY TO OWNER'
 CASHOUT_CATEGORY = 'TarikTunai', BANK_CATEGORY = 'PETTY-CASH' (both non-revenue)
+// TarikTunai pair tag: [tunai:<uuid>|<method>|<note>] — note is required in the form; older tags without it still parse
 DEFAULT_STAFF      = ['Staff 1']
 DEFAULT_BRAND      = 'My Business'
 ```

@@ -598,14 +598,7 @@
           <option value="" disabled selected data-i18n="rentalPickMethod">Pilih metode</option>
         </select>
       </div>
-      <div class="form-group">
-        <label for="cashout-cash" data-i18n="cashoutOut">Uang keluar</label>
-        <input type="text" id="cashout-cash" value="Cash" readonly tabindex="-1">
-      </div>
-      <div class="form-group">
-        <label for="cashout-category" data-i18n="category">Kategori</label>
-        <input type="text" id="cashout-category" value="TarikTunai" readonly tabindex="-1">
-      </div>
+      <p class="fixed-flow" id="cashout-flow"></p>
       <div class="form-group">
         <label for="cashout-note" data-i18n="cashoutNote">Catatan</label>
         <input type="text" id="cashout-note" maxlength="120" autocomplete="off" required data-i18n-ph="cashoutNotePh" placeholder="Kenapa tarik tunai?">
@@ -632,18 +625,7 @@
         <label for="bank-amount" data-i18n="bankAmount">Nominal</label>
         <input type="text" id="bank-amount" inputmode="numeric" autocomplete="off" placeholder="0" required>
       </div>
-      <div class="form-group">
-        <label for="bank-card" data-i18n="bankCardOut">Kartu keluar</label>
-        <input type="text" id="bank-card" value="Card" readonly tabindex="-1">
-      </div>
-      <div class="form-group">
-        <label for="bank-cash" data-i18n="bankCashIn">Kas masuk</label>
-        <input type="text" id="bank-cash" value="Cash" readonly tabindex="-1">
-      </div>
-      <div class="form-group">
-        <label for="bank-category" data-i18n="category">Kategori</label>
-        <input type="text" id="bank-category" value="PETTY-CASH" readonly tabindex="-1">
-      </div>
+      <p class="fixed-flow" id="bank-flow"></p>
       <div class="form-actions">
         <button type="button" class="btn" id="bank-batal">
           <i class="fas fa-times"></i> <span data-i18n="cancel">Batal</span>

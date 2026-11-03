@@ -529,6 +529,18 @@ body.light-theme #open-bank,
   .chart-bar { width: 10px; }
 }
 
+.fixed-flow {
+  margin: -4px 0 15px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  color: var(--gray);
+  background: rgba(0, 102, 204, 0.07);
+  border-left: 3px solid var(--primary);
+  border-radius: 4px;
+}
+.fixed-flow i { color: var(--primary); margin-right: 2px; }
+.fixed-flow strong { color: var(--text-color); }
+
 /* ── Daily cash flow chart ── */
 .chart-scope-group { display: flex; gap: 6px; flex-wrap: wrap; }
 .chart-scope-group .chart-scope { padding: 5px 10px; font-size: 0.78rem; }

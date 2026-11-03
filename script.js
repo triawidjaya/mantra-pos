@@ -1159,6 +1159,7 @@ class ChillPOS {
       e.preventDefault();
       this.simpanCashout();
     });
+    document.getElementById('cashout-method').addEventListener('change', () => this._renderFixedFlows());
     document.getElementById('cashout-amount').addEventListener('input', () => {
       this._formatMoneyField(document.getElementById('cashout-amount'));
     });
@@ -1488,6 +1489,7 @@ class ChillPOS {
     this.renderDashboard();
     this.renderTransaksiTable();
     this._renderOfflineBanner();
+    this._renderFixedFlows();
   }
 
   // ============================================================
@@ -2576,6 +2578,20 @@ class ChillPOS {
     select.value = CASHOUT_IN_METHODS.includes(value) ? value : '';
   }
 
+  // Fixed sides of TarikTunai and PETTY-CASH are shown as one line, not as locked inputs.
+  _renderFixedFlows() {
+    const b = (v) => `<strong>${this.escapeHtml(v)}</strong>`;
+    const recorded = (cat) => `${this.escapeHtml(t('recordedAs'))} ${b(cat)}`;
+    const cashout = document.getElementById('cashout-flow');
+    if (cashout) {
+      const method = document.getElementById('cashout-method')?.value;
+      const flow = method ? `${b(method)} → ${b('Cash')}` : this.escapeHtml(t('cashoutLeavesDrawer'));
+      cashout.innerHTML = `<i class="fas fa-circle-info"></i> ${flow} · ${recorded(CASHOUT_CATEGORY)}`;
+    }
+    const bank = document.getElementById('bank-flow');
+    if (bank) bank.innerHTML = `<i class="fas fa-circle-info"></i> ${b('Card')} → ${b('Cash')} · ${recorded(BANK_CATEGORY)}`;
+  }
+
   _setCashoutTitle(editing) {
     const title = document.querySelector('#cashout-modal h2 [data-i18n]');
     if (!title) return;
@@ -2593,8 +2609,6 @@ class ChillPOS {
 
     this._cashoutEdit = null;
     this._setCashoutTitle(editing);
-    document.getElementById('cashout-cash').value = 'Cash';
-    document.getElementById('cashout-category').value = CASHOUT_CATEGORY;
     const amountEl = document.getElementById('cashout-amount');
 
     if (editing) {
@@ -2613,6 +2627,7 @@ class ChillPOS {
       this._setCashoutMethod('');
       document.getElementById('cashout-note').value = '';
     }
+    this._renderFixedFlows();
     document.getElementById('cashout-modal').style.display = 'flex';
     amountEl.focus();
   }
@@ -2721,9 +2736,6 @@ class ChillPOS {
 
     this._bankEdit = null;
     this._setBankTitle(editing);
-    document.getElementById('bank-card').value = 'Card';
-    document.getElementById('bank-cash').value = 'Cash';
-    document.getElementById('bank-category').value = BANK_CATEGORY;
     const amountEl = document.getElementById('bank-amount');
 
     if (editing) {
@@ -2736,6 +2748,7 @@ class ChillPOS {
     } else {
       this._setMoneyInput(amountEl, 0);
     }
+    this._renderFixedFlows();
     document.getElementById('bank-modal').style.display = 'flex';
     amountEl.focus();
   }
