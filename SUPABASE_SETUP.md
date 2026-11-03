@@ -130,7 +130,7 @@ CREATE TABLE pos_session (
 
 **What this does (English):**
 Inserts the initial rows the app expects on a fresh install:
-- The protected `START BALANCE` category (required by shift-start logic), plus four placeholder categories the owner can rename or delete from the first-run wizard.
+- The protected `START BALANCE` category (required by shift-start logic), plus the scooter-rental categories taken from the October 2026 cashbook. The owner can rename, delete, or add categories in the first-run wizard. Which side (income/outgoing) each category shows on, and which ones are non-revenue, is written to `pos_settings` by the wizard (`category_types`, `non_revenue_categories`).
 - Default `pos_settings` rows for brand name, language, and the shift-active flag.
 - The single locked-id row in `pos_session` (the app updates `user_id` and `login_at` on login, never inserts new rows).
 
@@ -139,13 +139,18 @@ The owner overrides brand/categories/staff during the first-run wizard after fir
 **SQL to paste:**
 
 ```sql
--- Default categories (owner can rename/reorder/delete the non-system ones)
+-- Default categories for a scooter rental (owner can rename/reorder/delete the non-system ones)
 INSERT INTO pos_categories (name, sort_order, is_system) VALUES
-  ('START BALANCE', 0, TRUE),
-  ('Sales',         1, FALSE),
-  ('Refund',        2, FALSE),
-  ('Expense',       3, FALSE),
-  ('Other',         4, FALSE);
+  ('START BALANCE',      0, TRUE),
+  ('RENTAL PAYMENT',     1, FALSE),
+  ('TRANSPORT SERVICES', 2, FALSE),
+  ('FEE',                3, FALSE),
+  ('PAY TO OWNER',       4, FALSE),
+  ('PAY TO DRIVER',      5, FALSE),
+  ('Oprasional',         6, FALSE),
+  ('CashBon',            7, FALSE),
+  ('TarikTunai',         8, FALSE),
+  ('PETTY-CASH',         9, FALSE);
 
 -- Default settings (owner overrides via first-run wizard)
 INSERT INTO pos_settings (key, value) VALUES
@@ -280,11 +285,16 @@ CREATE TABLE pos_session (
 
 -- ─────── 2.2 Seed ───────
 INSERT INTO pos_categories (name, sort_order, is_system) VALUES
-  ('START BALANCE', 0, TRUE),
-  ('Sales',         1, FALSE),
-  ('Refund',        2, FALSE),
-  ('Expense',       3, FALSE),
-  ('Other',         4, FALSE);
+  ('START BALANCE',      0, TRUE),
+  ('RENTAL PAYMENT',     1, FALSE),
+  ('TRANSPORT SERVICES', 2, FALSE),
+  ('FEE',                3, FALSE),
+  ('PAY TO OWNER',       4, FALSE),
+  ('PAY TO DRIVER',      5, FALSE),
+  ('Oprasional',         6, FALSE),
+  ('CashBon',            7, FALSE),
+  ('TarikTunai',         8, FALSE),
+  ('PETTY-CASH',         9, FALSE);
 
 INSERT INTO pos_settings (key, value) VALUES
   ('brand',         '"My Business"'::jsonb),

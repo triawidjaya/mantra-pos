@@ -1,37 +1,4 @@
 // ============================================================
-// ONE-TIME MIGRATION — rename localStorage keys hostel_* → pos_*
-// Runs once per browser. Guarded by `pos_migrated_v1` marker.
-// Must run BEFORE LangManager reads pos_lang.
-// ============================================================
-(function migrateHostelKeysToPos() {
-  try {
-    if (localStorage.getItem('pos_migrated_v1')) return;
-    const MAP = {
-      hostel_transactions:  'pos_transactions',
-      hostel_shift_history: 'pos_shift_history',
-      hostel_shift_active:  'pos_shift_active',
-      hostel_categories:    'pos_categories',
-      hostel_staff:         'pos_staff',
-      hostel_brand:         'pos_brand',
-      hostel_lang:          'pos_lang',
-    };
-    let migrated = 0;
-    for (const [oldKey, newKey] of Object.entries(MAP)) {
-      const val = localStorage.getItem(oldKey);
-      if (val !== null && localStorage.getItem(newKey) === null) {
-        localStorage.setItem(newKey, val);
-        localStorage.removeItem(oldKey);
-        migrated++;
-      }
-    }
-    localStorage.setItem('pos_migrated_v1', '1');
-    if (migrated > 0) console.info(`[Migration] Moved ${migrated} key(s) from hostel_* to pos_*`);
-  } catch (e) {
-    console.warn('[Migration] Failed:', e);
-  }
-})();
-
-// ============================================================
 // LANG MANAGER — EN/ID translations for all UI strings
 // Usage: LangManager.t('key') or shorthand t('key')
 // Switch: LangManager.toggle() or LangManager.set('en'|'id')
@@ -197,6 +164,10 @@ const STRINGS = {
     renameCategoryPrompt:'Rename category:',
     categoryExists:'Category already exists',
     systemBadge:'system',
+    catTypeLabel:'Shows under Income, Outgoing, or both',
+    catTypeBoth:'In & out',
+    catTypeIncome:'Income',
+    catTypeOutgoing:'Outgoing',
     renameUserPrompt:'New username:',
     // ── Mode choice (Local Basic vs Cloud Premium) ──
     modeChoiceTitle:'Choose Mode',
@@ -249,6 +220,83 @@ const STRINGS = {
     sbErrorReset:'Reset & Reconfigure',
     confirmResetSupabase:'Reset Supabase config and reload? You will be asked to enter the URL + key again.',
     remoteLogout:'Signed out from another device.',
+    newRental:'Rental',
+    cashoutBtn:'TarikTunai',
+    cashoutTitle:'TarikTunai',
+    cashoutEditTitle:'Edit TarikTunai',
+    cashoutAmount:'Amount',
+    cashoutIn:'Money in',
+    cashoutOut:'Cash out',
+    cashoutSaved:'Cash out saved. The incoming payment and the cash paid out were recorded together.',
+    cashoutUpdated:'Cash out updated. Both rows were saved.',
+    cashoutDeleted:'Cash out deleted. The incoming payment and the cash paid out were both removed.',
+    confirmDeleteCashout:'Delete this cash out? The incoming payment and the cash paid out are both removed.',
+    cashoutFill:'Enter the amount and choose how the money comes in.',
+    bankBtn:'Cash from bank',
+    bankTitle:'Cash from bank',
+    bankEditTitle:'Edit cash from bank',
+    bankAmount:'Amount',
+    bankCardOut:'Card out',
+    bankCashIn:'Cash in',
+    bankSaved:'Cash from bank saved. The card balance went down and the cash box went up by the same amount.',
+    bankUpdated:'Cash from bank updated. Both rows were saved.',
+    bankDeleted:'Cash from bank deleted. The card decrease and the cash increase were both removed.',
+    confirmDeleteBank:'Delete this cash from bank? The card decrease and the cash increase are both removed.',
+    bankFill:'Enter the amount.',
+    bankNote:'Card → Cash box',
+    rentalTitle:'Rental Payment',
+    rentalEditTitle:'Edit rental',
+    rentalDayOne:'day',
+    rentalDayMany:'days',
+    confirmDeleteRental:'Delete this rental? The guest income and the owner share are removed together.',
+    rentalDeleted:'Rental deleted. Guest income and owner share were both removed.',
+    rentalUpdated:'Rental updated. Both rows were saved.',
+    rentalBike:'Bike',
+    rentalOwner:'Owner',
+    rentalDuration:'Duration',
+    rentalHours:'Hours',
+    rentalDays:'Days',
+    rentalQty:'How many',
+    rentalGuestPrice:'Guest price',
+    rentalOwnerShare:'Owner share',
+    rentalGuestMethod:'Guest payment',
+    rentalOwnerCashHint:'One save writes the guest income and the owner share. The note includes guest name, plate, days, and owner.',
+    rentalPayAmount:'Amount guest pays',
+    rentalMethod:'Method',
+    rentalPickMethod:'Choose method',
+    rentalDayCount:'Number of days',
+    rentalOwnerField:'Owner',
+    rentalOwnerReceives:'Amount the owner receives',
+    rentalPlate:'Motorcycle plate',
+    rentalGuestName:'Guest name',
+    rentalOpenFleet:'Bikes & owners',
+    rentalFleetTitle:'Bikes & owners',
+    rentalFleetHint:'Each bike keeps its own guest rate. Owner share is a percent of the guest total, or a fixed amount per hour or per day.',
+    rentalGuestCategory:'Guest income category',
+    rentalOwnerCategory:'Owner share category',
+    rentalAddOwner:'Add owner',
+    rentalOwnerName:'Owner name',
+    rentalAddBike:'Add bike',
+    rentalBikeName:'Bike name',
+    rentalRateHour:'Guest rate / hour',
+    rentalRateDay:'Guest rate / day',
+    rentalShareType:'Owner share',
+    rentalSharePercent:'Percent of guest price',
+    rentalShareFixed:'Fixed amount per hour or day',
+    rentalRemove:'Remove',
+    rentalNoOwners:'No owners yet.',
+    rentalNoBikes:'No bikes yet.',
+    rentalFleetSaved:'Bikes and owners saved.',
+    rentalSaved:'Rental saved. Guest income and owner share were recorded together.',
+    rentalSavedNoShare:'Rental saved. Owner share is 0, so only the guest income was recorded.',
+    rentalFillForm:'Enter guest name, amount paid, a payment method, plate, number of days, owner, the amount the owner receives (0 if nothing goes to the owner), and the owner payment method.',
+    rentalDuplicate:'That name is already used.',
+    rentalNeedRate:'Set an hourly rate, a daily rate, or both.',
+    rentalBadPercent:'Percent must be from 0 to 100.',
+    rentalBadCategory:'Category name is required.',
+    rentalPerHour:'/ hour',
+    rentalPerDay:'/ day',
+    rentalShareEach:'each',
   },
   id: {
     historyShift:'Histori Shift',appTitle:'CHILL POS APP',
@@ -409,6 +457,10 @@ const STRINGS = {
     renameCategoryPrompt:'Ubah nama kategori:',
     categoryExists:'Kategori sudah ada',
     systemBadge:'sistem',
+    catTypeLabel:'Muncul di Pemasukan, Pengeluaran, atau keduanya',
+    catTypeBoth:'Masuk & keluar',
+    catTypeIncome:'Pemasukan',
+    catTypeOutgoing:'Pengeluaran',
     renameUserPrompt:'Nama pengguna baru:',
     // ── Mode choice ──
     modeChoiceTitle:'Pilih Mode',
@@ -461,6 +513,83 @@ const STRINGS = {
     sbErrorReset:'Reset & Setup Ulang',
     confirmResetSupabase:'Reset konfigurasi Supabase dan reload? Anda akan diminta memasukkan URL + key lagi.',
     remoteLogout:'Logout dari device lain.',
+    newRental:'Sewa',
+    cashoutBtn:'TarikTunai',
+    cashoutTitle:'TarikTunai',
+    cashoutEditTitle:'Edit TarikTunai',
+    cashoutAmount:'Nominal',
+    cashoutIn:'Uang masuk',
+    cashoutOut:'Uang keluar',
+    cashoutSaved:'Tarik tunai tersimpan. Uang masuk dan uang keluar tunai dicatat bersamaan.',
+    cashoutUpdated:'Tarik tunai diperbarui. Kedua baris ikut tersimpan.',
+    cashoutDeleted:'Tarik tunai dihapus. Uang masuk dan uang keluar tunai ikut terhapus.',
+    confirmDeleteCashout:'Hapus tarik tunai ini? Uang masuk dan uang keluar tunai ikut terhapus.',
+    cashoutFill:'Isi nominal dan pilih metode uang masuk.',
+    bankBtn:'Kas dari bank',
+    bankTitle:'Kas dari bank',
+    bankEditTitle:'Edit kas dari bank',
+    bankAmount:'Nominal',
+    bankCardOut:'Kartu keluar',
+    bankCashIn:'Kas masuk',
+    bankSaved:'Kas dari bank tersimpan. Saldo kartu turun dan kas naik dengan nominal yang sama.',
+    bankUpdated:'Kas dari bank diperbarui. Kedua baris ikut tersimpan.',
+    bankDeleted:'Kas dari bank dihapus. Penurunan kartu dan kenaikan kas ikut terhapus.',
+    confirmDeleteBank:'Hapus kas dari bank ini? Penurunan kartu dan kenaikan kas ikut terhapus.',
+    bankFill:'Isi nominal.',
+    bankNote:'Card → Kas',
+    rentalTitle:'Rental Payment',
+    rentalEditTitle:'Edit sewa',
+    rentalDayOne:'hari',
+    rentalDayMany:'hari',
+    confirmDeleteRental:'Hapus sewa ini? Pemasukan tamu dan bagian pemilik ikut terhapus.',
+    rentalDeleted:'Sewa dihapus. Pemasukan tamu dan bagian pemilik ikut terhapus.',
+    rentalUpdated:'Sewa diperbarui. Kedua baris ikut tersimpan.',
+    rentalBike:'Motor',
+    rentalOwner:'Pemilik',
+    rentalDuration:'Durasi',
+    rentalHours:'Jam',
+    rentalDays:'Hari',
+    rentalQty:'Jumlah',
+    rentalGuestPrice:'Harga tamu',
+    rentalOwnerShare:'Bagian pemilik',
+    rentalGuestMethod:'Bayar tamu',
+    rentalOwnerCashHint:'Sekali simpan: pemasukan tamu dan bagian pemilik. Keterangan memuat nama tamu, plat, hari, dan owner.',
+    rentalPayAmount:'Nominal bayar',
+    rentalMethod:'Metode',
+    rentalPickMethod:'Pilih metode',
+    rentalDayCount:'Jumlah hari',
+    rentalOwnerField:'Owner',
+    rentalOwnerReceives:'Jumlah yang diterima owner',
+    rentalPlate:'Plat motor',
+    rentalGuestName:'Nama tamu',
+    rentalOpenFleet:'Motor & pemilik',
+    rentalFleetTitle:'Motor & pemilik',
+    rentalFleetHint:'Tiap motor punya tarif tamu sendiri. Bagian pemilik bisa persen dari harga tamu, atau nominal tetap per jam / per hari.',
+    rentalGuestCategory:'Kategori pemasukan tamu',
+    rentalOwnerCategory:'Kategori bagian pemilik',
+    rentalAddOwner:'Tambah pemilik',
+    rentalOwnerName:'Nama pemilik',
+    rentalAddBike:'Tambah motor',
+    rentalBikeName:'Nama motor',
+    rentalRateHour:'Tarif tamu / jam',
+    rentalRateDay:'Tarif tamu / hari',
+    rentalShareType:'Bagian pemilik',
+    rentalSharePercent:'Persen dari harga tamu',
+    rentalShareFixed:'Nominal tetap per jam atau hari',
+    rentalRemove:'Hapus',
+    rentalNoOwners:'Belum ada pemilik.',
+    rentalNoBikes:'Belum ada motor.',
+    rentalFleetSaved:'Motor dan pemilik tersimpan.',
+    rentalSaved:'Sewa tersimpan. Pemasukan tamu dan bagian pemilik dicatat bersamaan.',
+    rentalSavedNoShare:'Sewa tersimpan. Bagian pemilik 0, jadi hanya pemasukan tamu yang dicatat.',
+    rentalFillForm:'Isi nama tamu, nominal bayar, metode tamu, plat, jumlah hari, owner, jumlah yang diterima owner (0 kalau tidak ada bagian owner), dan metode owner.',
+    rentalDuplicate:'Nama itu sudah dipakai.',
+    rentalNeedRate:'Isi tarif per jam, per hari, atau keduanya.',
+    rentalBadPercent:'Persen harus dari 0 sampai 100.',
+    rentalBadCategory:'Nama kategori wajib diisi.',
+    rentalPerHour:'/ jam',
+    rentalPerDay:'/ hari',
+    rentalShareEach:'per jam/hari',
   }
 };
 
@@ -468,7 +597,7 @@ const STRINGS = {
 // isn't defined yet at this point (script.js loads after lang.js).
 function _readLangFromStorage() {
   try {
-    const raw = localStorage.getItem('pos_lang');
+    const raw = appStorage.get('pos_lang');
     if (!raw) return 'en';
     // Migration may have moved a JSON-stringified value ("en") or raw value (en).
     try { return JSON.parse(raw); } catch { return raw; }
@@ -486,7 +615,7 @@ const LangManager = {
   set(lang) {
     if (!STRINGS[lang]) return;
     this.current = lang;
-    try { localStorage.setItem('pos_lang', JSON.stringify(lang)); } catch {}
+    try { appStorage.set('pos_lang', JSON.stringify(lang)); } catch {}
   },
 
   toggle() {
@@ -496,3 +625,62 @@ const LangManager = {
 
 // Global shorthand — works in both index.html and history.html
 const t = (key, arg) => LangManager.t(key, arg);
+
+function rentalDayPhrase(days) {
+  const n = Math.max(0, parseInt(days, 10) || 0);
+  return `${n} ${n === 1 ? t('rentalDayOne') : t('rentalDayMany')}`;
+}
+
+function rentalNoteDisplay(raw) {
+  const link = typeof parseRentalNote === 'function' ? parseRentalNote(raw) : null;
+  if (!link) return String(raw ?? '');
+  return `${link.guest} · ${link.plate} · ${rentalDayPhrase(link.days)} · ${link.owner}`;
+}
+
+function cashoutNoteDisplay(raw) {
+  const link = typeof parseCashoutNote === 'function' ? parseCashoutNote(raw) : null;
+  if (!link?.method) return '';
+  return `${link.method} → Cash`;
+}
+
+function bankNoteDisplay(raw) {
+  const link = typeof parseBankNote === 'function' ? parseBankNote(raw) : null;
+  if (!link) return '';
+  return t('bankNote');
+}
+
+function ledgerNote(raw) {
+  return bankNoteDisplay(raw) || cashoutNoteDisplay(raw) || rentalNoteDisplay(raw);
+}
+
+function rentalDeskripsiDisplay(tx) {
+  const link = typeof parseRentalNote === 'function' ? parseRentalNote(tx?.keterangan) : null;
+  if (!link || !link.plate) return String(tx?.deskripsi || '');
+  return `${link.plate} · ${rentalDayPhrase(link.days)}`;
+}
+
+// Paired rows share one timestamp; keep money-in above money-out in every sort direction.
+function ledgerTypeOrder(a, b) {
+  const rank = (tx) => (tx?.jenis === 'INCOME' ? 0 : 1);
+  return rank(a) - rank(b);
+}
+
+// On-screen cashbook columns: each fact appears once. Excel keeps the full note.
+function ledgerDescription(tx) {
+  const transfer = bankNoteDisplay(tx?.keterangan) || cashoutNoteDisplay(tx?.keterangan);
+  if (transfer) return transfer;
+  return rentalDeskripsiDisplay(tx);
+}
+
+function ledgerNoteShort(tx) {
+  const raw = tx?.keterangan;
+  if (bankNoteDisplay(raw) || cashoutNoteDisplay(raw)) return '';
+  const link = typeof parseRentalNote === 'function' ? parseRentalNote(raw) : null;
+  if (link) {
+    return [
+      link.guest ? `${t('rentalGuestName')}: ${link.guest}` : '',
+      link.owner ? `${t('rentalOwnerField')}: ${link.owner}` : '',
+    ].filter(Boolean).join(' · ');
+  }
+  return String(raw ?? '');
+}

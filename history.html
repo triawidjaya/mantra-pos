@@ -12,20 +12,20 @@
   <script src="supabase.js"></script>
   <style>
     .history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:15px;border-bottom:1px solid var(--border-color)}
-    .history-header h1{color:var(--primary);display:flex;align-items:center;gap:10px}
+    .history-header h1{color:var(--text-color);display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-0.02em}
     .history-header-actions{display:flex;align-items:center;gap:10px}
-    .history-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:8px}
+    .history-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:var(--radius);box-shadow:var(--shadow)}
     .select-all-wrap{display:flex;align-items:center;gap:6px;font-size:0.9rem;color:var(--gray);cursor:pointer;user-select:none}
     .select-all-wrap input{cursor:pointer;width:15px;height:15px;accent-color:var(--primary)}
     .selected-count{font-size:0.85rem;color:var(--primary);font-weight:600}
     .toolbar-divider{width:1px;height:28px;background:var(--border-color)}
-    .empty-state{text-align:center;padding:60px 20px;color:var(--gray);background:var(--card-bg);border-radius:10px;border:1px dashed var(--border-color)}
+    .empty-state{text-align:center;padding:60px 20px;color:var(--text-color);background:var(--card-bg);border:1px dashed var(--border-color);border-radius:var(--radius);box-shadow:none}
     .empty-state i{font-size:3rem;margin-bottom:16px;display:block;opacity:0.35}
     .empty-state p{font-size:0.95rem;margin-top:6px;line-height:1.6}
     .shift-list{display:flex;flex-direction:column;gap:10px}
-    .shift-card{background:var(--card-bg);border:1px solid var(--border-color);border-radius:10px;overflow:hidden;transition:box-shadow 0.2s,border-color 0.2s}
-    .shift-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08)}
-    .shift-card.selected{border-color:var(--primary);box-shadow:0 0 0 2px rgba(67,97,238,0.18)}
+    .shift-card{background:var(--card-bg);border:1px solid var(--border-color);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+    .shift-card:hover{box-shadow:var(--shadow-lg)}
+    .shift-card.selected{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,102,204,0.18)}
     .shift-card-header{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;user-select:none}
     .shift-card-header:hover{background:rgba(0,0,0,0.025)}
     .dark-theme .shift-card-header:hover{background:rgba(255,255,255,0.04)}
@@ -34,49 +34,49 @@
     .shift-card-date{font-weight:600;font-size:0.95rem}
     .shift-card-meta{font-size:0.8rem;color:var(--gray);margin-top:4px;line-height:1.4}
     .shift-card-badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0}
-    .shift-badge{padding:4px 10px;border-radius:20px;font-size:0.75rem;font-weight:600;white-space:nowrap}
-    .shift-badge.total{background:rgba(67,97,238,0.12);color:var(--primary)}
-    .shift-badge.income{background:#d1fae5;color:#065f46}
-    .shift-badge.out{background:#fee2e2;color:#b91c1c}
+    .shift-badge{padding:4px 10px;font-size:0.75rem;font-weight:600;white-space:nowrap;border:none;border-radius:var(--radius-sm)}
+    .shift-badge.total{background:var(--primary-50);color:var(--primary-700)}
+    .shift-badge.income{background:var(--success-100);color:var(--success-700)}
+    .shift-badge.out{background:var(--danger-100);color:var(--danger-700)}
     .shift-chevron{color:var(--gray);font-size:0.85rem;transition:transform 0.25s;flex-shrink:0}
     .shift-card.open .shift-chevron{transform:rotate(180deg)}
     .shift-card-detail{display:none;border-top:1px solid var(--border-color);padding:16px;animation:slideDown 0.2s ease}
     .shift-card.open .shift-card-detail{display:block}
     @keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
     .detail-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
-    .detail-saldo-item{background:rgba(0,0,0,0.04);border-radius:8px;padding:12px;text-align:center}
+    .detail-saldo-item{background:var(--neutral-50);border:1px solid var(--border-color);border-radius:var(--radius);padding:12px;text-align:center}
     .dark-theme .detail-saldo-item{background:rgba(255,255,255,0.05)}
     .detail-saldo-label{font-size:0.78rem;color:var(--gray);margin-bottom:5px}
     .detail-saldo-amount{font-weight:700;font-size:0.95rem}
-    .detail-saldo-item.total-item{background:var(--primary);color:white}
-    .detail-saldo-item.total-item .detail-saldo-label{color:rgba(255,255,255,0.8)}
+    .detail-saldo-item.total-item{background:var(--primary);color:#fff}
+    .detail-saldo-item.total-item .detail-saldo-label{color:rgba(255,255,255,0.85)}
     .detail-actions{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
-    .detail-table-wrap{overflow-x:auto;border-radius:6px;border:1px solid var(--border-color);max-height:320px;overflow-y:auto}
+    .detail-table-wrap{overflow-x:auto;border:1px solid var(--border-color);border-radius:var(--radius);max-height:320px;overflow-y:auto}
     .detail-table-wrap table{width:100%;border-collapse:collapse;font-size:0.82rem}
-    .detail-table-wrap th{background:var(--primary);color:white;padding:7px 10px;text-align:left;position:sticky;top:0;font-weight:500}
+    .detail-table-wrap th{background:var(--neutral-50);color:var(--neutral-700);padding:7px 10px;text-align:left;position:sticky;top:0;font-weight:600;font-size:0.72rem;letter-spacing:0.04em;text-transform:uppercase}
     .detail-table-wrap td{padding:6px 10px;border-bottom:1px solid var(--border-color)}
     .detail-table-wrap tr:last-child td{border-bottom:none}
     .detail-table-wrap tr:hover{background:rgba(0,0,0,0.03)}
-    .shift-duration-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;background:rgba(67,97,238,0.06);border-left:3px solid var(--primary);border-radius:4px;margin-bottom:14px;font-size:0.82rem;color:var(--text-color)}
-    .shift-duration-banner.long{background:rgba(247,37,133,0.08);border-left-color:var(--danger)}
+    .shift-duration-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;background:var(--primary-50);border-left:3px solid var(--primary);border-radius:var(--radius-sm);margin-bottom:14px;font-size:0.82rem;color:var(--text-color)}
+    .shift-duration-banner.long{background:var(--danger-100);border-left-color:var(--danger)}
     .shift-duration-banner i.fa-clock{color:var(--primary)}
     .shift-duration-banner.long i.fa-clock{color:var(--danger)}
-    .dur-pill{background:var(--primary);color:white;padding:2px 10px;border-radius:999px;font-weight:600;font-size:0.78rem}
-    .dur-pill.long{background:var(--danger)}
+    .dur-pill{background:var(--warning-100);color:var(--warning-700);padding:2px 10px;border:none;border-radius:var(--radius-sm);font-weight:600;font-size:0.78rem}
+    .dur-pill.long{background:var(--danger-100);color:var(--danger-700)}
     .dur-warn{color:var(--danger);font-weight:600;font-size:0.78rem}
     .hs-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:16px}
     .hs-actual-table{width:100%;border-collapse:collapse;font-size:0.85rem}
-    .hs-actual-table th{background:var(--primary);color:white;padding:7px 8px;text-align:left;font-weight:500;white-space:nowrap}
+    .hs-actual-table th{background:var(--neutral-50);color:var(--neutral-700);padding:7px 8px;text-align:left;font-weight:600;white-space:nowrap;font-size:0.72rem;letter-spacing:0.04em;text-transform:uppercase}
     .hs-actual-table th.hs-num{text-align:right}
     .hs-actual-table td{padding:7px 8px;border-bottom:1px solid var(--border-color);vertical-align:middle}
     .hs-actual-table tr:last-child td{border-bottom:none}
     .hs-method{white-space:nowrap}
     .hs-num{text-align:right;white-space:nowrap}
     .hs-actual{font-weight:600}
-    .hs-diff.exact{color:#007b46;font-weight:600;white-space:nowrap}
+    .hs-diff.exact{color:var(--success-700);font-weight:700;white-space:nowrap}
     .hs-diff.over,.hs-diff.short{display:inline-flex;flex-direction:column;align-items:flex-end;line-height:1.15;font-weight:600}
-    .hs-diff.over{color:#17a2b8}
-    .hs-diff.short{color:#f72585}
+    .hs-diff.over{color:var(--primary-700)}
+    .hs-diff.short{color:var(--danger)}
     .hs-diff-amt{white-space:nowrap}
     .hs-diff-label{font-size:0.7rem;font-weight:500;opacity:0.85}
     @media(max-width:520px){.hs-actual-table{font-size:0.78rem}.hs-actual-table th,.hs-actual-table td{padding:6px 6px}}
@@ -90,7 +90,7 @@
 </head>
 <body>
 <script>
-  (function(){try{document.body.className=(JSON.parse(localStorage.getItem('theme'))||'light')+'-theme';}catch(e){document.body.className='light-theme';}}());
+  (function(){try{document.body.className=(JSON.parse(localStorage.getItem('mantra:theme'))||'light')+'-theme';}catch(e){document.body.className='light-theme';}}());
 </script>
 <div class="container">
 
@@ -150,14 +150,14 @@
 <script src="lang.js"></script>
 <script>
 // supabase.js loaded earlier provides Storage, AuthStorage, DataStore, SupabaseConfig.
-// HistStorage retained as thin localStorage wrapper for theme (UI-only state).
+// HistStorage retained as thin appStorage wrapper for theme (UI-only state).
 const HistStorage = {
   get(key, fallback = null) {
-    try { const r = localStorage.getItem(key); return r === null ? fallback : JSON.parse(r); }
+    try { const r = appStorage.get(key); return r === null ? fallback : JSON.parse(r); }
     catch { return fallback; }
   },
   set(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    try { appStorage.set(key, JSON.stringify(value)); return true; }
     catch { return false; }
   }
 };
@@ -472,27 +472,29 @@ function renderDetail(shift) {
       </table>
     </div>
     ${s.closingNote ? `
-      <div style="background:var(--card-bg);border-left:3px solid var(--primary);padding:10px 12px;margin-bottom:16px;border-radius:4px;font-size:0.85rem">
+      <div style="background:var(--primary-50);border-left:3px solid var(--primary);padding:10px 12px;margin-bottom:16px;border-radius:4px;font-size:0.85rem">
         <strong>${t('closingNote')}:</strong> ${escapeHtml(s.closingNote)}
       </div>` : ''}` : '';
 
   const nonRevenueSet = new Set(DataStore.settings.nonRevenueCategories || []);
-  const rows = (shift.transactions || []).map(tx => {
+  const rows = (shift.transactions || []).slice().sort((a, b) =>
+    (new Date(b.tanggalWaktu) - new Date(a.tanggalWaktu)) || ledgerTypeOrder(a, b)
+  ).map(tx => {
     const isIncome = tx.jenis === 'INCOME';
-    const badgeClass = nonRevenueSet.has(tx.kategori)
+    const badgeClass = (nonRevenueSet.has(tx.kategori) || SYSTEM_NON_REVENUE.includes(tx.kategori))
       ? 'nonrevenue-badge'
       : (isIncome ? 'income-badge' : 'outgoing-badge');
     return `
       <tr>
-        <td>${escapeHtml(new Date(tx.tanggalWaktu).toLocaleString(LangManager.current === 'id' ? 'id-ID' : 'en-US'))}</td>
+        <td style="white-space:nowrap">${escapeHtml(new Date(tx.tanggalWaktu).toLocaleString(LangManager.current === 'id' ? 'id-ID' : 'en-US'))}</td>
         <td><span class="${badgeClass}">${escapeHtml(tx.jenis)}</span></td>
         <td>${escapeHtml(tx.kategori)}</td>
-        <td>${escapeHtml(tx.deskripsi)}</td>
-        <td style="color:${isIncome ? 'var(--success)' : 'var(--danger)'};font-weight:500">
-          ${isIncome ? '+' : '-'} ${fmt(Math.abs(tx.jumlah))}
+        <td>${escapeHtml(ledgerDescription(tx))}</td>
+        <td style="color:${isIncome ? 'var(--success)' : 'var(--danger)'};font-weight:500;white-space:nowrap">
+          ${isIncome ? '+' : '-'}&nbsp;${fmt(Math.abs(tx.jumlah))}
         </td>
         <td>${escapeHtml(tx.metode)}</td>
-        <td>${escapeHtml(tx.keterangan || '-')}</td>
+        <td>${escapeHtml(ledgerNoteShort(tx) || '-')}</td>
         <td>${escapeHtml(tx.staff)}</td>
       </tr>`;
   }).join('');
@@ -627,10 +629,10 @@ function exportShift(shift, format) {
     'Date/Time':   sanitizeForExcel(new Date(tx.tanggalWaktu).toLocaleString()),
     'Type':        sanitizeForExcel(tx.jenis),
     'Category':    sanitizeForExcel(tx.kategori),
-    'Description': sanitizeForExcel(tx.deskripsi),
+    'Description': sanitizeForExcel(rentalDeskripsiDisplay(tx)),
     'Amount':      tx.jenis === 'INCOME' ? tx.jumlah : -Math.abs(tx.jumlah),
     'Method':      sanitizeForExcel(tx.metode),
-    'Note':        sanitizeForExcel(tx.keterangan || ''),
+    'Note':        sanitizeForExcel(ledgerNote(tx.keterangan) || ''),
     'Staff':       sanitizeForExcel(tx.staff)
   }));
 

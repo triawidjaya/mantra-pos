@@ -9,10 +9,10 @@
 </head>
 <body>
 <script>
-  (function(){try{document.body.className=(JSON.parse(localStorage.getItem('theme'))||'light')+'-theme';}catch(e){document.body.className='light-theme';}}());
+  (function(){try{document.body.className=(JSON.parse(localStorage.getItem('mantra:theme'))||'light')+'-theme';}catch(e){document.body.className='light-theme';}}());
 </script>
 
-<div id="local-mode-banner" style="display:none;background:#fef3c7;color:#78350f;padding:6px 12px;text-align:center;font-size:0.78rem;border-bottom:1px solid #fbbf24">
+<div id="local-mode-banner" style="display:none;background:var(--warning-100);color:var(--warning-700);padding:6px 12px;text-align:center;font-size:0.78rem;border-bottom:1px solid #F3E2A0">
   <i class="fas fa-laptop"></i> <span data-i18n="localModeBanner">Local mode — data only in this browser. Export Excel regularly for backup.</span>
 </div>
 
@@ -502,17 +502,26 @@
     <span class="close-btn" id="close-form">&times;</span>
     <h2 id="modal-title" data-i18n="newTransactionTitle">New Transaction</h2>
     <form id="transaksi-form">
-      <div class="form-group">
-        <label data-i18n="transactionType">Transaction Type</label>
-        <div class="type-toggle">
-          <button type="button" class="type-btn income active" data-type="income">
-            <i class="fas fa-arrow-down"></i> <span data-i18n="income">Income</span>
-          </button>
-          <button type="button" class="type-btn outgoing" data-type="outgoing">
-            <i class="fas fa-arrow-up"></i> <span data-i18n="outgoing">Outgoing</span>
-          </button>
-        </div>
+      <div id="tx-staff-name" class="tx-staff-name"></div>
+      <input type="hidden" id="f-staff" value="">
+      <button type="button" class="btn info tx-choice" id="open-sewa">
+        <i class="fas fa-motorcycle"></i> <span data-i18n="newRental">Sewa</span>
+      </button>
+      <button type="button" class="btn danger tx-choice" id="open-cashout">
+        <i class="fas fa-money-bill-wave"></i> <span data-i18n="cashoutBtn">TarikTunai</span>
+      </button>
+      <button type="button" class="btn tx-choice" id="open-bank">
+        <i class="fas fa-building-columns"></i> <span data-i18n="bankBtn">Kas dari bank</span>
+      </button>
+      <div class="type-toggle">
+        <button type="button" class="type-btn income" data-type="income">
+          <i class="fas fa-arrow-down"></i> <span data-i18n="income">Income</span>
+        </button>
+        <button type="button" class="type-btn outgoing" data-type="outgoing">
+          <i class="fas fa-arrow-up"></i> <span data-i18n="outgoing">Outgoing</span>
+        </button>
       </div>
+      <div id="tx-fields" hidden>
       <div class="form-group">
         <label for="f-kategori" data-i18n="category">Category</label>
         <select id="f-kategori" required></select>
@@ -525,10 +534,6 @@
           <option value="Transfer">Transfer</option>
           <option value="Qris">Qris</option>
         </select>
-      </div>
-      <div class="form-group">
-        <label for="f-staff" data-i18n="staff">Staff</label>
-        <select id="f-staff" required></select>
       </div>
       <div class="form-group full-width">
         <label for="f-deskripsi" data-i18n="description">Description</label>
@@ -564,7 +569,175 @@
           <i class="fas fa-save"></i> <span data-i18n="save">Save</span>
         </button>
       </div>
+      </div>
     </form>
+  </div>
+</div>
+
+<!-- Rental — one save writes guest income and the owner share -->
+<div class="modal" id="rental-modal">
+  <div class="modal-content">
+    <span class="close-btn" id="close-rental">&times;</span>
+    <h2><i class="fas fa-motorcycle" style="color:var(--info)"></i> <span data-i18n="rentalTitle">Rental Payment</span></h2>
+    <form id="rental-form">
+      <div class="form-group">
+        <label for="rental-guest-name" data-i18n="rentalGuestName">Nama tamu</label>
+        <input type="text" id="rental-guest-name" maxlength="40" autocomplete="off" required>
+      </div>
+      <div class="form-group">
+        <label for="rental-guest" data-i18n="rentalPayAmount">Nominal bayar</label>
+        <input type="text" id="rental-guest" inputmode="numeric" autocomplete="off" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label for="rental-guest-method" data-i18n="rentalMethod">Metode</label>
+        <select id="rental-guest-method" required>
+          <option value="" disabled selected data-i18n="rentalPickMethod">Pilih metode</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="rental-plate" data-i18n="rentalPlate">Plat motor</label>
+        <input type="text" id="rental-plate" maxlength="20" autocomplete="off" required>
+      </div>
+      <div class="form-group">
+        <label for="rental-days" data-i18n="rentalDayCount">Jumlah hari</label>
+        <input type="number" id="rental-days" min="1" max="999" step="1" inputmode="numeric" required>
+      </div>
+      <div class="rental-grid-gap" aria-hidden="true"></div>
+      <div class="form-group">
+        <label for="rental-owner-name" data-i18n="rentalOwnerField">Owner</label>
+        <input type="text" id="rental-owner-name" maxlength="40" autocomplete="off" required>
+      </div>
+      <div class="form-group">
+        <label for="rental-owner-share" data-i18n="rentalOwnerReceives">Jumlah yang diterima owner</label>
+        <input type="text" id="rental-owner-share" inputmode="numeric" autocomplete="off" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label for="rental-owner-method" data-i18n="rentalMethod">Metode</label>
+        <select id="rental-owner-method">
+          <option value="" disabled selected data-i18n="rentalPickMethod">Pilih metode</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="rental-batal">
+          <i class="fas fa-times"></i> <span data-i18n="cancel">Batal</span>
+        </button>
+        <button type="submit" class="btn primary" id="rental-save">
+          <i class="fas fa-save"></i> <span data-i18n="save">Simpan</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Cash out — one save writes incoming payment and cash paid out -->
+<div class="modal" id="cashout-modal">
+  <div class="modal-content">
+    <span class="close-btn" id="close-cashout">&times;</span>
+    <h2><i class="fas fa-money-bill-wave" style="color:var(--success)"></i> <span data-i18n="cashoutTitle">TarikTunai</span></h2>
+    <form id="cashout-form">
+      <div class="form-group">
+        <label for="cashout-amount" data-i18n="cashoutAmount">Nominal</label>
+        <input type="text" id="cashout-amount" inputmode="numeric" autocomplete="off" placeholder="0" required>
+      </div>
+      <div class="form-group">
+        <label for="cashout-method" data-i18n="cashoutIn">Uang masuk</label>
+        <select id="cashout-method" required>
+          <option value="" disabled selected data-i18n="rentalPickMethod">Pilih metode</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="cashout-cash" data-i18n="cashoutOut">Uang keluar</label>
+        <input type="text" id="cashout-cash" value="Cash" readonly tabindex="-1">
+      </div>
+      <div class="form-group">
+        <label for="cashout-category" data-i18n="category">Kategori</label>
+        <input type="text" id="cashout-category" value="TarikTunai" readonly tabindex="-1">
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="cashout-batal">
+          <i class="fas fa-times"></i> <span data-i18n="cancel">Batal</span>
+        </button>
+        <button type="submit" class="btn primary" id="cashout-save">
+          <i class="fas fa-save"></i> <span data-i18n="save">Simpan</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Card settlement into the cash box — amount only, methods are fixed -->
+<div class="modal" id="bank-modal">
+  <div class="modal-content">
+    <span class="close-btn" id="close-bank">&times;</span>
+    <h2><i class="fas fa-building-columns" style="color:var(--success)"></i> <span data-i18n="bankTitle">Kas dari bank</span></h2>
+    <form id="bank-form">
+      <div class="form-group">
+        <label for="bank-amount" data-i18n="bankAmount">Nominal</label>
+        <input type="text" id="bank-amount" inputmode="numeric" autocomplete="off" placeholder="0" required>
+      </div>
+      <div class="form-group">
+        <label for="bank-card" data-i18n="bankCardOut">Kartu keluar</label>
+        <input type="text" id="bank-card" value="Card" readonly tabindex="-1">
+      </div>
+      <div class="form-group">
+        <label for="bank-cash" data-i18n="bankCashIn">Kas masuk</label>
+        <input type="text" id="bank-cash" value="Cash" readonly tabindex="-1">
+      </div>
+      <div class="form-group">
+        <label for="bank-category" data-i18n="category">Kategori</label>
+        <input type="text" id="bank-category" value="PETTY-CASH" readonly tabindex="-1">
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn" id="bank-batal">
+          <i class="fas fa-times"></i> <span data-i18n="cancel">Batal</span>
+        </button>
+        <button type="submit" class="btn primary" id="bank-save">
+          <i class="fas fa-save"></i> <span data-i18n="save">Simpan</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Bikes and owners — rates belong to this shop only -->
+<div class="modal" id="rental-fleet-modal">
+  <div class="modal-content">
+    <span class="close-btn" id="close-rental-fleet">&times;</span>
+    <h2><i class="fas fa-motorcycle" style="color:var(--info)"></i> <span data-i18n="rentalFleetTitle">Motor & pemilik</span></h2>
+    <p class="wizard-hint" data-i18n="rentalFleetHint">Tiap motor punya tarif sendiri.</p>
+    <div class="form-group">
+      <label for="fleet-guest-cat" data-i18n="rentalGuestCategory">Kategori pemasukan tamu</label>
+      <input type="text" id="fleet-guest-cat" maxlength="40">
+    </div>
+    <div class="form-group">
+      <label for="fleet-owner-cat" data-i18n="rentalOwnerCategory">Kategori bagian pemilik</label>
+      <input type="text" id="fleet-owner-cat" maxlength="40">
+    </div>
+    <div class="form-group">
+      <label data-i18n="rentalOwner">Pemilik</label>
+      <div id="fleet-owner-list" class="cat-list"></div>
+      <div class="rental-add-row">
+        <input type="text" id="fleet-new-owner" maxlength="40" data-i18n-ph="rentalOwnerName" placeholder="Nama pemilik">
+        <button type="button" class="btn small primary" id="fleet-add-owner">
+          <i class="fas fa-plus"></i> <span data-i18n="rentalAddOwner">Tambah pemilik</span>
+        </button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label data-i18n="rentalBike">Motor</label>
+      <div id="fleet-bike-list" class="cat-list"></div>
+      <button type="button" class="btn small primary" id="fleet-add-bike" style="margin-top:8px">
+        <i class="fas fa-plus"></i> <span data-i18n="rentalAddBike">Tambah motor</span>
+      </button>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" id="fleet-batal">
+        <i class="fas fa-times"></i> <span data-i18n="cancel">Batal</span>
+      </button>
+      <button type="button" class="btn primary" id="fleet-save">
+        <i class="fas fa-save"></i> <span data-i18n="save">Simpan</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -684,6 +857,9 @@
     </button>
     <button type="button" class="btn" id="open-users" style="width:100%;justify-content:center;margin-top:8px">
       <i class="fas fa-users-cog"></i> <span data-i18n="usersTitle">Manage Users</span>
+    </button>
+    <button type="button" class="btn" id="open-rental-fleet" style="width:100%;justify-content:center;margin-top:8px">
+      <i class="fas fa-motorcycle"></i> <span data-i18n="rentalOpenFleet">Motor & pemilik</span>
     </button>
     <button type="button" class="btn" id="settings-help" style="width:100%;justify-content:center;margin-top:8px">
       <i class="fas fa-question-circle"></i> <span data-i18n="helpTitle">Quick Start Guide</span>

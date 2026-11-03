@@ -51,7 +51,7 @@ const Validator = {
 // ============================================================
 // Generic defaults — template starts white-label.
 // `START BALANCE` is required by shift-start logic, do not remove.
-const DEFAULT_CATEGORIES = ['START BALANCE', 'Sales', 'Refund', 'Expense', 'Other'];
+const DEFAULT_CATEGORIES = RENTAL_SHOP_DEFAULTS.categories;
 const DEFAULT_STAFF      = ['Staff 1'];
 const DEFAULT_BRAND      = 'My Business';
 
@@ -100,6 +100,7 @@ const AccessGate = {
 };
 // Categories required by app logic — cannot be deleted via UI
 const SYSTEM_CATEGORIES  = ['START BALANCE'];
+const CASHOUT_IN_METHODS = ['Card', 'Transfer', 'Qris'];
 
 // ============================================================
 // AUTH — local-first, async-ready, single source of truth.
@@ -788,6 +789,7 @@ class ChillPOS {
         : `
           <i class="fas fa-grip-vertical cat-drag" title="Drag to reorder"></i>
           <span class="cat-name">${this.escapeHtml(cat)}</span>
+          ${this._categoryTypeSelect(cat, idx)}
           <button type="button" class="cat-btn cat-edit"   data-idx="${idx}" title="Rename"><i class="fas fa-pen"></i></button>
           <button type="button" class="cat-btn cat-delete" data-idx="${idx}" title="Delete"><i class="fas fa-times"></i></button>
         `;
@@ -796,6 +798,35 @@ class ChillPOS {
     // Dependent checkbox lists must stay in sync with the master categories list.
     if (document.getElementById('settings-admin-cats'))      this.renderAdminCategoriesList();
     if (document.getElementById('settings-nonrevenue-cats')) this.renderNonRevenueCategoriesList();
+  }
+
+  _categoryTypesDraftOrSaved() {
+    if (!this._categoryTypesDraft) {
+      this._categoryTypesDraft = { ...(DataStore.settings.categoryTypes || {}) };
+    }
+    return this._categoryTypesDraft;
+  }
+
+  // Paired categories (TarikTunai, PETTY-CASH) always write one row on each side.
+  _categoryTypeSelect(cat, idx) {
+    if (SYSTEM_NON_REVENUE.includes(cat)) return '';
+    const type = this._categoryTypesDraftOrSaved()[cat] || '';
+    const option = (value, key) =>
+      `<option value="${value}"${type === value ? ' selected' : ''}>${this.escapeHtml(t(key))}</option>`;
+    return `
+      <select class="cat-type" data-idx="${idx}" title="${this.escapeHtml(t('catTypeLabel'))}">
+        ${option('', 'catTypeBoth')}
+        ${option('INCOME', 'catTypeIncome')}
+        ${option('OUTGOING', 'catTypeOutgoing')}
+      </select>`;
+  }
+
+  setCategoryType(idx, type) {
+    const cat = this.categories[idx];
+    if (!cat) return;
+    const draft = this._categoryTypesDraftOrSaved();
+    if (type === 'INCOME' || type === 'OUTGOING') draft[cat] = type;
+    else delete draft[cat];
   }
 
   addCategoryFlow() {
@@ -817,6 +848,8 @@ class ChillPOS {
       this.showAlert(t('categoryExists'), 'error'); return;
     }
     this.categories[idx] = name;
+    const draft = this._categoryTypesDraftOrSaved();
+    if (draft[old]) { draft[name] = draft[old]; delete draft[old]; }
     this.renderCategoriesList();
   }
 
@@ -824,6 +857,7 @@ class ChillPOS {
     const cat = this.categories[idx];
     if (!cat || SYSTEM_CATEGORIES.includes(cat)) return;
     this.categories.splice(idx, 1);
+    delete this._categoryTypesDraftOrSaved()[cat];
     this.renderCategoriesList();
   }
 
@@ -992,6 +1026,20 @@ class ChillPOS {
     document.getElementById('first-run-modal').style.display = 'flex';
   }
 
+  // Category sides and non-revenue flags from the rental template, limited to
+  // the names the owner kept. Categories the owner typed in stay untyped.
+  async _applyShopDefaults(cats) {
+    const keep = new Set(cats);
+    const types = {};
+    Object.entries(RENTAL_SHOP_DEFAULTS.types).forEach(([name, type]) => {
+      if (keep.has(name)) types[name] = type;
+    });
+    await DataStore.saveSetting('category_types', types);
+    await DataStore.saveSetting('non_revenue_categories',
+      RENTAL_SHOP_DEFAULTS.nonRevenue.filter(name => keep.has(name)));
+    await DataStore.saveSetting('template_applied', true);
+  }
+
   // Sync the admin-name dropdown with current staff textarea content
   _refreshAdminNameDropdown() {
     const staff = document.getElementById('fr-staff').value
@@ -1033,6 +1081,7 @@ class ChillPOS {
     try {
       await DataStore.saveSetting('brand', brand);
       await DataStore.saveCategories(cats);
+      await this._applyShopDefaults(cats);
     } catch (e) {
       this.showAlert(`${t('sbErrorHint')} (${e?.message || e})`, 'error');
       return;
@@ -1150,6 +1199,36 @@ class ChillPOS {
       if (!this.shiftActive) { this.showMulaiShiftModal(); return; }
       this.showForm();
     });
+    document.getElementById('open-sewa').addEventListener('click', () => {
+      this.hideForm();
+      this.showRentalForm();
+    });
+    document.getElementById('open-cashout').addEventListener('click', () => {
+      this.hideForm();
+      this.showCashoutForm();
+    });
+    document.getElementById('open-bank').addEventListener('click', () => {
+      this.hideForm();
+      this.showBankForm();
+    });
+    document.getElementById('close-bank').addEventListener('click', () => this.hideBankForm());
+    document.getElementById('bank-batal').addEventListener('click', () => this.hideBankForm());
+    document.getElementById('bank-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.simpanBank();
+    });
+    document.getElementById('bank-amount').addEventListener('input', () => {
+      this._formatMoneyField(document.getElementById('bank-amount'));
+    });
+    document.getElementById('close-cashout').addEventListener('click', () => this.hideCashoutForm());
+    document.getElementById('cashout-batal').addEventListener('click', () => this.hideCashoutForm());
+    document.getElementById('cashout-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.simpanCashout();
+    });
+    document.getElementById('cashout-amount').addEventListener('input', () => {
+      this._formatMoneyField(document.getElementById('cashout-amount'));
+    });
     this.elements.downloadExcelBtn.addEventListener('click', () => this.exportToExcel());
     this.elements.tutupShiftBtn.addEventListener('click',   () => this.confirmTutupShift());
     this.elements.openSettingsBtn.addEventListener('click', () => this.showSettings());
@@ -1163,6 +1242,52 @@ class ChillPOS {
 
     // Modal close buttons
     document.getElementById('close-form').addEventListener('click',     () => this.hideForm());
+    document.getElementById('close-rental').addEventListener('click',   () => this.hideRentalForm());
+    document.getElementById('rental-batal').addEventListener('click',   () => this.hideRentalForm());
+    document.getElementById('rental-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.simpanSewa();
+    });
+    document.getElementById('rental-guest').addEventListener('input', () => this._formatMoneyField(document.getElementById('rental-guest')));
+    document.getElementById('rental-owner-share').addEventListener('input', () => this._formatMoneyField(document.getElementById('rental-owner-share')));
+
+    document.getElementById('open-rental-fleet').addEventListener('click', () => this.showRentalFleet());
+    document.getElementById('close-rental-fleet').addEventListener('click', () => this.hideRentalFleet());
+    document.getElementById('fleet-batal').addEventListener('click', () => this.hideRentalFleet());
+    document.getElementById('fleet-save').addEventListener('click', () => this.saveRentalFleet());
+    document.getElementById('fleet-add-owner').addEventListener('click', () => this._addFleetOwner());
+    document.getElementById('fleet-add-bike').addEventListener('click', () => this._addFleetBike());
+    document.getElementById('fleet-owner-list').addEventListener('click', (e) => {
+      const btn = e.target.closest('.fo-delete');
+      if (!btn) return;
+      const id = btn.closest('[data-id]')?.dataset.id;
+      this._scrapeFleetDraft();
+      this._fleetDraft.owners = this._fleetDraft.owners.filter(o => o.id !== id);
+      this._renderFleetLists();
+    });
+    document.getElementById('fleet-bike-list').addEventListener('click', (e) => {
+      const btn = e.target.closest('.rb-delete');
+      if (!btn) return;
+      const id = btn.closest('[data-id]')?.dataset.id;
+      this._scrapeFleetDraft();
+      this._fleetDraft.bikes = this._fleetDraft.bikes.filter(b => b.id !== id);
+      this._renderFleetLists();
+    });
+    document.getElementById('fleet-bike-list').addEventListener('input', (e) => {
+      const el = e.target;
+      if (el.classList.contains('rb-hour') || el.classList.contains('rb-day')) this._formatMoneyField(el);
+      if (el.classList.contains('rb-share')) {
+        const type = el.closest('.rental-bike')?.querySelector('.rb-share-type')?.value;
+        if (type === 'fixed') this._formatMoneyField(el);
+      }
+    });
+    document.getElementById('fleet-bike-list').addEventListener('change', (e) => {
+      if (!e.target.classList.contains('rb-share-type')) return;
+      const share = e.target.closest('.rental-bike')?.querySelector('.rb-share');
+      if (!share) return;
+      share.value = '';
+      share.dataset.raw = '';
+    });
     document.getElementById('close-settings').addEventListener('click', () => this.hideSettings());
     document.getElementById('confirm-cancel').addEventListener('click', () => this.hideConfirm());
     document.getElementById('confirm-ok').addEventListener('click',     () => this.executeConfirm());
@@ -1172,7 +1297,11 @@ class ChillPOS {
     // Show/hide admin approval section when the picked category changes.
     this.elements.fKategori.addEventListener('change', () => this._updateAdminAuthVisibility());
     this.elements.transaksiForm.querySelectorAll('.type-btn').forEach(btn => {
-      btn.addEventListener('click', () => this.setActiveType(btn.dataset.type));
+      btn.addEventListener('click', () => {
+        this.setActiveType(btn.dataset.type);
+        this._renderCategoryOptions(btn.dataset.type === 'outgoing' ? 'OUTGOING' : 'INCOME', this._editKategori);
+        this._updateAdminAuthVisibility();
+      });
     });
     document.getElementById('form-batal').addEventListener('click', () => this.hideForm());
 
@@ -1210,6 +1339,10 @@ class ChillPOS {
       const delBtn  = e.target.closest('.cat-delete');
       if (editBtn) this.editCategoryFlow(parseInt(editBtn.dataset.idx, 10));
       if (delBtn)  this.deleteCategoryFlow(parseInt(delBtn.dataset.idx, 10));
+    });
+    document.getElementById('settings-categories-list').addEventListener('change', (e) => {
+      const sel = e.target.closest('.cat-type');
+      if (sel) this.setCategoryType(parseInt(sel.dataset.idx, 10), sel.value);
     });
     this._initCategoryDnD();
 
@@ -1406,6 +1539,14 @@ class ChillPOS {
       if (this.elements.confirmModal.style.display    === 'flex') this.hideConfirm();
       if (this.elements.settingsModal.style.display   === 'flex') this.hideSettings();
       if (this.elements.tutupShiftModal.style.display === 'flex') this.elements.tutupShiftModal.style.display = 'none';
+      const rental = document.getElementById('rental-modal');
+      if (rental?.style.display === 'flex') this.hideRentalForm();
+      const cashout = document.getElementById('cashout-modal');
+      if (cashout?.style.display === 'flex') this.hideCashoutForm();
+      const bank = document.getElementById('bank-modal');
+      if (bank?.style.display === 'flex') this.hideBankForm();
+      const fleet = document.getElementById('rental-fleet-modal');
+      if (fleet?.style.display === 'flex') this.hideRentalFleet();
       const help = document.getElementById('help-modal');
       if (help.style.display === 'flex') this.hideHelp();
       const users = document.getElementById('users-modal');
@@ -1634,10 +1775,10 @@ class ChillPOS {
       'Date/Time':  this.sanitizeForExcel(new Date(t.tanggalWaktu).toLocaleString()),
       'Type':       this.sanitizeForExcel(t.jenis),
       'Category':   this.sanitizeForExcel(t.kategori),
-      'Description':this.sanitizeForExcel(t.deskripsi),
+      'Description':this.sanitizeForExcel(rentalDeskripsiDisplay(t)),
       'Amount':     t.jenis === 'INCOME' ? t.jumlah : -t.jumlah,
       'Method':     this.sanitizeForExcel(t.metode),
-      'Note':       this.sanitizeForExcel(t.keterangan || ''),
+      'Note':       this.sanitizeForExcel(ledgerNote(t.keterangan) || ''),
       'Staff':      this.sanitizeForExcel(t.staff)
     }));
   }
@@ -1725,7 +1866,7 @@ class ChillPOS {
       else { va = String(va ?? '').toLowerCase(); vb = String(vb ?? '').toLowerCase(); }
       if (va < vb) return arah === 'asc' ? -1 :  1;
       if (va > vb) return arah === 'asc' ?  1 : -1;
-      return 0;
+      return (new Date(b.tanggalWaktu) - new Date(a.tanggalWaktu)) || ledgerTypeOrder(a, b);
     });
   }
 
@@ -1791,20 +1932,20 @@ class ChillPOS {
         ? 'nonrevenue-badge'
         : (isIncome ? 'income-badge' : 'outgoing-badge');
       row.innerHTML = `
-        <td>${this.escapeHtml(date.toLocaleString())}</td>
+        <td class="cell-nowrap">${this.escapeHtml(date.toLocaleString())}</td>
         <td><span class="${badgeClass}">${this.escapeHtml(tx.jenis)}</span></td>
         <td>${this.escapeHtml(tx.kategori)}</td>
-        <td>${this.escapeHtml(tx.deskripsi)}</td>
-        <td style="color:${isIncome ? 'var(--success)' : 'var(--danger)'};font-weight:500">
-          ${isIncome ? '+' : '-'} ${this.formatCurrency(Math.abs(tx.jumlah))}
+        <td>${this.escapeHtml(ledgerDescription(tx))}</td>
+        <td class="cell-nowrap" style="color:${isIncome ? 'var(--success)' : 'var(--danger)'};font-weight:500">
+          ${isIncome ? '+' : '-'}&nbsp;${this.formatCurrency(Math.abs(tx.jumlah))}
         </td>
         <td>${this.escapeHtml(tx.metode)}</td>
-        <td>${this.escapeHtml(tx.keterangan || '-')}</td>
+        <td>${this.escapeHtml(ledgerNoteShort(tx) || '-')}</td>
         <td>${this.escapeHtml(tx.staff)}</td>
-        <td class="actions-cell">
+        <td><div class="actions-cell">
           ${canEdit ? `<button class="btn small btn-edit"  data-id="${tx.id}"><i class="fas fa-edit"></i></button>` : ''}
           ${canDel  ? `<button class="btn small danger btn-hapus" data-id="${tx.id}"><i class="fas fa-trash"></i></button>` : ''}
-        </td>
+        </div></td>
       `;
       this.elements.transaksiTable.appendChild(row);
     });
@@ -1835,9 +1976,9 @@ class ChillPOS {
           <span class="${badgeClass}">${this.escapeHtml(tx.jenis)}</span>
         </div>
         <div class="tx-card-meta">${this.escapeHtml(tx.kategori)} &middot; ${this.escapeHtml(tx.metode)}</div>
-        <div class="tx-card-desc">${this.escapeHtml(tx.deskripsi)}</div>
-        <div class="tx-card-amount ${isIncome ? 'pos' : 'neg'}">${isIncome ? '+' : '-'} ${this.formatCurrency(Math.abs(tx.jumlah))}</div>
-        ${tx.keterangan ? `<div class="tx-card-note"><i class="fas fa-sticky-note"></i> ${this.escapeHtml(tx.keterangan)}</div>` : ''}
+        <div class="tx-card-desc">${this.escapeHtml(ledgerDescription(tx))}</div>
+        <div class="tx-card-amount ${isIncome ? 'pos' : 'neg'}">${isIncome ? '+' : '-'}&nbsp;${this.formatCurrency(Math.abs(tx.jumlah))}</div>
+        ${ledgerNoteShort(tx) ? `<div class="tx-card-note"><i class="fas fa-sticky-note"></i> ${this.escapeHtml(ledgerNoteShort(tx))}</div>` : ''}
         <div class="tx-card-staff"><i class="fas fa-user"></i> ${this.escapeHtml(tx.staff)}</div>
         ${(canEdit || canDel) ? `
         <div class="tx-card-actions">
@@ -1849,12 +1990,59 @@ class ChillPOS {
     });
   }
 
+  // Category dropdown for the normal Income/Outgoing form. Rental, cash-out and
+  // bank categories are left out: their own buttons write both rows. A category typed
+  // INCOME or OUTGOING in Settings only shows on that side; untyped ones show on
+  // both. The row being edited always keeps its own category, even if it was
+  // since deleted or retyped, so saving never moves it silently.
+  _renderCategoryOptions(jenis, keep = null) {
+    const select = this.elements.fKategori;
+    const previous = select.value;
+    select.innerHTML = '';
+    select.disabled = false;
+
+    if (keep && SYSTEM_CATEGORIES.includes(keep)) {
+      const opt = document.createElement('option');
+      opt.value = keep; opt.textContent = keep; opt.selected = true;
+      select.appendChild(opt);
+      select.disabled = true;
+      return;
+    }
+
+    const types = DataStore.settings.categoryTypes || {};
+    const fleet = this._rentalFleet();
+    const viaRentalButton = [fleet.guestCategory, fleet.ownerCategory];
+    const names = this.categories.filter(cat =>
+      !SYSTEM_CATEGORIES.includes(cat)
+      && !SYSTEM_NON_REVENUE.includes(cat)
+      && !viaRentalButton.includes(cat)
+      && (!jenis || !types[cat] || types[cat] === jenis));
+    if (keep && keep !== '_other' && !names.includes(keep)) names.unshift(keep);
+
+    names.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat; opt.textContent = cat;
+      select.appendChild(opt);
+    });
+    const otherOpt = document.createElement('option');
+    otherOpt.value = '_other'; otherOpt.textContent = t('other');
+    select.appendChild(otherOpt);
+
+    const values = [...select.options].map(o => o.value);
+    const wanted = [previous, keep].find(v => v && values.includes(v));
+    if (wanted) select.value = wanted;
+  }
+
   // Populate form fields from existing transaction (edit) or reset (new)
   populateForm(transaksi = null) {
     const isEdit = transaksi !== null;
 
     document.getElementById('modal-title').textContent = isEdit
       ? t('editTransactionTitle') : t('newTransactionTitle');
+    ['open-sewa', 'open-cashout', 'open-bank'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.style.display = isEdit ? 'none' : '';
+    });
 
     // New transactions start with no type selected so staff must consciously
     // pick Income or Outgoing. Edits keep the existing type.
@@ -1864,42 +2052,15 @@ class ChillPOS {
     // is only inserted automatically at shift start, never picked manually).
     // Exception: when editing a system-category tx, inject it as the sole
     // option and lock the dropdown so the category can't be drifted.
+    this._editKategori = isEdit ? transaksi.kategori : null;
     this.elements.fKategori.innerHTML = '';
-    this.elements.fKategori.disabled = false;
-    const editingSystemTx = isEdit && SYSTEM_CATEGORIES.includes(transaksi.kategori);
+    this._renderCategoryOptions(isEdit ? transaksi.jenis : null, this._editKategori);
 
-    if (editingSystemTx) {
-      const opt = document.createElement('option');
-      opt.value = transaksi.kategori; opt.textContent = transaksi.kategori;
-      opt.selected = true;
-      this.elements.fKategori.appendChild(opt);
-      this.elements.fKategori.disabled = true;
-    } else {
-      this.categories
-        .filter(cat => !SYSTEM_CATEGORIES.includes(cat))
-        .forEach(cat => {
-          const opt = document.createElement('option');
-          opt.value = cat; opt.textContent = cat;
-          if (isEdit && transaksi.kategori === cat) opt.selected = true;
-          this.elements.fKategori.appendChild(opt);
-        });
-      const otherOpt = document.createElement('option');
-      otherOpt.value = '_other'; otherOpt.textContent = t('other');
-      this.elements.fKategori.appendChild(otherOpt);
-    }
-
-    // Populate staff dropdown — default to current user, lock for cashier
-    this.elements.fStaff.innerHTML = '';
     const cur = Auth.currentUser();
-    this.staffList.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s; opt.textContent = s;
-      const preferStaff = isEdit ? transaksi.staff : (cur ? cur.username : null);
-      if (preferStaff === s) opt.selected = true;
-      this.elements.fStaff.appendChild(opt);
-    });
-    // Lock for everyone — transaction always attributes to the logged-in user.
-    this.elements.fStaff.disabled = !!cur;
+    const staffName = (isEdit && transaksi.staff) ? transaksi.staff : (cur?.username || '');
+    this.elements.fStaff.value = staffName;
+    const staffLabel = document.getElementById('tx-staff-name');
+    if (staffLabel) staffLabel.textContent = staffName;
 
     this.elements.fMetode.value     = isEdit ? transaksi.metode     : 'Cash';
     this.elements.fDeskripsi.value  = isEdit ? transaksi.deskripsi  : '';
@@ -1994,6 +2155,7 @@ class ChillPOS {
   // Categories flagged in Settings as cash movements (transfer, receivable, opening
   // balance) — excluded from revenue/expense totals but still affect cash drawer balance.
   isNonRevenue(kategori) {
+    if (SYSTEM_NON_REVENUE.includes(kategori)) return true;
     const list = DataStore.settings.nonRevenueCategories || [];
     return list.includes(kategori);
   }
@@ -2027,7 +2189,19 @@ class ChillPOS {
 
   showForm(transaksiId = null) {
     if (transaksiId) {
-      const tx = this.transactions.find(tx => tx.id === transaksiId);
+      const tx = this.transactions.find(t => t.id === transaksiId);
+      if (tx && parseBankNote(tx.keterangan)) {
+        this.showBankForm(tx);
+        return;
+      }
+      if (tx && parseCashoutNote(tx.keterangan)) {
+        this.showCashoutForm(tx);
+        return;
+      }
+      if (tx && parseRentalNote(tx.keterangan)) {
+        this.showRentalForm(tx);
+        return;
+      }
       if (tx) { this.currentEditId = transaksiId; this.populateForm(tx); }
     } else {
       this.currentEditId = null;
@@ -2069,6 +2243,7 @@ class ChillPOS {
         else { preview.removeAttribute('src'); preview.style.display = 'none'; }
       }
     }
+    this._categoryTypesDraft = null;
     this.renderCategoriesList();
     this.renderAdminCategoriesList();
     this.renderNonRevenueCategoriesList();
@@ -2174,6 +2349,9 @@ class ChillPOS {
       DEFAULT_CATEGORIES.forEach(c => this.categories.push(c));
       Storage.set('pos_brand',      this.brandName);
       Storage.set('pos_categories', this.categories);
+      this._categoryTypesDraft = null;
+      this._applyShopDefaults(this.categories).catch(e =>
+        console.error('[Settings] default category setup failed:', e));
       this.renderBrandName();
       this.renderCategoriesList();
       this.hideSettings();
@@ -2206,6 +2384,12 @@ class ChillPOS {
       console.error('[Settings] admin_categories save failed:', e));
     DataStore.saveSetting('non_revenue_categories', nonRevenueCats).catch(e =>
       console.error('[Settings] non_revenue_categories save failed:', e));
+    const draftTypes = this._categoryTypesDraftOrSaved();
+    const categoryTypes = {};
+    this.categories.forEach(cat => { if (draftTypes[cat]) categoryTypes[cat] = draftTypes[cat]; });
+    this._categoryTypesDraft = null;
+    DataStore.saveSetting('category_types', categoryTypes).catch(e =>
+      console.error('[Settings] category_types save failed:', e));
 
     // Logo upload (Cloud only). Resize + convert to PNG, then persist as base64.
     const logoFile = !DataStore.isLocal() && document.getElementById('settings-logo')
@@ -2223,9 +2407,706 @@ class ChillPOS {
   }
 
   setActiveType(type) {
-    document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#transaksi-form .type-btn').forEach(btn => btn.classList.remove('active'));
     // type === null leaves both deselected, forcing an explicit choice on new transactions.
-    if (type) document.querySelector(`.type-btn.${type}`).classList.add('active');
+    if (type) document.querySelector(`#transaksi-form .type-btn.${type}`)?.classList.add('active');
+    const fields = document.getElementById('tx-fields');
+    if (fields) fields.hidden = !type;
+  }
+
+  // ============================================================
+  // RENTAL — bike rate + owner share, one save, two ledger rows
+  // ============================================================
+
+  _moneyFromInput(el) {
+    if (!el) return 0;
+    const source = el.dataset.raw != null ? el.dataset.raw : el.value;
+    const digits = String(source).replace(/\D/g, '');
+    return digits ? parseInt(digits, 10) : 0;
+  }
+
+  _setMoneyInput(el, amount) {
+    if (!el) return 0;
+    const n = Math.max(0, Math.round(Number(amount) || 0));
+    el.dataset.raw = n ? String(n) : '';
+    el.value = n ? this.formatNumber(n) : '';
+    return n;
+  }
+
+  _formatMoneyField(el) {
+    const raw = String(el.value || '').replace(/\D/g, '');
+    el.dataset.raw = raw;
+    el.value = raw ? this.formatNumber(Number(raw)) : '';
+  }
+
+  _formatRentalMoney(inputId, previewId) {
+    const el = document.getElementById(inputId);
+    this._formatMoneyField(el);
+    const n = this._moneyFromInput(el);
+    const preview = document.getElementById(previewId);
+    if (preview) preview.textContent = n ? this.formatCurrency(n) : '';
+  }
+
+  _rentalFleet() {
+    return normalizeRentalFleet(DataStore.settings.rentalFleet);
+  }
+
+  _rentalPair(tx) {
+    const link = parseRentalNote(tx?.keterangan);
+    if (!link?.id) return null;
+    const rows = this.transactions.filter(row => parseRentalNote(row.keterangan)?.id === link.id);
+    return {
+      sewaId: link.id,
+      link,
+      rows,
+      income: rows.find(row => row.jenis === 'INCOME') || null,
+      outgoing: rows.find(row => row.jenis === 'OUTGOING') || null,
+    };
+  }
+
+  _setRentalTitle(editing) {
+    const title = document.querySelector('#rental-modal h2 [data-i18n]');
+    if (!title) return;
+    title.dataset.i18n = editing ? 'rentalEditTitle' : 'rentalTitle';
+    title.textContent = t(title.dataset.i18n);
+  }
+
+  _rentalMethodOptions() {
+    const fromForm = [...document.querySelectorAll('#f-metode option')].map(opt => opt.value).filter(Boolean);
+    return fromForm.length ? fromForm : Validator.VALID_METODE;
+  }
+
+  _setRentalMethod(select, value) {
+    if (!select) return '';
+    const options = this._rentalMethodOptions();
+    select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.disabled = true;
+    placeholder.dataset.i18n = 'rentalPickMethod';
+    placeholder.textContent = t('rentalPickMethod');
+    select.appendChild(placeholder);
+    options.forEach(method => {
+      const opt = document.createElement('option');
+      opt.value = method;
+      opt.textContent = method;
+      select.appendChild(opt);
+    });
+    const chosen = options.includes(value) ? value : '';
+    select.value = chosen;
+    return chosen;
+  }
+
+  showRentalForm(existingTx = null) {
+    const editing = !!(existingTx && existingTx.id);
+    const perm = editing ? PERMISSIONS.EDIT_TRANSACTION : PERMISSIONS.CREATE_TRANSACTION;
+    if (!Auth.can(perm)) {
+      this.showAlert(t('noPermission'), 'error'); return;
+    }
+    if (!editing && !this.shiftActive) { this.showMulaiShiftModal(); return; }
+
+    this._rentalEdit = null;
+    this._setRentalTitle(editing);
+    const guestEl = document.getElementById('rental-guest-name');
+    const plateEl = document.getElementById('rental-plate');
+    const ownerEl = document.getElementById('rental-owner-name');
+    const daysEl = document.getElementById('rental-days');
+
+    if (editing) {
+      const pair = this._rentalPair(existingTx);
+      this._rentalEdit = pair;
+      const link = pair?.link || {};
+      guestEl.value = link.guest || '';
+      plateEl.value = link.plate || '';
+      ownerEl.value = link.owner || '';
+      daysEl.value = link.days || '';
+      const guestAmt = pair?.income
+        ? Math.abs(pair.income.jumlah)
+        : (existingTx.jenis === 'INCOME' ? Math.abs(existingTx.jumlah) : 0);
+      const ownerAmt = pair?.outgoing
+        ? Math.abs(pair.outgoing.jumlah)
+        : (existingTx.jenis === 'OUTGOING' ? Math.abs(existingTx.jumlah) : 0);
+      this._setMoneyInput(document.getElementById('rental-guest'), guestAmt);
+      this._setMoneyInput(document.getElementById('rental-owner-share'), ownerAmt);
+      const guestMethod = pair?.income?.metode
+        || (existingTx.jenis === 'INCOME' ? existingTx.metode : '');
+      const ownerMethod = pair?.outgoing?.metode
+        || (existingTx.jenis === 'OUTGOING' ? existingTx.metode : '');
+      this._setRentalMethod(document.getElementById('rental-guest-method'), guestMethod);
+      this._setRentalMethod(document.getElementById('rental-owner-method'), ownerMethod);
+    } else {
+      guestEl.value = '';
+      plateEl.value = '';
+      ownerEl.value = '';
+      daysEl.value = '';
+      this._setMoneyInput(document.getElementById('rental-guest'), 0);
+      this._setMoneyInput(document.getElementById('rental-owner-share'), 0);
+      this._setRentalMethod(document.getElementById('rental-guest-method'), '');
+      this._setRentalMethod(document.getElementById('rental-owner-method'), '');
+    }
+    document.getElementById('rental-modal').style.display = 'flex';
+    guestEl.focus();
+  }
+
+  hideRentalForm() {
+    this._rentalEdit = null;
+    this._setRentalTitle(false);
+    document.getElementById('rental-modal').style.display = 'none';
+  }
+
+  _rentalDays() {
+    const raw = String(document.getElementById('rental-days').value || '').trim();
+    if (!/^\d+$/.test(raw)) return 0;
+    const n = parseInt(raw, 10);
+    return n >= 1 && n <= 999 ? n : 0;
+  }
+
+  async simpanSewa() {
+    const fleet = this._rentalFleet();
+    const ownerName = document.getElementById('rental-owner-name').value.trim();
+    const plate = document.getElementById('rental-plate').value.trim();
+    const guestName = document.getElementById('rental-guest-name').value.trim();
+    const days = this._rentalDays();
+    const guest = this._moneyFromInput(document.getElementById('rental-guest'));
+    const share = this._moneyFromInput(document.getElementById('rental-owner-share'));
+    const guestMethod = document.getElementById('rental-guest-method').value;
+    const ownerMethod = document.getElementById('rental-owner-method').value;
+    const staff = Auth.currentUser()?.username || '';
+    const methods = this._rentalMethodOptions();
+
+    // Owner share 0 = guest pays with no owner payout (extra key, extension, own bike).
+    if (!ownerName || !plate || !guestName || !days || guest <= 0 || share < 0 || !staff
+        || !methods.includes(guestMethod) || (share > 0 && !methods.includes(ownerMethod))) {
+      this.showAlert(t('rentalFillForm'), 'error'); return;
+    }
+
+    const submitBtn = document.getElementById('rental-save');
+    const originalHTML = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    const editing = this._rentalEdit;
+    const sewaId = editing?.sewaId || crypto.randomUUID();
+    const deskripsi = `${plate} · ${rentalDayPhrase(days)}`;
+    const keterangan = packRentalNote({ id: sewaId, guest: guestName, plate, days, owner: ownerName });
+    const tanggalWaktu = new Date().toISOString();
+    const incomeBase = editing?.income || null;
+    const outgoingBase = editing?.outgoing || null;
+    const incomeSnap = incomeBase ? { ...incomeBase } : null;
+    const income = {
+      id: incomeBase?.id || crypto.randomUUID(),
+      jenis: 'INCOME',
+      kategori: incomeBase?.kategori || fleet.guestCategory,
+      deskripsi,
+      jumlah: guest,
+      metode: guestMethod,
+      keterangan,
+      staff: incomeBase?.staff || staff,
+      tanggalWaktu: incomeBase?.tanggalWaktu || tanggalWaktu,
+    };
+    const outgoing = {
+      id: outgoingBase?.id || crypto.randomUUID(),
+      jenis: 'OUTGOING',
+      kategori: outgoingBase?.kategori || fleet.ownerCategory,
+      deskripsi,
+      jumlah: -share,
+      metode: ownerMethod,
+      keterangan,
+      staff: outgoingBase?.staff || staff,
+      tanggalWaktu: outgoingBase?.tanggalWaktu || income.tanggalWaktu,
+    };
+
+    try {
+      await this._ensureRentalCategories(income.kategori, share > 0 ? outgoing.kategori : null);
+      if (incomeBase) await DataStore.updateTransaction(income);
+      else await DataStore.insertTransaction(income);
+      try {
+        if (share === 0) {
+          if (outgoingBase) await DataStore.deleteTransaction(outgoingBase.id);
+        } else if (outgoingBase) await DataStore.updateTransaction(outgoing);
+        else await DataStore.insertTransaction(outgoing);
+      } catch (err) {
+        if (incomeSnap) await DataStore.updateTransaction(incomeSnap);
+        else await DataStore.deleteTransaction(income.id);
+        throw err;
+      }
+      this.renderAll();
+      this.hideRentalForm();
+      this.showAlert(t(editing ? 'rentalUpdated' : 'rentalSaved'), 'success');
+    } catch (e) {
+      this.showAlert(`${t('rentalFillForm')} (${e?.message || e})`, 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalHTML;
+    }
+  }
+
+  async _ensureRentalCategories(...names) {
+    let added = false;
+    names.filter(Boolean).forEach(name => {
+      if (!this.categories.includes(name)) {
+        this.categories.push(name);
+        added = true;
+      }
+    });
+    if (added) await DataStore.saveCategories(this.categories);
+  }
+
+  async _ensureNonRevenue(name) {
+    const list = DataStore.settings.nonRevenueCategories || [];
+    if (!name || list.includes(name)) return;
+    await DataStore.saveSetting('non_revenue_categories', [...list, name]);
+  }
+
+  _cashoutPair(tx) {
+    const link = parseCashoutNote(tx?.keterangan);
+    if (!link?.id) return null;
+    const rows = this.transactions.filter(row => parseCashoutNote(row.keterangan)?.id === link.id);
+    return {
+      id: link.id,
+      link,
+      rows,
+      income: rows.find(row => row.jenis === 'INCOME') || null,
+      outgoing: rows.find(row => row.jenis === 'OUTGOING') || null,
+    };
+  }
+
+  _setCashoutMethod(value) {
+    const select = document.getElementById('cashout-method');
+    select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.disabled = true;
+    placeholder.dataset.i18n = 'rentalPickMethod';
+    placeholder.textContent = t('rentalPickMethod');
+    select.appendChild(placeholder);
+    CASHOUT_IN_METHODS.forEach(method => {
+      const opt = document.createElement('option');
+      opt.value = method;
+      opt.textContent = method;
+      select.appendChild(opt);
+    });
+    select.value = CASHOUT_IN_METHODS.includes(value) ? value : '';
+  }
+
+  _setCashoutTitle(editing) {
+    const title = document.querySelector('#cashout-modal h2 [data-i18n]');
+    if (!title) return;
+    title.dataset.i18n = editing ? 'cashoutEditTitle' : 'cashoutTitle';
+    title.textContent = t(title.dataset.i18n);
+  }
+
+  showCashoutForm(existingTx = null) {
+    const editing = !!(existingTx && existingTx.id);
+    const perm = editing ? PERMISSIONS.EDIT_TRANSACTION : PERMISSIONS.CREATE_TRANSACTION;
+    if (!Auth.can(perm)) {
+      this.showAlert(t('noPermission'), 'error'); return;
+    }
+    if (!editing && !this.shiftActive) { this.showMulaiShiftModal(); return; }
+
+    this._cashoutEdit = null;
+    this._setCashoutTitle(editing);
+    document.getElementById('cashout-cash').value = 'Cash';
+    document.getElementById('cashout-category').value = CASHOUT_CATEGORY;
+    const amountEl = document.getElementById('cashout-amount');
+
+    if (editing) {
+      const pair = this._cashoutPair(existingTx);
+      this._cashoutEdit = pair;
+      const amount = pair?.income
+        ? Math.abs(pair.income.jumlah)
+        : Math.abs(existingTx.jumlah || 0);
+      this._setMoneyInput(amountEl, amount);
+      const method = pair?.income?.metode
+        || (existingTx.jenis === 'INCOME' ? existingTx.metode : pair?.link?.method || '');
+      this._setCashoutMethod(method);
+    } else {
+      this._setMoneyInput(amountEl, 0);
+      this._setCashoutMethod('');
+    }
+    document.getElementById('cashout-modal').style.display = 'flex';
+    amountEl.focus();
+  }
+
+  hideCashoutForm() {
+    this._cashoutEdit = null;
+    this._setCashoutTitle(false);
+    document.getElementById('cashout-modal').style.display = 'none';
+  }
+
+  async simpanCashout() {
+    const amount = this._moneyFromInput(document.getElementById('cashout-amount'));
+    const method = document.getElementById('cashout-method').value;
+    const staff = Auth.currentUser()?.username || '';
+    if (amount <= 0 || !CASHOUT_IN_METHODS.includes(method) || !staff) {
+      this.showAlert(t('cashoutFill'), 'error'); return;
+    }
+
+    const submitBtn = document.getElementById('cashout-save');
+    const originalHTML = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    const editing = this._cashoutEdit;
+    const cashoutId = editing?.id || crypto.randomUUID();
+    const keterangan = packCashoutNote({ id: cashoutId, method });
+    const deskripsi = CASHOUT_CATEGORY;
+    const tanggalWaktu = new Date().toISOString();
+    const incomeBase = editing?.income || null;
+    const outgoingBase = editing?.outgoing || null;
+    const incomeSnap = incomeBase ? { ...incomeBase } : null;
+    const income = {
+      id: incomeBase?.id || crypto.randomUUID(),
+      jenis: 'INCOME',
+      kategori: CASHOUT_CATEGORY,
+      deskripsi,
+      jumlah: amount,
+      metode: method,
+      keterangan,
+      staff: incomeBase?.staff || staff,
+      tanggalWaktu: incomeBase?.tanggalWaktu || tanggalWaktu,
+    };
+    const outgoing = {
+      id: outgoingBase?.id || crypto.randomUUID(),
+      jenis: 'OUTGOING',
+      kategori: CASHOUT_CATEGORY,
+      deskripsi,
+      jumlah: -amount,
+      metode: 'Cash',
+      keterangan,
+      staff: outgoingBase?.staff || staff,
+      tanggalWaktu: outgoingBase?.tanggalWaktu || income.tanggalWaktu,
+    };
+
+    try {
+      await this._ensureRentalCategories(CASHOUT_CATEGORY);
+      await this._ensureNonRevenue(CASHOUT_CATEGORY);
+      if (incomeBase) await DataStore.updateTransaction(income);
+      else await DataStore.insertTransaction(income);
+      try {
+        if (outgoingBase) await DataStore.updateTransaction(outgoing);
+        else await DataStore.insertTransaction(outgoing);
+      } catch (err) {
+        if (incomeSnap) await DataStore.updateTransaction(incomeSnap);
+        else await DataStore.deleteTransaction(income.id);
+        throw err;
+      }
+      this.renderAll();
+      this.hideCashoutForm();
+      this.showAlert(t(editing ? 'cashoutUpdated' : 'cashoutSaved'), 'success');
+    } catch (e) {
+      this.showAlert(`${t('cashoutFill')} (${e?.message || e})`, 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalHTML;
+    }
+  }
+
+  _bankPair(tx) {
+    const link = parseBankNote(tx?.keterangan);
+    if (!link?.id) return null;
+    const rows = this.transactions.filter(row => parseBankNote(row.keterangan)?.id === link.id);
+    return {
+      id: link.id,
+      rows,
+      income: rows.find(row => row.jenis === 'INCOME') || null,
+      outgoing: rows.find(row => row.jenis === 'OUTGOING') || null,
+    };
+  }
+
+  _setBankTitle(editing) {
+    const title = document.querySelector('#bank-modal h2 [data-i18n]');
+    if (!title) return;
+    title.dataset.i18n = editing ? 'bankEditTitle' : 'bankTitle';
+    title.textContent = t(title.dataset.i18n);
+  }
+
+  showBankForm(existingTx = null) {
+    const editing = !!(existingTx && existingTx.id);
+    const perm = editing ? PERMISSIONS.EDIT_TRANSACTION : PERMISSIONS.CREATE_TRANSACTION;
+    if (!Auth.can(perm)) {
+      this.showAlert(t('noPermission'), 'error'); return;
+    }
+    if (!editing && !this.shiftActive) { this.showMulaiShiftModal(); return; }
+
+    this._bankEdit = null;
+    this._setBankTitle(editing);
+    document.getElementById('bank-card').value = 'Card';
+    document.getElementById('bank-cash').value = 'Cash';
+    document.getElementById('bank-category').value = BANK_CATEGORY;
+    const amountEl = document.getElementById('bank-amount');
+
+    if (editing) {
+      const pair = this._bankPair(existingTx);
+      this._bankEdit = pair;
+      const amount = pair?.income
+        ? Math.abs(pair.income.jumlah)
+        : Math.abs(existingTx.jumlah || 0);
+      this._setMoneyInput(amountEl, amount);
+    } else {
+      this._setMoneyInput(amountEl, 0);
+    }
+    document.getElementById('bank-modal').style.display = 'flex';
+    amountEl.focus();
+  }
+
+  hideBankForm() {
+    this._bankEdit = null;
+    this._setBankTitle(false);
+    document.getElementById('bank-modal').style.display = 'none';
+  }
+
+  async simpanBank() {
+    const amount = this._moneyFromInput(document.getElementById('bank-amount'));
+    const staff = Auth.currentUser()?.username || '';
+    if (amount <= 0 || !staff) {
+      this.showAlert(t('bankFill'), 'error'); return;
+    }
+
+    const submitBtn = document.getElementById('bank-save');
+    const originalHTML = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    const editing = this._bankEdit;
+    const bankId = editing?.id || crypto.randomUUID();
+    const keterangan = packBankNote({ id: bankId });
+    const deskripsi = BANK_CATEGORY;
+    const tanggalWaktu = new Date().toISOString();
+    const incomeBase = editing?.income || null;
+    const outgoingBase = editing?.outgoing || null;
+    const outgoingSnap = outgoingBase ? { ...outgoingBase } : null;
+    const outgoing = {
+      id: outgoingBase?.id || crypto.randomUUID(),
+      jenis: 'OUTGOING',
+      kategori: BANK_CATEGORY,
+      deskripsi,
+      jumlah: -amount,
+      metode: 'Card',
+      keterangan,
+      staff: outgoingBase?.staff || staff,
+      tanggalWaktu: outgoingBase?.tanggalWaktu || tanggalWaktu,
+    };
+    const income = {
+      id: incomeBase?.id || crypto.randomUUID(),
+      jenis: 'INCOME',
+      kategori: BANK_CATEGORY,
+      deskripsi,
+      jumlah: amount,
+      metode: 'Cash',
+      keterangan,
+      staff: incomeBase?.staff || staff,
+      tanggalWaktu: incomeBase?.tanggalWaktu || outgoing.tanggalWaktu,
+    };
+
+    try {
+      await this._ensureRentalCategories(BANK_CATEGORY);
+      await this._ensureNonRevenue(BANK_CATEGORY);
+      if (outgoingBase) await DataStore.updateTransaction(outgoing);
+      else await DataStore.insertTransaction(outgoing);
+      try {
+        if (incomeBase) await DataStore.updateTransaction(income);
+        else await DataStore.insertTransaction(income);
+      } catch (err) {
+        if (outgoingSnap) await DataStore.updateTransaction(outgoingSnap);
+        else await DataStore.deleteTransaction(outgoing.id);
+        throw err;
+      }
+      this.renderAll();
+      this.hideBankForm();
+      this.showAlert(t(editing ? 'bankUpdated' : 'bankSaved'), 'success');
+    } catch (e) {
+      this.showAlert(`${t('bankFill')} (${e?.message || e})`, 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalHTML;
+    }
+  }
+
+  showRentalFleet() {
+    if (!Auth.can(PERMISSIONS.MANAGE_SETTINGS)) {
+      this.showAlert(t('noPermission'), 'error'); return;
+    }
+    this.hideSettings();
+    this._fleetDraft = this._rentalFleet();
+    document.getElementById('fleet-guest-cat').value = this._fleetDraft.guestCategory;
+    document.getElementById('fleet-owner-cat').value = this._fleetDraft.ownerCategory;
+    document.getElementById('fleet-new-owner').value = '';
+    this._renderFleetLists();
+    document.getElementById('rental-fleet-modal').style.display = 'flex';
+  }
+
+  hideRentalFleet() {
+    document.getElementById('rental-fleet-modal').style.display = 'none';
+  }
+
+  _scrapeFleetDraft() {
+    const owners = [];
+    document.querySelectorAll('#fleet-owner-list .cat-row').forEach(row => {
+      owners.push({
+        id: row.dataset.id,
+        name: row.querySelector('.fo-name')?.value.trim() || '',
+      });
+    });
+    const bikes = [];
+    document.querySelectorAll('#fleet-bike-list .rental-bike').forEach(row => {
+      const shareType = row.querySelector('.rb-share-type').value === 'fixed' ? 'fixed' : 'percent';
+      const shareEl = row.querySelector('.rb-share');
+      let shareValue = 0;
+      if (shareType === 'fixed') {
+        shareValue = this._moneyFromInput(shareEl);
+      } else {
+        const rawShare = String(shareEl.value || '').trim();
+        const n = parseFloat(rawShare.replace(',', '.'));
+        shareValue = rawShare === '' ? 0 : (Number.isFinite(n) ? Math.round(n * 10) / 10 : NaN);
+      }
+      bikes.push({
+        id: row.dataset.id,
+        name: row.querySelector('.rb-name')?.value.trim() || '',
+        rateHour: this._moneyFromInput(row.querySelector('.rb-hour')),
+        rateDay: this._moneyFromInput(row.querySelector('.rb-day')),
+        shareType,
+        shareValue,
+      });
+    });
+    this._fleetDraft = {
+      owners,
+      bikes,
+      guestCategory: document.getElementById('fleet-guest-cat').value.trim(),
+      ownerCategory: document.getElementById('fleet-owner-cat').value.trim(),
+    };
+  }
+
+  _renderFleetLists() {
+    const draft = this._fleetDraft || this._rentalFleet();
+    const ownerList = document.getElementById('fleet-owner-list');
+    const bikeList = document.getElementById('fleet-bike-list');
+    ownerList.innerHTML = '';
+    if (draft.owners.length === 0) {
+      ownerList.innerHTML = `<div class="wizard-hint">${this.escapeHtml(t('rentalNoOwners'))}</div>`;
+    }
+    draft.owners.forEach(o => {
+      const row = document.createElement('div');
+      row.className = 'cat-row';
+      row.dataset.id = o.id;
+      row.innerHTML = `
+        <input type="text" class="fo-name" maxlength="40" value="${this.escapeHtml(o.name)}">
+        <button type="button" class="cat-btn fo-delete" title="${this.escapeHtml(t('rentalRemove'))}"><i class="fas fa-times"></i></button>
+      `;
+      ownerList.appendChild(row);
+    });
+    bikeList.innerHTML = '';
+    if (draft.bikes.length === 0) {
+      bikeList.innerHTML = `<div class="wizard-hint">${this.escapeHtml(t('rentalNoBikes'))}</div>`;
+    }
+    draft.bikes.forEach(b => {
+      const percent = b.shareType !== 'fixed';
+      const row = document.createElement('div');
+      row.className = 'rental-bike';
+      row.dataset.id = b.id;
+      row.innerHTML = `
+        <div class="rental-bike-head">
+          <input type="text" class="rb-name" maxlength="40" value="${this.escapeHtml(b.name)}" placeholder="${this.escapeHtml(t('rentalBikeName'))}">
+          <button type="button" class="cat-btn rb-delete" title="${this.escapeHtml(t('rentalRemove'))}"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="rental-bike-grid">
+          <div>
+            <label>${this.escapeHtml(t('rentalRateHour'))}</label>
+            <input type="text" class="rb-hour" inputmode="numeric" autocomplete="off" placeholder="0">
+          </div>
+          <div>
+            <label>${this.escapeHtml(t('rentalRateDay'))}</label>
+            <input type="text" class="rb-day" inputmode="numeric" autocomplete="off" placeholder="0">
+          </div>
+        </div>
+        <div class="rental-share-row">
+          <div>
+            <label>${this.escapeHtml(t('rentalShareType'))}</label>
+            <select class="rb-share-type">
+              <option value="percent"${percent ? ' selected' : ''}>${this.escapeHtml(t('rentalSharePercent'))}</option>
+              <option value="fixed"${percent ? '' : ' selected'}>${this.escapeHtml(t('rentalShareFixed'))}</option>
+            </select>
+          </div>
+          <div>
+            <label>${this.escapeHtml(t('rentalOwnerShare'))}</label>
+            <input type="text" class="rb-share" inputmode="decimal" autocomplete="off" placeholder="0">
+          </div>
+        </div>
+      `;
+      bikeList.appendChild(row);
+      this._setMoneyInput(row.querySelector('.rb-hour'), b.rateHour);
+      this._setMoneyInput(row.querySelector('.rb-day'), b.rateDay);
+      const share = row.querySelector('.rb-share');
+      if (percent) share.value = b.shareValue ? String(b.shareValue) : '';
+      else this._setMoneyInput(share, b.shareValue);
+    });
+  }
+
+  _addFleetOwner() {
+    this._scrapeFleetDraft();
+    const name = document.getElementById('fleet-new-owner').value.trim();
+    if (!name) return;
+    if (this._fleetDraft.owners.some(o => o.name.toLowerCase() === name.toLowerCase())) {
+      this.showAlert(t('rentalDuplicate'), 'error'); return;
+    }
+    this._fleetDraft.owners.push({ id: crypto.randomUUID(), name });
+    document.getElementById('fleet-new-owner').value = '';
+    this._renderFleetLists();
+  }
+
+  _addFleetBike() {
+    this._scrapeFleetDraft();
+    this._fleetDraft.bikes.push({
+      id: crypto.randomUUID(),
+      name: '',
+      rateHour: 0,
+      rateDay: 0,
+      shareType: 'percent',
+      shareValue: 0,
+    });
+    this._renderFleetLists();
+    const names = document.querySelectorAll('#fleet-bike-list .rb-name');
+    names[names.length - 1]?.focus();
+  }
+
+  async saveRentalFleet() {
+    this._scrapeFleetDraft();
+    const draft = this._fleetDraft;
+    if (!draft.guestCategory || !draft.ownerCategory) {
+      this.showAlert(t('rentalBadCategory'), 'error'); return;
+    }
+    if (draft.guestCategory === draft.ownerCategory || SYSTEM_CATEGORIES.includes(draft.guestCategory) || SYSTEM_CATEGORIES.includes(draft.ownerCategory)) {
+      this.showAlert(t('rentalBadCategory'), 'error'); return;
+    }
+    const ownerNames = new Set();
+    for (const o of draft.owners) {
+      if (!o.name) { this.showAlert(t('rentalFillForm'), 'error'); return; }
+      const key = o.name.toLowerCase();
+      if (ownerNames.has(key)) { this.showAlert(t('rentalDuplicate'), 'error'); return; }
+      ownerNames.add(key);
+    }
+    const bikeNames = new Set();
+    for (const b of draft.bikes) {
+      if (!b.name) { this.showAlert(t('rentalFillForm'), 'error'); return; }
+      const key = b.name.toLowerCase();
+      if (bikeNames.has(key)) { this.showAlert(t('rentalDuplicate'), 'error'); return; }
+      bikeNames.add(key);
+      if (b.rateHour <= 0 && b.rateDay <= 0) { this.showAlert(t('rentalNeedRate'), 'error'); return; }
+      if (b.shareType === 'percent' && !(b.shareValue >= 0 && b.shareValue <= 100)) {
+        this.showAlert(t('rentalBadPercent'), 'error'); return;
+      }
+      if (b.shareType === 'fixed' && !(b.shareValue >= 0)) {
+        this.showAlert(t('rentalFillForm'), 'error'); return;
+      }
+    }
+    const clean = normalizeRentalFleet(draft);
+    try {
+      await DataStore.saveSetting('rental_fleet', clean);
+      this.hideRentalFleet();
+      this.showAlert(t('rentalFleetSaved'), 'success');
+    } catch (e) {
+      this.showAlert(e?.message || t('rentalFillForm'), 'error');
+    }
   }
 
   // ============================================================
@@ -2307,11 +3188,22 @@ class ChillPOS {
     if (!Auth.can(PERMISSIONS.DELETE_TRANSACTION)) {
       this.showAlert(t('noPermission'), 'error'); return;
     }
-    this.showConfirm(t('confirmDefault'), async () => {
+    const tx = this.transactions.find(row => row.id === id);
+    const bankPair = tx ? this._bankPair(tx) : null;
+    const cashPair = !bankPair && tx ? this._cashoutPair(tx) : null;
+    const rentalPair = !bankPair && !cashPair && tx ? this._rentalPair(tx) : null;
+    const pair = bankPair || cashPair || rentalPair;
+    const ids = pair?.rows?.length ? pair.rows.map(row => row.id) : [id];
+    const both = ids.length > 1;
+    const confirmKey = !both ? 'confirmDefault'
+      : (bankPair ? 'confirmDeleteBank' : cashPair ? 'confirmDeleteCashout' : 'confirmDeleteRental');
+    const doneKey = !both ? 'alertDeleted'
+      : (bankPair ? 'bankDeleted' : cashPair ? 'cashoutDeleted' : 'rentalDeleted');
+    this.showConfirm(t(confirmKey), async () => {
       try {
-        await DataStore.deleteTransaction(id);
+        for (const rowId of ids) await DataStore.deleteTransaction(rowId);
         this.renderAll();
-        this.showAlert(t('alertDeleted'), 'success');
+        this.showAlert(t(doneKey), 'success');
       } catch (e) {
         this.showAlert(`${t('alertDeleted')} ${e?.message || e}`, 'error');
       }

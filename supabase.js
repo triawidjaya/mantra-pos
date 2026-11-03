@@ -15,13 +15,186 @@
 //   - Storage / AuthStorage: legacy-compatible facades over DataStore + localStorage
 // ============================================================
 
+// mantra-pos is served from triawidjaya.github.io, the same origin as the older
+// chill-poss app, so both share one localStorage. Every key is prefixed so
+// neither app ever reads the other's mode, Supabase project, session or data.
+const STORAGE_PREFIX = 'mantra:';
+const appStorage = {
+  get(key)        { return localStorage.getItem(STORAGE_PREFIX + key); },
+  set(key, value) { localStorage.setItem(STORAGE_PREFIX + key, value); },
+  remove(key)     { localStorage.removeItem(STORAGE_PREFIX + key); },
+};
+
+// Category names follow the shop's own cashbook (October 2026 export).
+const RENTAL_GUEST_CATEGORY = 'RENTAL PAYMENT';
+const RENTAL_OWNER_CATEGORY = 'PAY TO OWNER';
+const CASHOUT_CATEGORY = 'TarikTunai';
+const BANK_CATEGORY = 'PETTY-CASH';
+// Money moving between methods, never a sale or an expense, even if Settings unchecks them.
+const SYSTEM_NON_REVENUE = [CASHOUT_CATEGORY, BANK_CATEGORY];
+
+// New-shop setup for a scooter rental, taken from the October 2026 cashbook.
+// types: which side of the toggle a category belongs to; missing = both sides.
+const RENTAL_SHOP_DEFAULTS = {
+  categories: [
+    'START BALANCE',
+    RENTAL_GUEST_CATEGORY,
+    'TRANSPORT SERVICES',
+    'FEE',
+    RENTAL_OWNER_CATEGORY,
+    'PAY TO DRIVER',
+    'Oprasional',
+    'CashBon',
+    CASHOUT_CATEGORY,
+    BANK_CATEGORY,
+  ],
+  types: {
+    [RENTAL_GUEST_CATEGORY]: 'INCOME',
+    'TRANSPORT SERVICES':    'INCOME',
+    'FEE':                   'INCOME',
+    [RENTAL_OWNER_CATEGORY]: 'OUTGOING',
+    'PAY TO DRIVER':         'OUTGOING',
+    'Oprasional':            'OUTGOING',
+    'CashBon':               'OUTGOING',
+  },
+  nonRevenue: ['START BALANCE', CASHOUT_CATEGORY, BANK_CATEGORY, 'CashBon'],
+};
+
+function normalizeCategoryTypes(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  Object.entries(raw).forEach(([name, type]) => {
+    if (type === 'INCOME' || type === 'OUTGOING') out[name] = type;
+  });
+  return out;
+}
+
+// Per-shop rental catalog. Rates live here, never as constants in the app.
+// shareType 'percent' = share of the guest total. 'fixed' = IDR per hour or per day.
+function normalizeRentalFleet(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const owners = (Array.isArray(src.owners) ? src.owners : []).map(o => ({
+    id:   String(o?.id || '').trim(),
+    name: String(o?.name || '').trim(),
+  })).filter(o => o.id && o.name);
+  const bikes = (Array.isArray(src.bikes) ? src.bikes : []).map(b => ({
+    id:         String(b?.id || '').trim(),
+    name:       String(b?.name || '').trim(),
+    rateHour:   Math.max(0, Math.round(Number(b?.rateHour) || 0)),
+    rateDay:    Math.max(0, Math.round(Number(b?.rateDay) || 0)),
+    shareType:  b?.shareType === 'fixed' ? 'fixed' : 'percent',
+    shareValue: Math.max(0, Number(b?.shareValue) || 0),
+  })).filter(b => b.id && b.name);
+  const pick = (value, fallback) => {
+    const name = String(value || '').trim();
+    return name || fallback;
+  };
+  const guestCategory = pick(src.guestCategory, RENTAL_GUEST_CATEGORY);
+  const ownerCategory = pick(src.ownerCategory, RENTAL_OWNER_CATEGORY);
+  return { owners, bikes, guestCategory, ownerCategory };
+}
+
+// Guest total and owner share for one rental. qty is hours or days.
+function quoteRental(bike, unit, qty) {
+  const q = Math.max(0, Math.floor(Number(qty) || 0));
+  const unitRate = unit === 'hari' ? (Number(bike?.rateDay) || 0) : (Number(bike?.rateHour) || 0);
+  const guest = Math.round(unitRate * q);
+  const owner = bike?.shareType === 'fixed'
+    ? Math.round((Number(bike.shareValue) || 0) * q)
+    : Math.round(guest * (Number(bike?.shareValue) || 0) / 100);
+  return { guest, owner };
+}
+
+// Pair link for one rental. Lives inside keterangan so it round-trips through
+// the existing column. The cashbook never prints this string; it prints
+// rentalNoteDisplay() instead.
+function packRentalNote({ id, guest, plate, days, owner }) {
+  const payload = [guest, plate, String(days), owner]
+    .map(v => encodeURIComponent(String(v ?? ''))).join('|');
+  return `[sewa:${id}|${payload}]`;
+}
+
+function _decodeRentalPart(value) {
+  try { return decodeURIComponent(value); } catch { return value; }
+}
+
+function parseRentalNote(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text) return null;
+  const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+  const packed = text.match(new RegExp(`^\\[sewa:(${uuid})\\|([^\\]]*)\\]$`, 'i'));
+  if (packed) {
+    const parts = packed[2].split('|').map(_decodeRentalPart);
+    const days = parseInt(parts[2], 10);
+    return {
+      id: packed[1],
+      guest: parts[0] || '',
+      plate: parts[1] || '',
+      days: Number.isFinite(days) ? days : 0,
+      owner: parts.length > 4 ? parts.slice(3).join('|') : (parts[3] || ''),
+    };
+  }
+  const legacy = text.match(new RegExp(`\\[sewa:(${uuid})\\]\\s*$`, 'i'));
+  if (!legacy) return null;
+  const body = text.replace(new RegExp(`\\s*\\[sewa:${uuid}\\]\\s*$`, 'i'), '').trim();
+  const bits = body.split(' · ');
+  const stripLabel = (value, labels) => {
+    let out = String(value || '').trim();
+    labels.forEach(label => {
+      const re = new RegExp('^' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i');
+      if (re.test(out)) out = out.replace(re, '').trim();
+    });
+    return out;
+  };
+  const dayMatch = String(bits[2] || '').match(/(\d+)/);
+  return {
+    id: legacy[1],
+    guest: stripLabel(bits[0], ['Guest name', 'Nama tamu']),
+    plate: stripLabel(bits[1], ['Motorcycle plate', 'Plat motor']),
+    days: dayMatch ? parseInt(dayMatch[1], 10) : 0,
+    owner: stripLabel(bits.slice(3).join(' · '), ['Owner', 'Pemilik']),
+  };
+}
+
+// Pair link for one cash-out (tarik tunai). Same keterangan column, different tag
+// from a rental, so the cashbook can hide the id and show a short note.
+function packCashoutNote({ id, method }) {
+  return `[tunai:${id}|${encodeURIComponent(String(method ?? ''))}]`;
+}
+
+function parseCashoutNote(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text) return null;
+  const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+  const packed = text.match(new RegExp(`^\\[tunai:(${uuid})\\|([^\\]]*)\\]$`, 'i'));
+  if (!packed) return null;
+  let method = packed[2];
+  try { method = decodeURIComponent(method); } catch { /* keep raw */ }
+  return { id: packed[1], method };
+}
+
+// Card settlement moved into the cash box. Not a sale and not tarik tunai.
+// Methods are fixed (Card out, Cash in), so the tag only keeps the pair id.
+function packBankNote({ id }) {
+  return `[bank:${id}]`;
+}
+
+function parseBankNote(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text) return null;
+  const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+  const packed = text.match(new RegExp(`^\\[bank:(${uuid})\\]$`, 'i'));
+  if (!packed) return null;
+  return { id: packed[1] };
+}
+
 // ── Config storage ──
 const SB_CONFIG_KEY = 'pos_sb_config';
 
 const SupabaseConfig = {
   load() {
     try {
-      const raw = localStorage.getItem(SB_CONFIG_KEY);
+      const raw = appStorage.get(SB_CONFIG_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   },
@@ -30,11 +203,11 @@ const SupabaseConfig = {
     const cleanKey = String(key || '').trim();
     if (!this.isValidUrl(cleanUrl)) throw new Error('invalidSupabaseUrl');
     if (!this.isValidKey(cleanKey)) throw new Error('invalidSupabaseKey');
-    localStorage.setItem(SB_CONFIG_KEY, JSON.stringify({ url: cleanUrl, key: cleanKey }));
+    appStorage.set(SB_CONFIG_KEY, JSON.stringify({ url: cleanUrl, key: cleanKey }));
     _client = null; // force re-init next getSupabase()
   },
   clear() {
-    localStorage.removeItem(SB_CONFIG_KEY);
+    appStorage.remove(SB_CONFIG_KEY);
     _client = null;
   },
   // Strip common copy-paste cruft: trailing slashes, REST path, whitespace.
@@ -142,14 +315,14 @@ const DataStore = {
 
   setMode(mode) {
     this._mode = mode;
-    try { localStorage.setItem(MODE_KEY, JSON.stringify(mode)); } catch {}
+    try { appStorage.set(MODE_KEY, JSON.stringify(mode)); } catch {}
   },
   clearMode() {
     this._mode = null;
-    try { localStorage.removeItem(MODE_KEY); } catch {}
+    try { appStorage.remove(MODE_KEY); } catch {}
   },
   loadMode() {
-    try { return JSON.parse(localStorage.getItem(MODE_KEY)); } catch { return null; }
+    try { return JSON.parse(appStorage.get(MODE_KEY)); } catch { return null; }
   },
   isLocal() { return this._mode === 'local'; },
   isCloud() { return this._mode === 'cloud'; },
@@ -165,7 +338,9 @@ const DataStore = {
     shiftActive:     false,
     adminCategories: [],   // category names that require admin PIN to record
     nonRevenueCategories: [], // category names excluded from revenue/expense totals (transfer, receivable, opening balance)
+    categoryTypes:   {},   // { name: 'INCOME' | 'OUTGOING' }; missing = usable on both sides
     logoData:        null, // base64 PNG of custom logo (cloud only); null = use static logo.png
+    rentalFleet:     { owners: [], bikes: [], guestCategory: RENTAL_GUEST_CATEGORY, ownerCategory: RENTAL_OWNER_CATEGORY },
   },
 
   _listeners: {
@@ -195,13 +370,106 @@ const DataStore = {
     this.settings.shiftActive     = false;
     this.settings.adminCategories = [];
     this.settings.nonRevenueCategories = [];
+    this.settings.categoryTypes   = {};
+    this.settings.templateApplied = false;
     this.settings.logoData        = null;
+    this.settings.rentalFleet     = { owners: [], bikes: [], guestCategory: RENTAL_GUEST_CATEGORY, ownerCategory: RENTAL_OWNER_CATEGORY };
     this.hydrated = false;
   },
 
   async hydrate() {
-    if (this.isLocal()) return this._hydrateLocal();
-    return this._hydrateCloud();
+    if (this.isLocal()) this._hydrateLocal();
+    else await this._hydrateCloud();
+    try {
+      await this._renameLegacyCategories();
+    } catch (e) {
+      console.error('[DataStore] legacy category cleanup failed:', e);
+    }
+  },
+
+  // Shops set up before the scooter-rental defaults still carry the old
+  // category names. Old names are rewritten everywhere they are stored; the
+  // old starter placeholders are dropped only if no transaction uses them.
+  async _renameLegacyCategories() {
+    const RENAMED = {
+      'Sewa':            RENTAL_GUEST_CATEGORY,
+      'SCOOTER RENTALS': RENTAL_GUEST_CATEGORY,
+      'Bagian pemilik':  RENTAL_OWNER_CATEGORY,
+      'Tarik tunai':     CASHOUT_CATEGORY,
+      'Kas dari bank':   BANK_CATEGORY,
+    };
+    const OLD_PLACEHOLDERS = ['Sales', 'Refund', 'Expense', 'Other'];
+    const rename = (name) => RENAMED[name] || name;
+
+    const used = new Set(this.transactions.map(t => t.kategori));
+    this.shifts.forEach(s => (s.transactions || []).forEach(t => used.add(t.kategori)));
+
+    let nextCats = [];
+    this.categories.forEach(name => {
+      if (OLD_PLACEHOLDERS.includes(name) && !used.has(name)) return;
+      const next = rename(name);
+      if (!nextCats.includes(next)) nextCats.push(next);
+    });
+    // A shop set up before the rental template has no category sides at all:
+    // give it the template's categories once; its own extra categories stay.
+    // template_applied keeps an owner's later "In & out everywhere" choice.
+    const hasTypes = Object.keys(this.settings.categoryTypes || {}).length > 0;
+    const adoptTemplate = !this.settings.templateApplied && !hasTypes && this.categories.length > 0;
+    if (adoptTemplate) {
+      const extras = nextCats.filter(n => !RENTAL_SHOP_DEFAULTS.categories.includes(n));
+      nextCats = [...RENTAL_SHOP_DEFAULTS.categories, ...extras];
+    }
+    if (nextCats.join('\n') !== this.categories.join('\n')) await this.saveCategories(nextCats);
+
+    for (const tx of this.transactions.filter(t => RENAMED[t.kategori])) {
+      await this.updateTransaction({ ...tx, kategori: rename(tx.kategori) });
+    }
+
+    const oldShifts = this.shifts.filter(s => (s.transactions || []).some(t => RENAMED[t.kategori]));
+    for (const shift of oldShifts) {
+      shift.transactions = shift.transactions.map(t => ({ ...t, kategori: rename(t.kategori) }));
+      if (!this.isLocal()) {
+        const { error } = await getSupabase().from('pos_shifts')
+          .update({ transactions: shift.transactions }).eq('id', shift.id);
+        if (error) throw error;
+      }
+    }
+    if (oldShifts.length && this.isLocal()) _lsSet('pos_shift_history', this.shifts);
+
+    const renameList = (list) => {
+      const out = [];
+      (list || []).forEach(name => { const n = rename(name); if (!out.includes(n)) out.push(n); });
+      return out;
+    };
+    const s = this.settings;
+    const changed = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
+
+    const admin = renameList(s.adminCategories).filter(n => nextCats.includes(n));
+    if (changed(admin, s.adminCategories)) await this.saveSetting('admin_categories', admin);
+
+    const nonRevenue = renameList([
+      ...(s.nonRevenueCategories || []),
+      ...(adoptTemplate ? RENTAL_SHOP_DEFAULTS.nonRevenue : []),
+    ]).filter(n => nextCats.includes(n));
+    if (changed(nonRevenue, s.nonRevenueCategories)) await this.saveSetting('non_revenue_categories', nonRevenue);
+
+    const types = {};
+    if (adoptTemplate) Object.assign(types, RENTAL_SHOP_DEFAULTS.types);
+    Object.entries(s.categoryTypes || {}).forEach(([name, type]) => {
+      const n = rename(name);
+      if (nextCats.includes(n) && !types[n]) types[n] = type;
+    });
+    if (adoptTemplate || changed(types, s.categoryTypes)) await this.saveSetting('category_types', types);
+    if (!s.templateApplied && (adoptTemplate || hasTypes)) await this.saveSetting('template_applied', true);
+
+    const fleet = s.rentalFleet;
+    if (RENAMED[fleet.guestCategory] || RENAMED[fleet.ownerCategory]) {
+      await this.saveSetting('rental_fleet', {
+        ...fleet,
+        guestCategory: rename(fleet.guestCategory),
+        ownerCategory: rename(fleet.ownerCategory),
+      });
+    }
   },
 
   _hydrateLocal() {
@@ -219,7 +487,10 @@ const DataStore = {
     this.settings.shiftActive     = _lsGet('pos_shift_active',      false);
     this.settings.adminCategories = _lsGet('pos_admin_categories',  []);
     this.settings.nonRevenueCategories = _lsGet('pos_non_revenue_categories', []);
+    this.settings.categoryTypes   = normalizeCategoryTypes(_lsGet('pos_category_types', {}));
+    this.settings.templateApplied = _lsGet('pos_template_applied', false) === true;
     this.settings.logoData        = _lsGet('pos_logo_data',         null);
+    this.settings.rentalFleet     = normalizeRentalFleet(_lsGet('pos_rental_fleet', null));
     this.hydrated = true;
   },
 
@@ -260,7 +531,10 @@ const DataStore = {
     this.settings.shiftActive     = map.shift_active     ?? false;
     this.settings.adminCategories = map.admin_categories ?? [];
     this.settings.nonRevenueCategories = map.non_revenue_categories ?? [];
+    this.settings.categoryTypes   = normalizeCategoryTypes(map.category_types);
+    this.settings.templateApplied = map.template_applied === true;
     this.settings.logoData        = map.logo_data        ?? null;
+    this.settings.rentalFleet     = normalizeRentalFleet(map.rental_fleet);
 
     this.hydrated = true;
   },
@@ -354,7 +628,10 @@ const DataStore = {
     else if (key === 'shift_active')     this.settings.shiftActive     = value;
     else if (key === 'admin_categories') this.settings.adminCategories = value;
     else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
+    else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
+    else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
+    else if (key === 'rental_fleet')     this.settings.rentalFleet     = normalizeRentalFleet(value);
     this._fire('settings');
   },
 
@@ -615,7 +892,10 @@ const DataStore = {
       else if (key === 'shift_active')     { this.settings.shiftActive     = value; _lsSet('pos_shift_active',      value); }
       else if (key === 'admin_categories') { this.settings.adminCategories = value; _lsSet('pos_admin_categories',  value); }
       else if (key === 'non_revenue_categories') { this.settings.nonRevenueCategories = value; _lsSet('pos_non_revenue_categories', value); }
+      else if (key === 'category_types')   { this.settings.categoryTypes   = normalizeCategoryTypes(value); _lsSet('pos_category_types', this.settings.categoryTypes); }
+      else if (key === 'template_applied') { this.settings.templateApplied = value === true; _lsSet('pos_template_applied', value === true); }
       else if (key === 'logo_data')        { this.settings.logoData       = value; _lsSet('pos_logo_data',         value); }
+      else if (key === 'rental_fleet')     { this.settings.rentalFleet     = normalizeRentalFleet(value); _lsSet('pos_rental_fleet', this.settings.rentalFleet); }
       this._fire('settings');
       return;
     }
@@ -626,7 +906,10 @@ const DataStore = {
     else if (key === 'shift_active')     this.settings.shiftActive     = value;
     else if (key === 'admin_categories') this.settings.adminCategories = value;
     else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
+    else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
+    else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
+    else if (key === 'rental_fleet')     this.settings.rentalFleet     = normalizeRentalFleet(value);
   },
 };
 
@@ -650,17 +933,19 @@ const LOCAL_ONLY_KEYS = new Set([
   'pos_session',          // per-device session — see AuthStorage below
   'pos_admin_categories', // local-mode mirror of settings.admin_categories
   'pos_non_revenue_categories', // local-mode mirror of settings.non_revenue_categories
+  'pos_category_types',   // local-mode mirror of settings.category_types
+  'pos_template_applied', // local-mode mirror of settings.template_applied
   SB_CONFIG_KEY,
 ]);
 
 const _lsGet = (key, fallback) => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = appStorage.get(key);
     return raw === null ? fallback : JSON.parse(raw);
   } catch { return fallback; }
 };
 const _lsSet = (key, value) => {
-  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  try { appStorage.set(key, JSON.stringify(value)); return true; }
   catch (e) { return (e?.name === 'QuotaExceededError') ? 'quota' : false; }
 };
 
@@ -705,7 +990,7 @@ const Storage = {
 
   remove(key) {
     if (LOCAL_ONLY_KEYS.has(key)) {
-      try { localStorage.removeItem(key); } catch {}
+      try { appStorage.remove(key); } catch {}
       return;
     }
     switch (key) {
@@ -716,7 +1001,7 @@ const Storage = {
         Storage.set('pos_shift_active', false);
         break;
       default:
-        try { localStorage.removeItem(key); } catch {}
+        try { appStorage.remove(key); } catch {}
     }
   },
 };
@@ -822,6 +1107,11 @@ async function migrateLocalToCloud(url, key) {
   // 3. Write to cloud. Order matters only for FK / unique constraints.
   await client.from('pos_settings').upsert({ key: 'brand',        value: localBrand });
   await client.from('pos_settings').upsert({ key: 'shift_active', value: localShiftActive });
+  await client.from('pos_settings').upsert({ key: 'rental_fleet', value: normalizeRentalFleet(DataStore.settings.rentalFleet) });
+  await client.from('pos_settings').upsert({ key: 'admin_categories',       value: DataStore.settings.adminCategories || [] });
+  await client.from('pos_settings').upsert({ key: 'non_revenue_categories', value: DataStore.settings.nonRevenueCategories || [] });
+  await client.from('pos_settings').upsert({ key: 'category_types',         value: normalizeCategoryTypes(DataStore.settings.categoryTypes) });
+  await client.from('pos_settings').upsert({ key: 'template_applied',       value: DataStore.settings.templateApplied === true });
 
   // Categories: replace seeded non-system rows with local list. START BALANCE
   // is already seeded; upsert by name updates its sort_order.
@@ -904,11 +1194,11 @@ const OfflineQueue = {
   _listeners: [],
 
   load() {
-    try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY)) || []; }
+    try { return JSON.parse(appStorage.get(OFFLINE_QUEUE_KEY)) || []; }
     catch { return []; }
   },
   _persist(q) {
-    try { localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q)); }
+    try { appStorage.set(OFFLINE_QUEUE_KEY, JSON.stringify(q)); }
     catch (e) { console.error('[OfflineQueue] persist failed:', e); }
   },
   size() { return this.load().length; },

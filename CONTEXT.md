@@ -15,7 +15,7 @@ chill-pos/
   script.js     — App logic (class ChillPOS) — bootstrap, UI, transaction CRUD
   supabase.js   — SupabaseConfig + DataStore + Storage/AuthStorage Supabase-backed shims
   style.css     — Shared styles (light + dark theme)
-  lang.js       — EN/ID language strings + LangManager + storage-key migration
+  lang.js       — EN/ID language strings + LangManager
   CONTEXT.md    — This file
   vendor/       — Vendored CDN deps
     xlsx.full.min.js
@@ -35,6 +35,8 @@ chill-pos/
 - No npm, no bundler, no framework
 
 ## Deployment Model
+- **URL:** `https://triawidjaya.github.io/mantra-pos/` (repo `triawidjaya/mantra-pos`, GitHub Pages from `main`). It shares the `triawidjaya.github.io` origin with the older `chill-poss` app, which is still in daily use, so every localStorage key is written as `mantra:<key>` through `appStorage` in `supabase.js` (inline theme scripts read `mantra:theme`). Key names below are shown without the prefix. Never use `localStorage` directly, or the two apps start reading each other's Supabase config and data.
+- **Own Supabase project:** mantra-pos must be paired with its own Supabase project, never the one chill-poss operations use. On load, `DataStore._renameLegacyCategories()` rewrites old category names and adopts the rental template, so pointing it at the chill-poss project would change live data.
 - **One codebase, many businesses:** the same GitHub Pages URL serves every deployment. Each browser is paired with a Supabase project via the first-run wizard (URL + publishable key persisted in `pos_sb_config` localStorage). Data is fully isolated at the Supabase project level.
 - **First-run wizard:** runs when `SupabaseConfig.load()` returns null OR when `brand === DEFAULT_BRAND`. Collects Supabase URL/key (first device only; hidden on subsequent devices) plus brand + categories + staff + admin user + PIN. On submit: saves config, hydrates the cache, then writes brand/categories/users to Supabase and logs in the chosen admin.
 - **Setup-admin fallback:** when hydrate succeeds, brand is set, but `pos_users` is empty (e.g. data initialised via SQL), a one-time "Set Up Admin Account" modal appears.
@@ -105,7 +107,7 @@ Cross-device data lives in Supabase. Only these per-browser preferences stay loc
 | `pos_migrated_v1` | Marker | Legacy migration marker from the `hostel_*` → `pos_*` rename |
 | `theme` | `'light'` \| `'dark'` | Theme preference |
 
-**Migration:** An IIFE at the top of `lang.js` auto-migrates legacy `hostel_*` keys to `pos_*` once per browser. Vestigial post-Supabase migration; preserved for any cold install that ran on the localStorage-only build.
+**Migration:** mantra-pos starts from a clean `mantra:` key space, so the old `hostel_*` → `pos_*` key migration was dropped.
 
 ## Transaction Object Shape
 ```js
@@ -177,7 +179,12 @@ Main app class. Key methods:
 
 ### Defaults
 ```js
-DEFAULT_CATEGORIES = ['START BALANCE', 'Sales', 'Refund', 'Expense', 'Other']
+DEFAULT_CATEGORIES = RENTAL_SHOP_DEFAULTS.categories   // supabase.js, from the October 2026 cashbook
+// START BALANCE, RENTAL PAYMENT, TRANSPORT SERVICES, FEE, PAY TO OWNER, PAY TO DRIVER, Oprasional, CashBon, TarikTunai, PETTY-CASH
+// RENTAL_SHOP_DEFAULTS.types      — income-only / outgoing-only categories (setting `category_types`)
+// RENTAL_SHOP_DEFAULTS.nonRevenue — START BALANCE, TarikTunai, PETTY-CASH, CashBon
+RENTAL_GUEST_CATEGORY = 'RENTAL PAYMENT', RENTAL_OWNER_CATEGORY = 'PAY TO OWNER'
+CASHOUT_CATEGORY = 'TarikTunai', BANK_CATEGORY = 'PETTY-CASH' (both non-revenue)
 DEFAULT_STAFF      = ['Staff 1']
 DEFAULT_BRAND      = 'My Business'
 ```
