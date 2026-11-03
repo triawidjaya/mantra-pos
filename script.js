@@ -1484,6 +1484,9 @@ class ChillPOS {
     document.querySelectorAll('[data-i18n-ph]').forEach(el => {
       el.placeholder = t(el.dataset.i18nPh);
     });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      el.title = t(el.dataset.i18nTitle);
+    });
 
     // Re-render dynamic parts that contain translated strings
     this.renderDashboard();

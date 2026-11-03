@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CHILL POS APP — Shift History</title>
+  <title>CHILL POS APP — Report</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
   <script src="vendor/xlsx.full.min.js"></script>
@@ -95,7 +95,7 @@
 <div class="container">
 
   <div class="history-header">
-    <h1><i class="fas fa-history"></i> <span id="history-title">Shift History</span></h1>
+    <h1><i class="fas fa-chart-column"></i> <span id="history-title">Report</span></h1>
     <div class="history-header-actions">
       <button class="btn theme-toggle" id="lang-toggle" title="Switch language">
         <span id="lang-label">ID</span>
@@ -146,6 +146,20 @@
 </div>
 <div id="alert-container"></div>
 
+<div class="modal" id="hist-confirm">
+  <div class="modal-content small">
+    <p id="hist-confirm-message"></p>
+    <div class="form-group" style="margin-top:12px">
+      <label for="hist-confirm-pin" id="hist-confirm-pin-label">Admin PIN</label>
+      <input type="password" id="hist-confirm-pin" inputmode="numeric" autocomplete="off" maxlength="6">
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" id="hist-confirm-cancel"><span id="hist-confirm-cancel-label">Cancel</span></button>
+      <button type="button" class="btn danger" id="hist-confirm-ok"><span id="hist-confirm-ok-label">Delete</span></button>
+    </div>
+  </div>
+</div>
+
 <!-- lang.js must load before this script -->
 <script src="lang.js"></script>
 <script>
@@ -195,7 +209,11 @@ function applyLang() {
   document.documentElement.lang = lang;
   document.getElementById('lang-label').textContent       = lang === 'en' ? 'ID' : 'EN';
   document.getElementById('history-title').textContent    = t('historyTitle');
+  document.title = `${t('appTitle')} — ${t('historyTitle')}`;
   document.getElementById('btn-back-label').textContent   = t('back');
+  document.getElementById('hist-confirm-pin-label').textContent = t('deletePinLabel');
+  document.getElementById('hist-confirm-cancel-label').textContent = t('cancel');
+  document.getElementById('hist-confirm-ok-label').textContent = t('deleteShift');
   document.getElementById('select-all-label').textContent = t('selectAll');
   document.getElementById('delete-selected-label').textContent = t('deleteSelected');
   // Date filter labels
@@ -608,19 +626,9 @@ function renderList() {
 
     card.querySelector('.btn-export-excel')?.addEventListener('click', () => exportShift(shift, 'excel'));
     card.querySelector('.btn-export-csv')?.addEventListener('click',   () => exportShift(shift, 'csv'));
-    card.querySelector('.btn-delete-shift')?.addEventListener('click', async (e) => {
+    card.querySelector('.btn-delete-shift')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      const dateStr = fmtDate(shift.closedAt);
-      if (!confirm(t('confirmDeleteShiftSingle', dateStr))) return;
-      try {
-        await DataStore.deleteShifts([shift.id]);
-        selectedIds.delete(shift.id);
-        renderList();
-        renderChart();
-        showAlert(t('alertShiftsDeleted'), 'success');
-      } catch (err) {
-        showAlert(`${t('alertShiftsDeleted')} (${err?.message || err})`, 'error');
-      }
+      askDelete(t('confirmDeleteShiftSingle', fmtDate(shift.closedAt)), [shift.id]);
     });
 
     list.appendChild(card);
@@ -833,19 +841,71 @@ document.getElementById('select-all').addEventListener('change', (e) => {
   renderList();
 });
 
-document.getElementById('btn-hapus-selected').addEventListener('click', async () => {
+document.getElementById('btn-hapus-selected').addEventListener('click', () => {
   if (selectedIds.size === 0) return;
-  if (!confirm(t('alertDeleteShift', selectedIds.size))) return;
-  const ids = [...selectedIds];
+  askDelete(t('alertDeleteShift', selectedIds.size), [...selectedIds]);
+});
+
+// Delete is admin-only in the UI, and still asks for that admin's PIN.
+let pendingDeleteIds = null;
+
+function askDelete(message, ids) {
+  if (!window._isAdmin) { showAlert(t('noPermission'), 'error'); return; }
+  pendingDeleteIds = ids;
+  document.getElementById('hist-confirm-message').textContent = message;
+  document.getElementById('hist-confirm-pin').value = '';
+  document.getElementById('hist-confirm').style.display = 'flex';
+  setTimeout(() => document.getElementById('hist-confirm-pin').focus(), 50);
+}
+
+function hideDeleteConfirm() {
+  pendingDeleteIds = null;
+  document.getElementById('hist-confirm').style.display = 'none';
+  document.getElementById('hist-confirm-pin').value = '';
+}
+
+async function verifyAdminPin(pin) {
+  const user = window._currentUser;
+  if (!user || user.role !== 'admin' || !user.pinHash || !pin) return false;
+  const parts = String(user.pinHash).split(':');
+  if (parts.length !== 3) return false;
+  const salt = parts[1];
+  const data = new TextEncoder().encode(salt + pin);
+  const buf  = await crypto.subtle.digest('SHA-256', data);
+  const got  = btoa(String.fromCharCode(...new Uint8Array(buf)));
+  return got === parts[2];
+}
+
+async function confirmDelete() {
+  const ids = pendingDeleteIds;
+  if (!ids?.length) return;
+  const pinOk = await verifyAdminPin(document.getElementById('hist-confirm-pin').value.trim());
+  if (!pinOk) {
+    showAlert(t('deletePinWrong'), 'error');
+    const inp = document.getElementById('hist-confirm-pin');
+    inp.value = '';
+    inp.focus();
+    return;
+  }
+  hideDeleteConfirm();
   try {
     await DataStore.deleteShifts(ids);
-    selectedIds.clear();
+    ids.forEach(id => selectedIds.delete(id));
     renderList();
     renderChart();
     showAlert(t('alertShiftsDeleted'), 'success');
   } catch (err) {
     showAlert(`${t('alertShiftsDeleted')} (${err?.message || err})`, 'error');
   }
+}
+
+document.getElementById('hist-confirm-cancel').addEventListener('click', hideDeleteConfirm);
+document.getElementById('hist-confirm-ok').addEventListener('click', confirmDelete);
+document.getElementById('hist-confirm-pin').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmDelete();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('hist-confirm').style.display === 'flex') hideDeleteConfirm();
 });
 
 // ── Export ──

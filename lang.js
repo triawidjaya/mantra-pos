@@ -6,7 +6,7 @@
 
 const STRINGS = {
   en: {
-    historyShift:'Shift History',appTitle:'CHILL POS APP',
+    historyShift:'Report',appTitle:'CHILL POS APP',
     newTransaction:'New Transaction',exportExcel:'Export Excel',
     hideAll:'Hide All',showAll:'Show All',closeShift:'Close Shift',
     cashBalance:'Cash',cardBalance:'Card',transferBalance:'Transfer',qrisBalance:'QRIS',otherBalance:'Other',
@@ -50,8 +50,10 @@ const STRINGS = {
     balanceReset:'* Balance will be reset to 0 after shift is closed',
     confirmDefault:'Are you sure?',yes:'Yes',
     confirmResetDefault:'Reset brand and categories to default? Enter your admin PIN to confirm.',resetPinWrong:'Wrong admin PIN. Reset cancelled.',
-    historyTitle:'Shift History',selectAll:'Select All',
-    deleteSelected:'Delete Selected',noHistory:'No shift history yet.',
+    historyTitle:'Report',selectAll:'Select All',
+    deleteSelected:'Delete Selected',noHistory:'Nothing to report yet.',
+    deletePinLabel:'Admin PIN',
+    deletePinWrong:'Wrong admin PIN. Nothing was deleted.',
     noHistoryHint:'History will appear after the first shift is closed.',
     transactions:'transactions',cashExpected:'Cash (Expected)',
     cardExpected:'Card (Expected)',transferExpected:'Transfer (Expected)',qrisExpected:'QRIS (Expected)',totalSaldo:'Total Expected',
@@ -282,7 +284,7 @@ const STRINGS = {
     rentalShareEach:'each',
   },
   id: {
-    historyShift:'Histori Shift',appTitle:'CHILL POS APP',
+    historyShift:'Laporan',appTitle:'CHILL POS APP',
     newTransaction:'Transaksi Baru',exportExcel:'Export Excel',
     hideAll:'Sembunyikan',showAll:'Tampilkan',closeShift:'Tutup Shift',
     cashBalance:'Cash',cardBalance:'Card',transferBalance:'Transfer',qrisBalance:'QRIS',otherBalance:'Lainnya',
@@ -326,8 +328,10 @@ const STRINGS = {
     balanceReset:'* Saldo akan direset ke 0 setelah shift ditutup',
     confirmDefault:'Apakah Anda yakin?',yes:'Ya',
     confirmResetDefault:'Reset brand & kategori ke default? Masukkan PIN admin Anda untuk konfirmasi.',resetPinWrong:'PIN admin salah. Reset dibatalkan.',
-    historyTitle:'Histori Shift',selectAll:'Pilih Semua',
-    deleteSelected:'Hapus Terpilih',noHistory:'Belum ada histori shift.',
+    historyTitle:'Laporan',selectAll:'Pilih Semua',
+    deleteSelected:'Hapus Terpilih',noHistory:'Belum ada laporan.',
+    deletePinLabel:'PIN admin',
+    deletePinWrong:'PIN admin salah. Tidak ada yang dihapus.',
     noHistoryHint:'Histori akan muncul setelah shift pertama ditutup.',
     transactions:'transaksi',cashExpected:'Cash (Expected)',
     cardExpected:'Card (Expected)',transferExpected:'Transfer (Expected)',qrisExpected:'QRIS (Expected)',totalSaldo:'Total Expected',
