@@ -167,19 +167,17 @@
 <!-- Access Gate Modal — shown first, no close button -->
 <div class="modal" id="access-gate-modal">
   <div class="modal-content small">
-    <h2><i class="fas fa-lock" style="color:var(--primary)"></i> Akses Terbatas</h2>
-    <p class="wizard-hint">Masukkan kode akses untuk melanjutkan.</p>
+    <h2><i class="fas fa-lock" style="color:var(--primary)"></i> <span data-i18n="accessGateTitle">Restricted Access</span></h2>
+    <p class="wizard-hint" data-i18n="accessGateHint">Enter the access code to continue.</p>
     <form id="access-gate-form">
       <div class="form-group">
-        <label for="access-code-input">Kode Akses</label>
+        <label for="access-code-input"><span data-i18n="accessGateCode">Access Code</span> <span class="req-marker">*</span></label>
         <input type="password" id="access-code-input" autocomplete="off" required>
-        <small id="access-gate-error" style="color:var(--danger);display:none">
-          Kode salah. Coba lagi.
-        </small>
+        <small id="access-gate-error" style="color:var(--danger);display:none" data-i18n="accessGateError">Wrong code. Try again.</small>
       </div>
       <div class="form-actions" style="grid-column:span 1">
         <button type="submit" class="btn primary" style="width:100%;justify-content:center">
-          <i class="fas fa-unlock"></i> Masuk
+          <i class="fas fa-unlock"></i> <span data-i18n="accessGateSubmit">Enter</span>
         </button>
       </div>
     </form>
@@ -199,7 +197,7 @@
     </p>
     <form id="sb-setup-form">
       <div class="form-group">
-        <label for="sb-setup-key" data-i18n="supabaseKey">Publishable Key</label>
+        <label for="sb-setup-key"><span data-i18n="supabaseKey">Publishable Key</span> <span class="req-marker">*</span></label>
         <input type="text" id="sb-setup-key" placeholder="sb_publishable_..." autocomplete="off" required>
       </div>
       <div class="form-actions" style="grid-column:span 1;display:flex;gap:8px">
@@ -224,24 +222,24 @@
     </button>
     <form id="first-run-form">
       <div class="form-group">
-        <label for="fr-brand" data-i18n="brandName">Brand Name</label>
+        <label for="fr-brand"><span data-i18n="brandName">Brand Name</span> <span class="req-marker">*</span></label>
         <input type="text" id="fr-brand" maxlength="50" required placeholder="e.g. Warung Pak Budi">
       </div>
       <div class="form-group">
-        <label for="fr-admin-name" data-i18n="frAdminName">Admin name</label>
+        <label for="fr-admin-name"><span data-i18n="frAdminName">Admin name</span> <span class="req-marker">*</span></label>
         <input type="text" id="fr-admin-name" maxlength="40" required autocomplete="off">
       </div>
       <div class="form-group">
-        <label for="fr-admin-email" data-i18n="email">Email</label>
+        <label for="fr-admin-email"><span data-i18n="email">Email</span> <span class="req-marker">*</span></label>
         <input type="email" id="fr-admin-email" maxlength="120" required autocomplete="off" placeholder="admin@example.com">
       </div>
       <div class="form-group">
-        <label for="fr-admin-pin" data-i18n="adminPin">Admin PIN (4-6 digits)</label>
+        <label for="fr-admin-pin"><span data-i18n="adminPin">Admin PIN (4-6 digits)</span> <span class="req-marker">*</span></label>
         <input type="password" id="fr-admin-pin" inputmode="numeric" pattern="[0-9]{4,6}"
                maxlength="6" minlength="4" required autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label for="fr-admin-pin2" data-i18n="confirmPin">Confirm PIN</label>
+        <label for="fr-admin-pin2"><span data-i18n="confirmPin">Confirm PIN</span> <span class="req-marker">*</span></label>
         <input type="password" id="fr-admin-pin2" inputmode="numeric" pattern="[0-9]{4,6}"
                maxlength="6" minlength="4" required autocomplete="new-password">
       </div>
@@ -264,20 +262,20 @@
     </p>
     <form id="setup-admin-form">
       <div class="form-group">
-        <label for="sa-admin-name" data-i18n="adminUser">Admin User</label>
+        <label for="sa-admin-name"><span data-i18n="adminUser">Admin User</span> <span class="req-marker">*</span></label>
         <select id="sa-admin-name" required></select>
       </div>
       <div class="form-group">
-        <label for="sa-admin-email" data-i18n="email">Email</label>
+        <label for="sa-admin-email"><span data-i18n="email">Email</span> <span class="req-marker">*</span></label>
         <input type="email" id="sa-admin-email" maxlength="120" required autocomplete="off">
       </div>
       <div class="form-group">
-        <label for="sa-admin-pin" data-i18n="adminPin">Admin PIN (4-6 digits)</label>
+        <label for="sa-admin-pin"><span data-i18n="adminPin">Admin PIN (4-6 digits)</span> <span class="req-marker">*</span></label>
         <input type="password" id="sa-admin-pin" inputmode="numeric" pattern="[0-9]{4,6}"
                maxlength="6" minlength="4" required autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label for="sa-admin-pin2" data-i18n="confirmPin">Confirm PIN</label>
+        <label for="sa-admin-pin2"><span data-i18n="confirmPin">Confirm PIN</span> <span class="req-marker">*</span></label>
         <input type="password" id="sa-admin-pin2" inputmode="numeric" pattern="[0-9]{4,6}"
                maxlength="6" minlength="4" required autocomplete="new-password">
       </div>
@@ -297,11 +295,11 @@
         <span data-i18n="loginTitle">Sign In</span></h2>
     <form id="login-form">
       <div class="form-group">
-        <label for="login-user" data-i18n="selectUser">Select User</label>
+        <label for="login-user"><span data-i18n="selectUser">Select User</span> <span class="req-marker">*</span></label>
         <select id="login-user" required></select>
       </div>
       <div class="form-group" id="login-pin-group">
-        <label for="login-pin" data-i18n="enterPin">Enter PIN</label>
+        <label for="login-pin"><span data-i18n="enterPin">Enter PIN</span> <span class="req-marker">*</span></label>
         <input type="password" id="login-pin" inputmode="numeric" pattern="[0-9]{4,6}"
                maxlength="6" autocomplete="current-password">
       </div>
@@ -335,11 +333,11 @@
       </div>
       <div id="rp-new-pin-group" style="display:none">
         <div class="form-group">
-          <label for="rp-new-pin" data-i18n="newPin">New PIN (4-6 digits)</label>
+          <label for="rp-new-pin"><span data-i18n="newPin">New PIN (4-6 digits)</span> <span class="req-marker">*</span></label>
           <input type="password" id="rp-new-pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6">
         </div>
         <div class="form-group">
-          <label for="rp-confirm-pin" data-i18n="confirmPin">Confirm PIN</label>
+          <label for="rp-confirm-pin"><span data-i18n="confirmPin">Confirm PIN</span> <span class="req-marker">*</span></label>
           <input type="password" id="rp-confirm-pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6">
         </div>
       </div>
@@ -365,7 +363,7 @@
     <h3 style="font-size:1rem;margin-bottom:10px;color:var(--gray)" data-i18n="addUser">Add User</h3>
     <form id="add-user-form" class="add-user-form">
       <div class="form-group">
-        <label for="new-username" data-i18n="username">Username</label>
+        <label for="new-username"><span data-i18n="username">Username</span> <span class="req-marker">*</span></label>
         <input type="text" id="new-username" maxlength="30" required>
       </div>
       <div class="form-group">
@@ -401,7 +399,7 @@
     <p class="modal-subtitle" id="ms-subtitle"></p>
     <form id="mulai-shift-form">
       <div class="form-group">
-        <label for="ms-staff"><i class="fas fa-user-tie"></i> <span data-i18n="staffOnDuty">Staff on Duty</span></label>
+        <label for="ms-staff"><i class="fas fa-user-tie"></i> <span data-i18n="staffOnDuty">Staff on Duty</span> <span class="req-marker">*</span></label>
         <select id="ms-staff" required></select>
       </div>
       <div class="form-group">
@@ -462,11 +460,11 @@
       </div>
       <div id="tx-fields" hidden>
       <div class="form-group">
-        <label for="f-kategori" data-i18n="category">Category</label>
+        <label for="f-kategori"><span data-i18n="category">Category</span> <span class="req-marker">*</span></label>
         <select id="f-kategori" required></select>
       </div>
       <div class="form-group">
-        <label for="f-metode" data-i18n="paymentMethod">Payment Method</label>
+        <label for="f-metode"><span data-i18n="paymentMethod">Payment Method</span> <span class="req-marker">*</span></label>
         <select id="f-metode" required>
           <option value="Cash">Cash</option>
           <option value="Card">Card</option>
@@ -475,12 +473,12 @@
         </select>
       </div>
       <div class="form-group full-width">
-        <label for="f-deskripsi" data-i18n="description">Description</label>
+        <label for="f-deskripsi"><span data-i18n="description">Description</span> <span class="req-marker">*</span></label>
         <input type="text" id="f-deskripsi" maxlength="300" required>
       </div>
       <div class="form-group">
-        <label for="f-jumlah" data-i18n="amount">Amount</label>
-        <input type="text" id="f-jumlah" inputmode="numeric" autocomplete="off" placeholder="0">
+        <label for="f-jumlah"><span data-i18n="amount">Amount</span> <span class="req-marker">*</span></label>
+        <input type="text" id="f-jumlah" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
         <small id="f-jumlah-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
       </div>
       <div class="form-group">
@@ -489,7 +487,7 @@
       </div>
       <div id="f-admin-auth" class="form-group full-width" style="display:none;background:rgba(245,158,11,0.08);border:1px dashed #f59e0b;border-radius:var(--radius-sm);padding:10px">
         <label style="color:#92400e;font-weight:600;display:block;margin-bottom:6px">
-          <i class="fas fa-shield-halved"></i> <span data-i18n="adminApprovalRequired">Admin approval required</span>
+          <i class="fas fa-shield-halved"></i> <span data-i18n="adminApprovalRequired">Admin approval required</span> <span class="req-marker">*</span>
         </label>
         <div style="display:flex;gap:8px">
           <select id="f-auth-admin" style="flex:1" required></select>
@@ -520,35 +518,35 @@
     <h2><i class="fas fa-motorcycle" style="color:var(--info)"></i> <span data-i18n="rentalTitle">Rental Payment</span></h2>
     <form id="rental-form">
       <div class="form-group">
-        <label for="rental-guest-name" data-i18n="rentalGuestName">Nama tamu</label>
+        <label for="rental-guest-name"><span data-i18n="rentalGuestName">Nama tamu</span> <span class="req-marker">*</span></label>
         <input type="text" id="rental-guest-name" maxlength="40" autocomplete="off" required>
       </div>
       <div class="form-group">
-        <label for="rental-guest" data-i18n="rentalPayAmount">Nominal bayar</label>
-        <input type="text" id="rental-guest" inputmode="numeric" autocomplete="off" placeholder="0">
+        <label for="rental-guest"><span data-i18n="rentalPayAmount">Nominal bayar</span> <span class="req-marker">*</span></label>
+        <input type="text" id="rental-guest" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
       </div>
       <div class="form-group">
-        <label for="rental-guest-method" data-i18n="rentalMethod">Metode</label>
+        <label for="rental-guest-method"><span data-i18n="rentalMethod">Metode</span> <span class="req-marker">*</span></label>
         <select id="rental-guest-method" required>
           <option value="" disabled selected data-i18n="rentalPickMethod">Pilih metode</option>
         </select>
       </div>
       <div class="form-group">
-        <label for="rental-plate" data-i18n="rentalPlate">Plat motor</label>
+        <label for="rental-plate"><span data-i18n="rentalPlate">Plat motor</span> <span class="req-marker">*</span></label>
         <input type="text" id="rental-plate" maxlength="20" autocomplete="off" required>
       </div>
       <div class="form-group">
-        <label for="rental-days" data-i18n="rentalDayCount">Jumlah hari</label>
+        <label for="rental-days"><span data-i18n="rentalDayCount">Jumlah hari</span> <span class="req-marker">*</span></label>
         <input type="number" id="rental-days" min="1" max="999" step="1" inputmode="numeric" required>
       </div>
       <div class="rental-grid-gap" aria-hidden="true"></div>
       <div class="form-group">
-        <label for="rental-owner-name" data-i18n="rentalOwnerField">Owner</label>
+        <label for="rental-owner-name"><span data-i18n="rentalOwnerField">Owner</span> <span class="req-marker">*</span></label>
         <input type="text" id="rental-owner-name" maxlength="40" autocomplete="off" required>
       </div>
       <div class="form-group">
         <label for="rental-owner-share" data-i18n="rentalOwnerReceives">Jumlah yang diterima owner</label>
-        <input type="text" id="rental-owner-share" inputmode="numeric" autocomplete="off" placeholder="0">
+        <input type="text" id="rental-owner-share" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
       </div>
       <div class="form-group">
         <label for="rental-owner-method" data-i18n="rentalMethod">Metode</label>
@@ -575,18 +573,18 @@
     <h2><i class="fas fa-money-bill-wave" style="color:var(--success)"></i> <span data-i18n="cashoutTitle">TarikTunai</span></h2>
     <form id="cashout-form">
       <div class="form-group">
-        <label for="cashout-amount" data-i18n="cashoutAmount">Nominal</label>
-        <input type="text" id="cashout-amount" inputmode="numeric" autocomplete="off" placeholder="0" required>
+        <label for="cashout-amount"><span data-i18n="cashoutAmount">Nominal</span> <span class="req-marker">*</span></label>
+        <input type="text" id="cashout-amount" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder" required>
       </div>
       <div class="form-group">
-        <label for="cashout-method" data-i18n="cashoutIn">Uang masuk</label>
+        <label for="cashout-method"><span data-i18n="cashoutIn">Uang masuk</span> <span class="req-marker">*</span></label>
         <select id="cashout-method" required>
           <option value="" disabled selected data-i18n="rentalPickMethod">Pilih metode</option>
         </select>
       </div>
       <p class="fixed-flow" id="cashout-flow"></p>
       <div class="form-group">
-        <label for="cashout-note" data-i18n="cashoutNote">Catatan</label>
+        <label for="cashout-note"><span data-i18n="cashoutNote">Catatan</span> <span class="req-marker">*</span></label>
         <input type="text" id="cashout-note" maxlength="120" autocomplete="off" required data-i18n-ph="cashoutNotePh" placeholder="Kenapa tarik tunai?">
       </div>
       <div class="form-actions">
@@ -608,8 +606,8 @@
     <h2><i class="fas fa-building-columns" style="color:var(--success)"></i> <span data-i18n="bankTitle">Kas dari bank</span></h2>
     <form id="bank-form">
       <div class="form-group">
-        <label for="bank-amount" data-i18n="bankAmount">Nominal</label>
-        <input type="text" id="bank-amount" inputmode="numeric" autocomplete="off" placeholder="0" required>
+        <label for="bank-amount"><span data-i18n="bankAmount">Nominal</span> <span class="req-marker">*</span></label>
+        <input type="text" id="bank-amount" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder" required>
       </div>
       <p class="fixed-flow" id="bank-flow"></p>
       <div class="form-actions">
@@ -651,22 +649,22 @@
       </p>
       <div class="form-group">
         <label for="ts-actual-cash" data-i18n="actualCash">Actual Cash</label>
-        <input type="text" id="ts-actual-cash" inputmode="numeric" autocomplete="off" placeholder="0">
+        <input type="text" id="ts-actual-cash" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
         <small id="ts-actual-cash-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
       </div>
       <div class="form-group">
         <label for="ts-actual-card" data-i18n="actualCard">Actual Card</label>
-        <input type="text" id="ts-actual-card" inputmode="numeric" autocomplete="off" placeholder="0">
+        <input type="text" id="ts-actual-card" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
         <small id="ts-actual-card-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
       </div>
       <div class="form-group">
         <label for="ts-actual-transfer" data-i18n="actualTransfer">Actual Transfer</label>
-        <input type="text" id="ts-actual-transfer" inputmode="numeric" autocomplete="off" placeholder="0">
+        <input type="text" id="ts-actual-transfer" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
         <small id="ts-actual-transfer-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
       </div>
       <div class="form-group">
         <label for="ts-actual-qris" data-i18n="actualQris">Actual QRIS</label>
-        <input type="text" id="ts-actual-qris" inputmode="numeric" autocomplete="off" placeholder="0">
+        <input type="text" id="ts-actual-qris" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
         <small id="ts-actual-qris-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
       </div>
       <div class="form-actions" style="grid-column:span 1;margin-top:8px">
