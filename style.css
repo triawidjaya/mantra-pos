@@ -240,6 +240,13 @@ header .theme-toggle:hover { background-color: var(--primary-50); color: var(--p
   outline: none;
 }
 
+/* Filter bar: one control height so selects and inputs line up */
+.filter-group select,
+.filter-group input {
+  height: 40px;
+  box-sizing: border-box;
+}
+
 .filter-actions {
   display: flex;
   gap: 8px;
@@ -796,13 +803,25 @@ body.light-theme #open-bank,
 .amount-chip { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 5px 12px; border-radius: 999px; cursor: pointer; font-size: 0.8rem; font-family: inherit; transition: all 0.15s; }
 .amount-chip:hover { background: var(--primary); color: white; border-color: var(--primary); }
 
-option { font-size: 10px; }
+option { font-size: 1rem; }
 
 @media (max-width: 768px) {
   #transaksi-form { grid-template-columns: 1fr; }
   .form-group.full-width { grid-column: span 1; }
   .dashboard { grid-template-columns: 1fr; }
   .summary-grid { grid-template-columns: 1fr; }
+
+  /* Keep every form control >= 16px on phones so iOS Safari does not auto-zoom on focus */
+  input,
+  select,
+  textarea,
+  .filter-group select,
+  .user-role-select,
+  .cat-type,
+  .form-group select.cat-type,
+  .date-custom input[type="date"] {
+    font-size: 16px;
+  }
 }
 
 /* ══════════════════════════════════════
