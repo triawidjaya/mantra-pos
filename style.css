@@ -236,7 +236,7 @@ header .theme-toggle:hover { background-color: var(--primary-50); color: var(--p
 .card.outgoing .amount { color: var(--danger); }
 
 .action-bar { display: flex; gap: var(--space-3); margin-bottom: var(--space-5); flex-wrap: wrap; align-items: center; }
-#new-transaksi { justify-content: center; min-width: 140px; }
+#new-transaksi { width: 100%; justify-content: center; }
 
 /* Filter Panel */
 .filter-panel {
@@ -683,11 +683,21 @@ th[data-kolom] .fa-sort-down { opacity: 1; }
   /* Header tweaks for narrow screens — let long brand names wrap instead of truncating */
   header h1 { font-size: 1.1rem; flex: 1; min-width: 0; line-height: 1.25; }
   #brand-name { overflow-wrap: anywhere; }
-  .header-actions { gap: 6px; }
+  .current-date { display: none; }
+  .header-actions { flex-wrap: nowrap; gap: 6px; width: 100%; }
+  .header-actions .btn,
+  .header-actions #lang-toggle,
+  .header-actions #user-menu {
+    width: 40px;
+    height: 40px;
+    min-width: 0;
+    flex: 0 1 40px;
+    padding: 0;
+  }
+  #user-label { display: none; }
 }
 
 @media (max-width: 480px) {
-  .current-date { display: none; }
   header h1 { font-size: 0.95rem; }
   .header-actions { gap: var(--space-1); }
 }
