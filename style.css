@@ -378,18 +378,21 @@ th[data-kolom] .fa-sort-down { opacity: 1; }
 }
 #transaksi-form .tx-choice {
   width: 100%;
-  justify-content: center;
+  justify-content: flex-start;
   margin-top: 0;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius);
   font-size: 0.95rem;
   font-weight: 600;
   box-shadow: none;
+  background: var(--card-bg);
+  border-color: var(--border-color);
+  color: var(--text-color);
 }
-#open-sewa { background-color: var(--primary-500); border-color: var(--primary-500); color: #fff; }
-#open-cashout { background-color: var(--danger-500); border-color: var(--danger-500); color: #fff; }
-body.light-theme #open-bank,
-#open-bank { background-color: var(--primary-50); border-color: #C5D9F5; color: var(--primary-700); }
+#transaksi-form .tx-choice:hover { background: var(--surface-hover); }
+#open-sewa i { color: var(--primary); }
+#open-cashout i { color: var(--danger); }
+#open-bank i { color: var(--primary-700); }
 #transaksi-form .type-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -414,15 +417,15 @@ body.light-theme #open-bank,
   justify-content: center;
   box-shadow: none;
 }
-#transaksi-form .type-btn.active {
-  background-color: var(--primary-500);
-  border-color: var(--primary-500);
-  color: #fff;
+#transaksi-form .type-btn.income.active {
+  background: var(--success-100);
+  border-color: var(--success-700);
+  color: var(--success-700);
 }
 #transaksi-form .type-btn.outgoing.active {
-  background-color: var(--danger-500);
-  border-color: var(--danger-500);
-  color: #fff;
+  background: var(--danger-100);
+  border-color: var(--danger-700);
+  color: var(--danger-700);
 }
 #tx-fields:not([hidden]) { display: flex; flex-direction: column; gap: var(--space-3); }
 #tx-fields[hidden] { display: none; }
@@ -443,7 +446,7 @@ body.light-theme #open-bank,
 .type-btn.active          { background-color: var(--primary); color: white; }
 .type-btn.income.active   { background-color: var(--success); }
 .type-btn.outgoing.active { background-color: var(--danger); }
-#open-sewa, #open-cashout, #open-bank { width: 100%; justify-content: center; }
+#open-sewa, #open-cashout, #open-bank { width: 100%; }
 #cashout-modal .modal-content, #bank-modal .modal-content { max-width: var(--modal-sm); width: min(var(--modal-sm), 100%); }
 #cashout-modal h2, #bank-modal h2 { margin: 0 0 var(--space-4) 0; line-height: 1.25; }
 #cashout-form .form-actions, #bank-form .form-actions { grid-column: auto; }
