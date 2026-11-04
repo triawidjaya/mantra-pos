@@ -2198,8 +2198,6 @@ class ChillPOS {
     const cur = Auth.currentUser();
     const staffName = (isEdit && transaksi.staff) ? transaksi.staff : (cur?.username || '');
     this.elements.fStaff.value = staffName;
-    const staffLabel = document.getElementById('tx-staff-name');
-    if (staffLabel) staffLabel.textContent = staffName;
 
     this.elements.fMetode.value     = isEdit ? transaksi.metode     : 'Cash';
     this.elements.fDeskripsi.value  = isEdit ? transaksi.deskripsi  : '';
