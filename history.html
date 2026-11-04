@@ -32,6 +32,29 @@
     </div>
   </div>
 
+  <!-- Date range filter -->
+  <div class="filter-container" id="hist-filter">
+    <div class="filter-group date-presets">
+      <label><i class="fas fa-calendar-alt"></i> <span id="hist-date-label">Date</span>:</label>
+      <div class="date-preset-row">
+        <button type="button" class="btn small date-preset" data-preset="all">All</button>
+        <button type="button" class="btn small date-preset" data-preset="today">Today</button>
+        <button type="button" class="btn small date-preset" data-preset="week">This Week</button>
+        <button type="button" class="btn small date-preset active" data-preset="month">This Month</button>
+        <button type="button" class="btn small date-preset" data-preset="custom">Custom...</button>
+      </div>
+    </div>
+    <div class="filter-group date-custom" id="date-custom-group" style="display:none">
+      <input type="date" id="date-from" title="From">
+      <span class="date-custom-sep">&ndash;</span>
+      <input type="date" id="date-to" title="To">
+    </div>
+  </div>
+
+  <!-- Daily cash flow summary -->
+  <div class="chart-container" id="chart-container"></div>
+
+  <!-- Non-admin toolbar hiding is deferred to async init below (post-auth). -->
   <div class="history-toolbar" id="history-toolbar">
     <label class="select-all-wrap">
       <input type="checkbox" id="select-all"> <span id="select-all-label">Select All</span>
@@ -42,31 +65,10 @@
       <i class="fas fa-trash"></i> <span id="delete-selected-label">Delete Selected</span>
     </button>
   </div>
-  <!-- Non-admin toolbar hiding is deferred to async init below (post-auth). -->
-
-  <!-- Date range filter -->
-  <div class="filter-container" id="hist-filter">
-    <div class="filter-group date-presets">
-      <label><i class="fas fa-calendar-alt"></i> <span id="hist-date-label">Date</span>:</label>
-      <button type="button" class="btn small date-preset"        data-preset="all">All</button>
-      <button type="button" class="btn small date-preset"        data-preset="today">Today</button>
-      <button type="button" class="btn small date-preset"        data-preset="week">This Week</button>
-      <button type="button" class="btn small date-preset active" data-preset="month">This Month</button>
-      <button type="button" class="btn small date-preset"        data-preset="custom">Custom...</button>
-    </div>
-    <div class="filter-group report-search">
-      <label for="report-search"><i class="fas fa-search"></i> <span id="report-search-label">Search</span></label>
-      <input type="search" id="report-search" placeholder="Staff, note, description..." autocomplete="off">
-    </div>
-    <div class="filter-group date-custom" id="date-custom-group" style="display:none">
-      <input type="date" id="date-from" title="From">
-      <span>&ndash;</span>
-      <input type="date" id="date-to" title="To">
-    </div>
+  <div class="filter-group report-search">
+    <label for="report-search"><i class="fas fa-search"></i> <span id="report-search-label">Search</span></label>
+    <input type="search" id="report-search" placeholder="Staff, note, description..." autocomplete="off">
   </div>
-
-  <!-- Daily cash flow summary -->
-  <div class="chart-container" id="chart-container"></div>
 
   <div class="shift-list" id="shift-list"></div>
   <div id="report-pager" class="list-pager" hidden></div>
