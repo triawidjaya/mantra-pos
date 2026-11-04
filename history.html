@@ -360,6 +360,18 @@ function buildDailyCashFlow() {
   return days;
 }
 
+// Rental commission: guest rental total minus the owner share. Both categories
+// are stored with their sign, so a reversed row reduces the total.
+function rentalCommission(days) {
+  return days.reduce((sum, day) => sum
+    + (day.cats[RENTAL_GUEST_CATEGORY] || 0)
+    + (day.cats[RENTAL_OWNER_CATEGORY] || 0), 0);
+}
+
+function dayCommission(day) {
+  return (day.cats[RENTAL_GUEST_CATEGORY] || 0) + (day.cats[RENTAL_OWNER_CATEGORY] || 0);
+}
+
 function exportDailyCashFlow() {
   const days = buildDailyCashFlow();
   if (!days.length) { showAlert(t('chartNoData'), 'info'); return; }
@@ -376,16 +388,17 @@ function exportDailyCashFlow() {
   const revCats = orderCats(revTotals), nonRevCats = orderCats(nonRevTotals);
   const money = '#,##0;-#,##0';
 
-  const header = [t('xlDate'), t('xlDay'), t('chartIncome'), t('chartOutgoing'), t('chartNet'),
+  const header = [t('xlDate'), t('xlDay'), t('chartIncome'), t('chartOutgoing'), t('chartNet'), t('chartCommission'),
     ...revCats.map(sanitizeForExcel), ...nonRevCats.map(k => `${sanitizeForExcel(k)} (${t('xlNonRevenue')})`),
     t('chartEndBalance'), t('xlTxCount')];
-  const rows = days.map(d => [toDate(d.key), weekday(d.key), d.income, d.outgoing, d.income - d.outgoing,
+  const rows = days.map(d => [toDate(d.key), weekday(d.key), d.income, d.outgoing, d.income - d.outgoing, dayCommission(d),
     ...revCats.map(k => d.cats[k] || 0), ...nonRevCats.map(k => d.nonRev[k] || 0),
     d.balance, d.txs.length]);
   const totalIn  = days.reduce((s, d) => s + d.income, 0);
   const totalOut = days.reduce((s, d) => s + d.outgoing, 0);
+  const commission = rentalCommission(days);
   const endBalance = days[days.length - 1].balance;
-  rows.push([t('xlTotal'), '', totalIn, totalOut, totalIn - totalOut,
+  rows.push([t('xlTotal'), '', totalIn, totalOut, totalIn - totalOut, commission,
     ...revCats.map(k => revTotals[k]), ...nonRevCats.map(k => nonRevTotals[k]),
     endBalance, days.reduce((s, d) => s + d.txs.length, 0)]);
   const daily = XLSX.utils.aoa_to_sheet([header, ...rows], { cellDates: true });
@@ -411,12 +424,13 @@ function exportDailyCashFlow() {
     [t('chartIncome'), totalIn],
     [t('chartOutgoing'), totalOut],
     [t('chartNet'), totalIn - totalOut],
+    [t('chartCommission'), commission],
     [t('chartAvgDay'), Math.round((totalIn - totalOut) / days.length)],
     [t('chartEndBalance'), endBalance ?? 0],
     [],
     [t('xlNoteSummary')],
   ]);
-  for (let r = 4; r <= 9; r++) {
+  for (let r = 4; r <= 10; r++) {
     const cell = summary[XLSX.utils.encode_cell({ r, c: 1 })];
     if (cell) cell.z = money;
   }
@@ -487,6 +501,7 @@ function renderChart() {
   const totalIn  = days.reduce((s, d) => s + d.income, 0);
   const totalOut = days.reduce((s, d) => s + d.outgoing, 0);
   const net = totalIn - totalOut;
+  const commission = rentalCommission(days);
   const endBalance = days[days.length - 1].balance;
   const kpi = (label, value, cls = '') => `
     <div class="chart-kpi ${cls}">
@@ -498,6 +513,7 @@ function renderChart() {
       ${kpi(t('chartIncome'), fmt(totalIn), 'in')}
       ${kpi(t('chartOutgoing'), fmt(totalOut), 'out')}
       ${kpi(t('chartNet'), fmt(net), net < 0 ? 'out' : '')}
+      ${kpi(t('chartCommission'), fmt(commission), commission < 0 ? 'out' : 'in')}
       ${kpi(t('chartAvgDay'), fmt(Math.round(net / days.length)))}
       ${kpi(t('chartEndBalance'), endBalance === null ? '—' : fmt(endBalance), 'bal')}
     </div>`;

@@ -555,7 +555,7 @@ body.light-theme #open-bank,
 .chart-scope-group { display: flex; gap: 6px; flex-wrap: wrap; }
 .chart-scope-group .chart-scope { padding: 5px 10px; font-size: 0.78rem; }
 .chart-scope-group .chart-scope.active { background-color: var(--primary); color: white; border-color: var(--primary); }
-.chart-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.chart-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
 .chart-kpi { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; min-width: 0; }
 .chart-kpi-label { font-size: 0.72rem; color: var(--gray); text-transform: uppercase; letter-spacing: 0.04em; }
 .chart-kpi-value { font-size: 1rem; font-weight: 700; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
