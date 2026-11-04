@@ -65,7 +65,7 @@
     </div>
   </div>
 
-  <!-- Daily cash flow chart -->
+  <!-- Daily cash flow summary -->
   <div class="chart-container" id="chart-container"></div>
 
   <div class="shift-list" id="shift-list"></div>
@@ -238,11 +238,10 @@ function shiftSearchText(shift) {
   return parts.join(' ').toLowerCase();
 }
 
-// ── Chart: daily cash flow (WITA calendar days, from transaction time) ──
+// ── Daily cash flow totals (WITA calendar days, from transaction time) ──
 const WITA_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit' });
 const dayKey  = (ms) => WITA_DAY.format(new Date(ms));
 const nextDay = (key) => { const d = new Date(`${key}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
-let chartScope = HistStorage.get('chart_scope', 'all') === 'cash' ? 'cash' : 'all';
 
 function isNonRevenueCategory(kategori) {
   return kategori === 'START BALANCE'
@@ -253,12 +252,11 @@ function isNonRevenueCategory(kategori) {
 // Each shift opens with START BALANCE, so the balance runs per shift. The
 // end-of-day balance is the running balance after the last transaction that day.
 function buildDailyCashFlow() {
-  const inScope = (tx) => chartScope !== 'cash' || tx.metode === 'Cash';
   const groups = [...history.map(s => s.transactions || []), DataStore.transactions || []];
   const events = [];
   groups.forEach(txs => {
     let balance = 0;
-    txs.filter(inScope)
+    txs
       .map(tx => ({ tx, ms: new Date(tx.tanggalWaktu).getTime() }))
       .filter(e => Number.isFinite(e.ms))
       .sort((a, b) => a.ms - b.ms)
@@ -364,7 +362,6 @@ function exportDailyCashFlow() {
   const summary = XLSX.utils.aoa_to_sheet([
     [t('chartTitle')],
     [t('xlPeriod'), period],
-    [t('xlScope'), t(chartScope === 'cash' ? 'chartScopeCash' : 'chartScopeAll')],
     [t('xlDays'), days.length],
     [t('xlOpening'), days.opening ?? 0],
     [t('chartIncome'), totalIn],
@@ -376,7 +373,7 @@ function exportDailyCashFlow() {
     [],
     [t('xlNoteSummary')],
   ]);
-  for (let r = 4; r <= 10; r++) {
+  for (let r = 3; r <= 9; r++) {
     const cell = summary[XLSX.utils.encode_cell({ r, c: 1 })];
     if (cell) cell.z = money;
   }
@@ -406,8 +403,7 @@ function exportDailyCashFlow() {
   XLSX.utils.book_append_sheet(wb, daily, t('xlDaily'));
   XLSX.utils.book_append_sheet(wb, summary, t('xlSummary'));
   XLSX.utils.book_append_sheet(wb, txSheet, t('xlTransactions'));
-  const suffix = chartScope === 'cash' ? '_cash' : '';
-  XLSX.writeFile(wb, `cash-flow_${days[0].key}_${days[days.length - 1].key}${suffix}.xlsx`);
+  XLSX.writeFile(wb, `cash-flow_${days[0].key}_${days[days.length - 1].key}.xlsx`);
   showAlert(t('alertExcelOk'), 'success');
 }
 
@@ -415,32 +411,20 @@ function renderChart() {
   const c = document.getElementById('chart-container');
   if (!c) return;
   const days = buildDailyCashFlow();
-  const scopeBtns = ['all', 'cash'].map(scope => `
-    <button type="button" class="btn small date-preset chart-scope${chartScope === scope ? ' active' : ''}" data-scope="${scope}">
-      ${t(scope === 'cash' ? 'chartScopeCash' : 'chartScopeAll')}
-    </button>`).join('');
   const header = `
     <div class="chart-header">
-      <h3><i class="fas fa-chart-line"></i> ${t('chartTitle')}</h3>
-      <div class="chart-scope-group">
-        ${scopeBtns}
-        <button type="button" class="btn small success" id="chart-export">
-          <i class="fas fa-file-excel"></i> ${t('chartExport')}
-        </button>
-      </div>
+      <h3>${t('chartTitle')}</h3>
+      <button type="button" class="btn small success" id="chart-export">
+        <i class="fas fa-file-excel"></i> ${t('chartExport')}
+      </button>
     </div>`;
-  const bindScope = () => {
-    c.querySelectorAll('.chart-scope').forEach(btn => btn.addEventListener('click', () => {
-      chartScope = btn.dataset.scope;
-      HistStorage.set('chart_scope', chartScope);
-      renderChart();
-    }));
+  const bindExport = () => {
     c.querySelector('#chart-export')?.addEventListener('click', exportDailyCashFlow);
   };
 
   if (!days.some(d => d.income || d.outgoing || d.balance !== null)) {
     c.innerHTML = `${header}<div class="chart-empty">${t('chartNoData')}</div>`;
-    bindScope();
+    bindExport();
     return;
   }
 
@@ -464,65 +448,8 @@ function renderChart() {
       ${kpi(t('chartEndBalance'), endBalance === null ? '—' : fmt(endBalance), 'bal')}
     </div>`;
 
-  const avail = Math.max(0, c.clientWidth - 34);
-  const colW = Math.max(44, Math.floor(avail / days.length));
-  const barW = Math.min(22, Math.round(colW * 0.3)), padTop = 14, plotH = 160, labelH = 22;
-  const width = Math.max(days.length * colW, 1);
-  const height = padTop + plotH + labelH;
-  const barMax = Math.max(1, ...days.flatMap(d => [d.income, d.outgoing]));
-  const balances = days.map(d => d.balance).filter(b => b !== null);
-  const balMin = Math.min(0, ...balances), balMax = Math.max(1, ...balances);
-  const yBar = (v) => padTop + plotH - (v / barMax) * plotH;
-  const yBal = (v) => padTop + plotH - ((v - balMin) / ((balMax - balMin) || 1)) * plotH;
-  const lang = LangManager.current === 'id' ? 'id-ID' : 'en-US';
-
-  const cols = days.map((d, i) => {
-    const x = i * colW;
-    const [yy, mm, dd] = d.key.split('-');
-    const dateLabel = new Date(Date.UTC(+yy, +mm - 1, +dd)).toLocaleDateString(lang, { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-    const cats = Object.entries(d.cats).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-      .map(([k, v]) => `  ${k}: ${v < 0 ? '-' : '+'}${fmt(Math.abs(v))}`).join('\n');
-    const tip = [
-      dateLabel,
-      `${t('chartIncome')}: ${fmt(d.income)}`,
-      `${t('chartOutgoing')}: ${fmt(d.outgoing)}`,
-      `${t('chartNet')}: ${fmt(d.income - d.outgoing)}`,
-      `${t('chartEndBalance')}: ${d.balance === null ? '—' : fmt(d.balance)}`,
-      cats,
-    ].filter(Boolean).join('\n');
-    const inY = yBar(d.income), outY = yBar(d.outgoing);
-    return `
-      <g class="chart-day">
-        <rect class="chart-hit" x="${x}" y="0" width="${colW}" height="${padTop + plotH}"><title>${escapeHtml(tip)}</title></rect>
-        ${d.income   ? `<rect class="chart-bar-svg bar-in"  x="${x + colW / 2 - barW - 1}" y="${inY}"  width="${barW}" height="${padTop + plotH - inY}"  rx="2"></rect>` : ''}
-        ${d.outgoing ? `<rect class="chart-bar-svg bar-out" x="${x + colW / 2 + 1}"        y="${outY}" width="${barW}" height="${padTop + plotH - outY}" rx="2"></rect>` : ''}
-        <text class="chart-axis-label" x="${x + colW / 2}" y="${padTop + plotH + 15}" text-anchor="middle">${dd}/${mm}</text>
-      </g>`;
-  }).join('');
-  const points = days.map((d, i) => d.balance === null ? null : `${i * colW + colW / 2},${yBal(d.balance)}`).filter(Boolean);
-  const dots = days.map((d, i) => d.balance === null ? '' :
-    `<circle class="chart-balance-dot" cx="${i * colW + colW / 2}" cy="${yBal(d.balance)}" r="2.5"></circle>`).join('');
-
-  c.innerHTML = `
-    ${header}
-    ${kpis}
-    <div class="chart-legend">
-      <span class="legend-item"><span class="legend-dot bar-in"></span> ${t('chartIncome')}</span>
-      <span class="legend-item"><span class="legend-dot bar-out"></span> ${t('chartOutgoing')}</span>
-      <span class="legend-item"><span class="legend-line"></span> ${t('chartBalance')}</span>
-    </div>
-    <div class="chart-svg-wrap">
-      <svg class="chart-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(t('chartTitle'))}">
-        <line class="chart-baseline" x1="0" x2="${width}" y1="${padTop + plotH}" y2="${padTop + plotH}"></line>
-        ${cols}
-        ${points.length > 1 ? `<polyline class="chart-balance-line" points="${points.join(' ')}"></polyline>` : ''}
-        ${dots}
-      </svg>
-    </div>
-    <div class="chart-note">${t('chartNote')}</div>`;
-  bindScope();
-  const wrap = c.querySelector('.chart-svg-wrap');
-  wrap.scrollLeft = wrap.scrollWidth;
+  c.innerHTML = `${header}${kpis}`;
+  bindExport();
 }
 
 // ── Render ──
