@@ -448,8 +448,54 @@ function renderChart() {
       ${kpi(t('chartEndBalance'), endBalance === null ? '—' : fmt(endBalance), 'bal')}
     </div>`;
 
-  c.innerHTML = `${header}${kpis}`;
+  const avail = Math.max(0, c.clientWidth - 34);
+  const colW = Math.max(44, Math.floor(avail / days.length));
+  const barW = Math.min(22, Math.round(colW * 0.3)), padTop = 14, plotH = 160, labelH = 22;
+  const width = Math.max(days.length * colW, 1);
+  const height = padTop + plotH + labelH;
+  const barMax = Math.max(1, ...days.flatMap(d => [d.income, d.outgoing]));
+  const yBar = (v) => padTop + plotH - (v / barMax) * plotH;
+  const lang = LangManager.current === 'id' ? 'id-ID' : 'en-US';
+
+  const cols = days.map((d, i) => {
+    const x = i * colW;
+    const [yy, mm, dd] = d.key.split('-');
+    const dateLabel = new Date(Date.UTC(+yy, +mm - 1, +dd)).toLocaleDateString(lang, { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    const cats = Object.entries(d.cats).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .map(([k, v]) => `  ${k}: ${v < 0 ? '-' : '+'}${fmt(Math.abs(v))}`).join('\n');
+    const tip = [
+      dateLabel,
+      `${t('chartIncome')}: ${fmt(d.income)}`,
+      `${t('chartOutgoing')}: ${fmt(d.outgoing)}`,
+      `${t('chartNet')}: ${fmt(d.income - d.outgoing)}`,
+      cats,
+    ].filter(Boolean).join('\n');
+    const inY = yBar(d.income), outY = yBar(d.outgoing);
+    return `
+      <g class="chart-day">
+        <rect class="chart-hit" x="${x}" y="0" width="${colW}" height="${padTop + plotH}"><title>${escapeHtml(tip)}</title></rect>
+        ${d.income   ? `<rect class="chart-bar-svg bar-in"  x="${x + colW / 2 - barW - 1}" y="${inY}"  width="${barW}" height="${padTop + plotH - inY}"  rx="2"></rect>` : ''}
+        ${d.outgoing ? `<rect class="chart-bar-svg bar-out" x="${x + colW / 2 + 1}"        y="${outY}" width="${barW}" height="${padTop + plotH - outY}" rx="2"></rect>` : ''}
+        <text class="chart-axis-label" x="${x + colW / 2}" y="${padTop + plotH + 15}" text-anchor="middle">${dd}/${mm}</text>
+      </g>`;
+  }).join('');
+
+  c.innerHTML = `
+    ${header}
+    ${kpis}
+    <div class="chart-legend">
+      <span class="legend-item"><span class="legend-dot bar-in"></span> ${t('chartIncome')}</span>
+      <span class="legend-item"><span class="legend-dot bar-out"></span> ${t('chartOutgoing')}</span>
+    </div>
+    <div class="chart-svg-wrap">
+      <svg class="chart-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(t('chartTitle'))}">
+        <line class="chart-baseline" x1="0" x2="${width}" y1="${padTop + plotH}" y2="${padTop + plotH}"></line>
+        ${cols}
+      </svg>
+    </div>`;
   bindExport();
+  const wrap = c.querySelector('.chart-svg-wrap');
+  wrap.scrollLeft = wrap.scrollWidth;
 }
 
 // ── Render ──

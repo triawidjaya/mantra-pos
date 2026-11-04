@@ -595,13 +595,22 @@ body.light-theme #open-bank,
 .fixed-flow strong { color: var(--text-color); }
 
 /* ── Daily cash flow chart ── */
-.chart-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-3); }
+.chart-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
 .chart-kpi { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--space-3) var(--space-3); min-width: 0; }
 .chart-kpi-label { font-size: 0.72rem; color: var(--gray); text-transform: uppercase; letter-spacing: 0.04em; }
 .chart-kpi-value { font-size: var(--text-md); font-weight: 700; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chart-kpi.in .chart-kpi-value  { color: var(--success); }
 .chart-kpi.out .chart-kpi-value { color: var(--danger); }
 .chart-kpi.bal .chart-kpi-value { color: var(--primary); }
+.chart-container .chart-legend { margin-bottom: var(--space-2); }
+.chart-svg-wrap { overflow-x: auto; }
+.chart-svg { display: block; }
+.chart-hit { fill: transparent; }
+.chart-day:hover .chart-hit { fill: var(--border-color); opacity: 0.35; }
+.chart-bar-svg.bar-in  { fill: var(--success); }
+.chart-bar-svg.bar-out { fill: var(--danger); }
+.chart-baseline { stroke: var(--border-color); stroke-width: 1; }
+.chart-axis-label { font-size: 11px; fill: var(--gray); }
 @media (max-width: 768px) {
   .chart-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
