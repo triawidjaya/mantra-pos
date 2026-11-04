@@ -346,8 +346,12 @@ class ChillPOS {
     this._bindDataStore();
     DataStore.subscribeRealtime();
     this._registerRealtimeListeners();
-    const pinReset = await this._preparePinResetFromEmail();
+    // Paint the loaded shop before Auth runs. A reset-link session must not
+    // block the rows that were just read.
     this.renderAll();
+    let pinReset = false;
+    try { pinReset = await this._preparePinResetFromEmail(); }
+    catch (e) { console.error('[Auth] PIN reset link failed:', e); }
     if (pinReset) return;
     await this.bootstrapAuth();
   }
@@ -632,7 +636,7 @@ class ChillPOS {
 
   async _preparePinResetFromEmail() {
     let sb;
-    try { sb = getSupabase(); } catch { return false; }
+    try { sb = getResetAuth(); } catch { return false; }
     const { data } = await sb.auth.getSession();
     const email = data?.session?.user?.email;
     if (!email) return false;
@@ -674,7 +678,7 @@ class ChillPOS {
     btn.disabled = true;
     try {
       const redirect = window.location.origin + window.location.pathname;
-      const { error } = await getSupabase().auth.signInWithOtp({
+      const { error } = await getResetAuth().auth.signInWithOtp({
         email: user.email,
         options: { emailRedirectTo: redirect, shouldCreateUser: true },
       });
@@ -692,7 +696,7 @@ class ChillPOS {
 
   async _verifyResetCode(user, code) {
     try {
-      const { data, error } = await getSupabase().auth.verifyOtp({
+      const { data, error } = await getResetAuth().auth.verifyOtp({
         email: user.email,
         token: code,
         type: 'email',
@@ -700,7 +704,7 @@ class ChillPOS {
       if (error) throw error;
       const email = data?.user?.email || data?.session?.user?.email;
       if (!email || email.toLowerCase() !== user.email) throw new Error('resetPinEmailMismatch');
-      try { await getSupabase().auth.signOut(); } catch {}
+      try { await getResetAuth().auth.signOut(); } catch {}
       this._pinResetUser = user;
       document.getElementById('rp-code').value = '';
       this._showResetPinStep('choose');
@@ -751,16 +755,14 @@ class ChillPOS {
   showLoginModal() {
     const sel = document.getElementById('login-user');
     sel.innerHTML = '';
-    AuthStorage.getUsers().then(users => {
-      users.forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u.username;
-        opt.textContent = u.username;
-        opt.dataset.hasPin = u.pinHash ? '1' : '0';
-        sel.appendChild(opt);
-      });
-      this._togglePinFieldVisibility();
+    DataStore.users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.username;
+      opt.textContent = u.username;
+      opt.dataset.hasPin = u.pinHash ? '1' : '0';
+      sel.appendChild(opt);
     });
+    this._togglePinFieldVisibility();
     document.getElementById('login-pin').value = '';
     document.getElementById('login-modal').style.display = 'flex';
   }
@@ -1137,7 +1139,9 @@ class ChillPOS {
   // ============================================================
 
   isFirstRun() {
-    return this.brandName === DEFAULT_BRAND;
+    // Staff accounts mean the shop is already set up, even if the stored
+    // brand is still the default "My Business".
+    return this.brandName === DEFAULT_BRAND && DataStore.users.length === 0;
   }
 
   showFirstRunWizard() {

@@ -176,10 +176,12 @@ const SupabaseConfig = {
     if (!this.isValidKey(cleanKey)) throw new Error('invalidSupabaseKey');
     appStorage.set(SB_CONFIG_KEY, JSON.stringify({ url: cleanUrl, key: cleanKey }));
     _client = null; // force re-init next getSupabase()
+    _resetAuth = null;
   },
   clear() {
     appStorage.remove(SB_CONFIG_KEY);
     _client = null;
+    _resetAuth = null;
   },
   // Strip common copy-paste cruft: trailing slashes, REST path, whitespace.
   // Accepts e.g. "https://xxx.supabase.co/rest/v1/" → "https://xxx.supabase.co".
@@ -199,26 +201,42 @@ const SupabaseConfig = {
 
 // ── Client singleton ──
 let _client = null;
-function getSupabase() {
-  if (_client) return _client;
+let _resetAuth = null;
+function _requireSupabaseConfig() {
   const cfg = SupabaseConfig.load();
   if (!cfg) throw new Error('Supabase not configured');
   if (typeof supabase === 'undefined' || !supabase.createClient) {
     throw new Error('Supabase SDK not loaded');
   }
+  return cfg;
+}
+function getSupabase() {
+  if (_client) return _client;
+  const cfg = _requireSupabaseConfig();
+  // Shop rows are readable by the anon key only (RLS policy "anon full access").
+  // A user JWT from a PIN-reset link would make every select return no rows,
+  // so the till looks empty and the brand falls back to "My Business".
+  // accessToken null keeps the publishable key on data and realtime requests.
   _client = supabase.createClient(cfg.url, cfg.key, {
-    // PIN login stays on pos_users. Supabase Auth is used only to email a
-    // PIN-reset link. Implicit flow puts the tokens in the URL hash, so the
-    // link works when it is opened in a fresh tab (no PKCE verifier to keep).
+    accessToken: async () => null,
+    realtime: { params: { eventsPerSecond: 10 } },
+  });
+  return _client;
+}
+// Separate Auth client. Its session must never authorize shop queries.
+function getResetAuth() {
+  if (_resetAuth) return _resetAuth;
+  const cfg = _requireSupabaseConfig();
+  _resetAuth = supabase.createClient(cfg.url, cfg.key, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: true,
       flowType: 'implicit',
+      storageKey: 'mantra-pin-reset',
     },
-    realtime: { params: { eventsPerSecond: 10 } },
   });
-  return _client;
+  return _resetAuth;
 }
 
 // ── Translators: snake_case (DB) ↔ camelCase (app) ──
@@ -355,7 +373,11 @@ const DataStore = {
     // Queued writes are the source of truth until they reach the server.
     // Replaying them keeps the screen (especially an open vs closed shift)
     // aligned with what the cashier already confirmed.
-    if (window.OfflineQueue) OfflineQueue.replayOntoCache();
+    try {
+      if (window.OfflineQueue) OfflineQueue.replayOntoCache();
+    } catch (e) {
+      console.error('[DataStore] offline replay failed:', e);
+    }
   },
 
   // Shops set up before the scooter-rental defaults still carry the old
@@ -1208,6 +1230,7 @@ if (typeof window !== 'undefined') {
 window.DataStore           = DataStore;
 window.SupabaseConfig      = SupabaseConfig;
 window.getSupabase         = getSupabase;
+window.getResetAuth        = getResetAuth;
 window.Storage             = Storage;
 window.AuthStorage         = AuthStorage;
 window.OfflineQueue        = OfflineQueue;
