@@ -358,6 +358,45 @@ function exportDailyCashFlow() {
   daily['!cols'] = header.map((h, i) => ({ wch: i === 0 ? 12 : Math.max(12, String(h).length + 2) }));
   daily['!freeze'] = { xSplit: 2, ySplit: 1 };
 
+  const METHOD_ORDER = ['Cash', 'Card', 'Transfer', 'Qris'];
+  const canonMethod = (name) => {
+    const raw = String(name || '').trim();
+    const known = METHOD_ORDER.find(m => m.toLowerCase() === raw.toLowerCase());
+    return known || raw || '—';
+  };
+  const methodTotals = (day) => {
+    const totals = {};
+    (day.txs || []).forEach(tx => {
+      const key = canonMethod(tx.metode);
+      totals[key] = (totals[key] || 0) + (Number(tx.jumlah) || 0);
+    });
+    return totals;
+  };
+  const perDay = days.map(methodTotals);
+  const extraMethods = [...new Set(perDay.flatMap(Object.keys))]
+    .filter(m => !METHOD_ORDER.includes(m))
+    .sort((a, b) => a.localeCompare(b));
+  const methods = [...METHOD_ORDER, ...extraMethods];
+  const methodHeader = [t('xlDate'), t('xlDay'), ...methods.map(sanitizeForExcel), t('xlTotal')];
+  const methodRows = perDay.map((totals, i) => {
+    const values = methods.map(m => totals[m] || 0);
+    return [toDate(days[i].key), weekday(days[i].key), ...values, values.reduce((s, v) => s + v, 0)];
+  });
+  const grandValues = methods.map((_, i) => methodRows.reduce((s, row) => s + row[i + 2], 0));
+  methodRows.push([t('xlTotal'), '', ...grandValues, grandValues.reduce((s, v) => s + v, 0)]);
+  const methodSheet = XLSX.utils.aoa_to_sheet([methodHeader, ...methodRows], { cellDates: true });
+  const methodRange = XLSX.utils.decode_range(methodSheet['!ref']);
+  for (let r = 1; r <= methodRange.e.r; r++) {
+    for (let c = 0; c <= methodRange.e.c; c++) {
+      const cell = methodSheet[XLSX.utils.encode_cell({ r, c })];
+      if (!cell) continue;
+      if (c === 0 && cell.t === 'd') { cell.z = 'dd/mm/yyyy'; delete cell.w; }
+      else if (c >= 2 && cell.t === 'n') { cell.z = money; delete cell.w; }
+    }
+  }
+  methodSheet['!cols'] = methodHeader.map((h, i) => ({ wch: i === 0 ? 12 : Math.max(12, String(h).length + 2) }));
+  methodSheet['!freeze'] = { xSplit: 2, ySplit: 1 };
+
   const period = `${days[0].key} – ${days[days.length - 1].key}`;
   const summary = XLSX.utils.aoa_to_sheet([
     [t('chartTitle')],
@@ -401,6 +440,7 @@ function exportDailyCashFlow() {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, daily, t('xlDaily'));
+  XLSX.utils.book_append_sheet(wb, methodSheet, t('xlMethodSheet'));
   XLSX.utils.book_append_sheet(wb, summary, t('xlSummary'));
   XLSX.utils.book_append_sheet(wb, txSheet, t('xlTransactions'));
   XLSX.writeFile(wb, `cash-flow_${days[0].key}_${days[days.length - 1].key}.xlsx`);
