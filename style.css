@@ -689,15 +689,26 @@ html:has(.modal[style*="display:flex"]) { overflow: hidden; }
   flex: 0 0 auto;
   font-size: 0.85rem;
 }
-@media (max-width: 520px) {
-  #hist-filter .date-presets { align-items: flex-start; }
+@media (max-width: 640px) {
+  #hist-filter .date-presets {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+  #hist-filter .date-presets label {
+    height: auto;
+    min-height: 0;
+  }
   #hist-filter .date-preset-row {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    flex-basis: 100%;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-2);
     width: 100%;
     min-width: 0;
+    flex: none;
   }
+  #hist-filter .date-preset:nth-child(-n+3) { grid-column: span 2; }
+  #hist-filter .date-preset:nth-child(n+4) { grid-column: span 3; }
   #hist-filter .date-preset {
     width: 100%;
     min-width: 0;
@@ -1083,7 +1094,13 @@ option { font-size: var(--text-md); }
   .shift-card-badges { grid-area: badges; display: flex; justify-content: flex-start; margin-top: var(--space-2); }
   .shift-chevron { grid-area: chevron; }
   .toolbar-divider { display: none; }
-  .history-toolbar   { flex-direction: column; align-items: flex-start; }
+  .history-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+  .history-toolbar #btn-hapus-selected { margin-left: auto; }
   .history-header    { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
   .detail-actions .btn-label { display: none; }
   .detail-actions .btn { padding: var(--space-2) var(--space-4); min-width: 44px; justify-content: center; }
@@ -1145,6 +1162,13 @@ th[data-kolom]:focus-visible {
 .list-pager[hidden] { display: none !important; }
 .list-pager .pager-status { color: var(--gray); font-size: 0.82rem; }
 .report-search { margin: 0 0 var(--space-4); width: 100%; }
+@media (max-width: 640px) {
+  .history-header { margin-bottom: var(--space-4); }
+  #hist-filter,
+  .chart-container,
+  .history-toolbar,
+  .report-search { margin-bottom: var(--space-4); }
+}
 .report-search input[type="search"],
 #filter-search {
   width: 100%;
