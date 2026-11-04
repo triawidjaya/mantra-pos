@@ -729,13 +729,22 @@ html:has(.modal[style*="display:flex"]) { overflow: hidden; }
   width: 100%;
 }
 #hist-filter .date-custom-sep { color: var(--gray); line-height: 1; text-align: center; }
-#hist-filter .date-field { min-width: 0; max-width: 100%; }
+#hist-filter .date-field { min-width: 0; max-width: 100%; width: 100%; }
 #hist-filter .date-custom input[type="date"] {
-  display: block;
   width: 100%;
   max-width: 100%;
+  color: var(--text-color);
+}
+#hist-filter .date-custom input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+  width: 100%;
+}
+#hist-filter .date-custom input[type="date"]::-webkit-datetime-edit {
+  padding: 0;
   min-width: 0;
 }
+.dark-theme #hist-filter .date-custom input[type="date"] { color-scheme: dark; }
 @media (max-width: 640px) {
   #hist-filter .date-custom {
     grid-template-columns: minmax(0, 1fr);
@@ -744,7 +753,7 @@ html:has(.modal[style*="display:flex"]) { overflow: hidden; }
 }
 .date-custom input[type="date"] {
   height: var(--control-h);
-  padding: 6px var(--space-3); border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+  padding: 6px 36px 6px var(--space-3); border: 1px solid var(--border-color); border-radius: var(--radius-sm);
   background: var(--card-bg); color: var(--text-color); font-size: 0.85rem;
   box-sizing: border-box;
 }
