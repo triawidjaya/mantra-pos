@@ -18,10 +18,11 @@
 
 <div class="container">
 
+  <div class="topbar">
   <header>
     <h1><img id="header-logo" src="logo.png" class="brand-logo" alt="Logo"> <span id="brand-name">My Business</span></h1>
-    <button class="btn theme-toggle" id="toggle-header" title="Hide menu" aria-label="Hide menu" aria-expanded="true" aria-controls="header-actions-wrap filter-panel">
-      <span class="pepper-icon slashed"><i class="fas fa-pepper-hot"></i></span>
+    <button class="btn theme-toggle" id="toggle-header" title="Hide menu" aria-label="Hide menu" aria-expanded="true" aria-controls="header-actions-wrap">
+      <i class="fas fa-bars"></i>
     </button>
     <div id="user-menu-popup" class="user-menu-popup" style="display:none">
       <div class="user-menu-info">
@@ -35,12 +36,21 @@
     </div>
   </header>
 
-  <!-- Menu row: header-actions (collapses when eye icon in header is clicked) -->
+  <!-- Menu row: collapses when the hamburger in the header is clicked -->
   <div class="header-actions-wrap" id="header-actions-wrap">
     <div class="current-date" id="current-date"></div>
     <div class="header-actions">
       <button class="btn theme-toggle" id="open-settings" title="Settings">
         <i class="fas fa-cog"></i>
+      </button>
+      <button class="btn success" id="download-excel" disabled data-i18n-title="exportExcel" data-i18n-aria="exportExcel" title="Export Excel" aria-label="Export Excel">
+        <i class="fas fa-file-excel"></i>
+      </button>
+      <button class="btn danger" id="tutup-shift" data-i18n-title="closeShift" data-i18n-aria="closeShift" title="Close Shift" aria-label="Close Shift">
+        <i class="fas fa-door-closed"></i>
+      </button>
+      <button class="btn theme-toggle" id="toggle-filter" data-i18n-title="filterToggle" data-i18n-aria="filterToggle" title="Filter" aria-label="Filter" aria-expanded="false" aria-controls="filter-panel">
+        <i class="fas fa-filter"></i>
       </button>
       <button class="btn theme-toggle" id="btn-histori" data-i18n-title="historyTitle" title="Report">
         <i class="fas fa-chart-column"></i>
@@ -56,18 +66,13 @@
       </button>
     </div>
   </div>
+  </div>
 
   <div class="dashboard" id="dashboard"></div>
 
   <div class="action-bar">
     <button class="btn primary" id="new-transaksi" title="New Transaction">
       <i class="fas fa-plus"></i> <span data-i18n="newTransaction">New Transaction</span>
-    </button>
-    <button class="btn success" id="download-excel" disabled title="Export Excel">
-      <i class="fas fa-file-excel"></i> <span data-i18n="exportExcel">Export Excel</span>
-    </button>
-    <button class="btn danger" id="tutup-shift" title="Close Shift">
-      <i class="fas fa-door-closed"></i> <span data-i18n="closeShift">Close Shift</span>
     </button>
   </div>
 

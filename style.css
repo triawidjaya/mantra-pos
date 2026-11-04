@@ -119,7 +119,15 @@ body { background-color: var(--bg-color); color: var(--text-color); line-height:
 
 .container { max-width: 1200px; margin: 0 auto; padding: var(--space-5); }
 
-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); margin-top: var(--space-3); padding: var(--space-4) var(--space-5); background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: var(--radius); box-shadow: var(--shadow); }
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg-color);
+  margin: calc(var(--space-5) * -1) calc(var(--space-5) * -1) 0;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+}
+header { position: relative; display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); margin-top: var(--space-3); padding: var(--space-4) var(--space-5); background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: var(--radius); box-shadow: var(--shadow); }
 
 /* Menu row wrapper — contains only header-actions icons */
 .header-actions-wrap {
@@ -127,15 +135,17 @@ header { display: flex; justify-content: space-between; align-items: center; mar
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-bottom: var(--space-5);
+  margin-bottom: 0;
   padding: var(--space-1) 0;
   overflow: hidden;
-  max-height: 60px;
+  max-height: 120px;
   transition: max-height 0.3s ease, opacity 0.3s ease, margin-bottom 0.3s ease;
 }
 
 body.header-hidden .header-actions-wrap {
   max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
   opacity: 0;
   margin-bottom: 0;
   pointer-events: none;
@@ -144,10 +154,33 @@ body.header-hidden .header-actions-wrap {
 .header-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+  flex-wrap: wrap;
   gap: var(--space-3);
+  min-width: 0;
+}
+.header-actions .btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  padding: 0;
+  flex: none;
+  justify-content: center;
+}
+.header-actions #lang-toggle,
+.header-actions #user-menu {
+  width: auto;
+  padding: 0 12px;
+}
+.header-actions .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+#toggle-filter.active {
+  background: var(--primary-50);
+  border-color: var(--primary);
+  color: var(--primary-700);
 }
 
-/* Toggle button lives in header — icon only, no box/border on the blue header */
+/* Hamburger lives in the brand bar and shows or hides the icon row */
 #toggle-header {
   flex-shrink: 0;
   width: 40px;
@@ -159,11 +192,6 @@ body.header-hidden .header-actions-wrap {
   border-radius: var(--radius);
 }
 #toggle-header:hover { background: var(--primary-50); color: var(--primary-700); }
-
-.pepper-icon { position: relative; display: inline-flex; transition: transform 0.2s ease; }
-.pepper-icon i { color: #e53e3e; }
-/* Flip the chilli horizontally to signal header state: faces left when hidden, right when shown. */
-.pepper-icon.flipped { transform: scaleX(-1); }
 
 header h1 { color: var(--text-color); display: flex; align-items: center; gap: var(--space-3); font-weight: 700; letter-spacing: -0.02em; }
 .brand-logo { height: 1.2em; width: auto; object-fit: contain; }
@@ -208,7 +236,7 @@ header .theme-toggle:hover { background-color: var(--primary-50); color: var(--p
 .card.outgoing .amount { color: var(--danger); }
 
 .action-bar { display: flex; gap: var(--space-3); margin-bottom: var(--space-5); flex-wrap: wrap; align-items: center; }
-#new-transaksi, #download-excel, #tutup-shift { flex: 1; justify-content: center; min-width: 140px; }
+#new-transaksi { justify-content: center; min-width: 140px; }
 
 /* Filter Panel */
 .filter-panel {
@@ -661,7 +689,7 @@ th[data-kolom] .fa-sort-down { opacity: 1; }
 @media (max-width: 480px) {
   .current-date { display: none; }
   header h1 { font-size: 0.95rem; }
-  .header-actions { gap: var(--space-1); max-height: 50px; }
+  .header-actions { gap: var(--space-1); }
 }
 
 .tx-card {

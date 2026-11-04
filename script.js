@@ -1278,15 +1278,21 @@ class ChillPOS {
     document.getElementById('settings-help').addEventListener('click', () => this.showHelp());
     document.getElementById('close-help').addEventListener('click',    () => this.hideHelp());
 
-    // Chili icon — hides/shows the menu icons row AND the filter panel together
-    // as one unit. Single listener, no competing toggles.
+    // Hamburger hides the icon row. Filter has its own button above the table.
     const toggleBtn = document.getElementById('toggle-header');
     const filterPanel = document.getElementById('filter-panel');
+    const filterBtn = document.getElementById('toggle-filter');
+    const setFilterOpen = (open) => {
+      if (!filterPanel) return;
+      filterPanel.style.display = open ? 'block' : 'none';
+      if (!filterBtn) return;
+      filterBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      filterBtn.classList.toggle('active', open);
+    };
     const setHeaderHidden = (hidden) => {
       document.body.classList.toggle('header-hidden', hidden);
       Storage.set('pos_header_hidden', hidden);
-      if (filterPanel) filterPanel.style.display = hidden ? 'none' : 'block';
-      toggleBtn.querySelector('.pepper-icon').classList.toggle('flipped', hidden);
+      if (hidden) setFilterOpen(false);
       const menuLabel = hidden ? 'Show menu' : 'Hide menu';
       toggleBtn.title = menuLabel;
       toggleBtn.setAttribute('aria-label', menuLabel);
@@ -1295,7 +1301,10 @@ class ChillPOS {
     toggleBtn.addEventListener('click', () => {
       setHeaderHidden(!document.body.classList.contains('header-hidden'));
     });
-    // Default: both visible (matches the normal app appearance).
+    filterBtn?.addEventListener('click', () => {
+      setFilterOpen(filterPanel.style.display !== 'block');
+    });
+    setFilterOpen(false);
     setHeaderHidden(Storage.get('pos_header_hidden', false));
 
     // Action bar
