@@ -494,7 +494,11 @@ function renderChart() {
   const width = Math.max(days.length * colW, 1);
   const height = padTop + plotH + labelH;
   const barMax = Math.max(1, ...days.flatMap(d => [d.income, d.outgoing]));
+  const balances = days.map(d => d.balance).filter(b => b !== null);
+  const balMin = Math.min(0, ...balances);
+  const balMax = Math.max(1, ...balances);
   const yBar = (v) => padTop + plotH - (v / barMax) * plotH;
+  const yBal = (v) => padTop + plotH - ((v - balMin) / ((balMax - balMin) || 1)) * plotH;
   const lang = LangManager.current === 'id' ? 'id-ID' : 'en-US';
 
   const cols = days.map((d, i) => {
@@ -508,6 +512,7 @@ function renderChart() {
       `${t('chartIncome')}: ${fmt(d.income)}`,
       `${t('chartOutgoing')}: ${fmt(d.outgoing)}`,
       `${t('chartNet')}: ${fmt(d.income - d.outgoing)}`,
+      `${t('chartEndBalance')}: ${d.balance === null ? '—' : fmt(d.balance)}`,
       cats,
     ].filter(Boolean).join('\n');
     const inY = yBar(d.income), outY = yBar(d.outgoing);
@@ -519,6 +524,9 @@ function renderChart() {
         <text class="chart-axis-label" x="${x + colW / 2}" y="${padTop + plotH + 15}" text-anchor="middle">${dd}/${mm}</text>
       </g>`;
   }).join('');
+  const points = days.map((d, i) => d.balance === null ? null : `${i * colW + colW / 2},${yBal(d.balance)}`).filter(Boolean);
+  const dots = days.map((d, i) => d.balance === null ? '' :
+    `<circle class="chart-balance-dot" cx="${i * colW + colW / 2}" cy="${yBal(d.balance)}" r="2.5"></circle>`).join('');
 
   c.innerHTML = `
     ${header}
@@ -526,13 +534,17 @@ function renderChart() {
     <div class="chart-legend">
       <span class="legend-item"><span class="legend-dot bar-in"></span> ${t('chartIncome')}</span>
       <span class="legend-item"><span class="legend-dot bar-out"></span> ${t('chartOutgoing')}</span>
+      <span class="legend-item"><span class="legend-line"></span> ${t('chartBalance')}</span>
     </div>
     <div class="chart-svg-wrap">
       <svg class="chart-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(t('chartTitle'))}">
         <line class="chart-baseline" x1="0" x2="${width}" y1="${padTop + plotH}" y2="${padTop + plotH}"></line>
         ${cols}
+        ${points.length > 1 ? `<polyline class="chart-balance-line" points="${points.join(' ')}"></polyline>` : ''}
+        ${dots}
       </svg>
-    </div>`;
+    </div>
+    <div class="chart-note">${t('chartNote')}</div>`;
   bindExport();
   const wrap = c.querySelector('.chart-svg-wrap');
   wrap.scrollLeft = wrap.scrollWidth;
