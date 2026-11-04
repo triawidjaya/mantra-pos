@@ -729,14 +729,18 @@ html:has(.modal[style*="display:flex"]) { overflow: hidden; }
   width: 100%;
 }
 #hist-filter .date-custom-sep { color: var(--gray); line-height: 1; text-align: center; }
+#hist-filter .date-field { min-width: 0; max-width: 100%; }
 #hist-filter .date-custom input[type="date"] {
+  display: block;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
 }
-@media (max-width: 520px) {
+@media (max-width: 640px) {
   #hist-filter .date-custom {
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
+  #hist-filter .date-custom-sep { justify-self: center; }
 }
 .date-custom input[type="date"] {
   height: var(--control-h);
