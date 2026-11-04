@@ -678,7 +678,8 @@ html:has(.modal[style*="display:flex"]) { overflow: hidden; }
   header h1 { font-size: 1.1rem; flex: 1; min-width: 0; line-height: 1.25; }
   #brand-name { overflow-wrap: anywhere; }
   .current-date { display: none; }
-  .header-actions { flex-wrap: nowrap; gap: 6px; width: 100%; }
+  .header-actions-wrap { justify-content: center; }
+  .header-actions { flex: 0 1 auto; width: auto; max-width: 100%; flex-wrap: nowrap; justify-content: center; gap: 6px; }
   .header-actions .btn,
   .header-actions #lang-toggle,
   .header-actions #user-menu {
