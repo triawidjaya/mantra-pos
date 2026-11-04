@@ -1287,7 +1287,10 @@ class ChillPOS {
       Storage.set('pos_header_hidden', hidden);
       if (filterPanel) filterPanel.style.display = hidden ? 'none' : 'block';
       toggleBtn.querySelector('.pepper-icon').classList.toggle('flipped', hidden);
-      toggleBtn.title = hidden ? 'Show menu' : 'Hide menu';
+      const menuLabel = hidden ? 'Show menu' : 'Hide menu';
+      toggleBtn.title = menuLabel;
+      toggleBtn.setAttribute('aria-label', menuLabel);
+      toggleBtn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
     };
     toggleBtn.addEventListener('click', () => {
       setHeaderHidden(!document.body.classList.contains('header-hidden'));
@@ -1458,18 +1461,28 @@ class ChillPOS {
     });
     document.getElementById('ts-confirm-close').addEventListener('click', async () => { await this.eksekusiTutupShift(); });
 
-    // Sort — click table header
-    document.getElementById('transaksi-table').querySelector('thead')
-      .addEventListener('click', (e) => {
-        const th = e.target.closest('th[data-kolom]');
-        if (!th) return;
-        const kolom = th.dataset.kolom;
-        this.sortState.arah = this.sortState.kolom === kolom
-          ? (this.sortState.arah === 'asc' ? 'desc' : 'asc')
-          : 'asc';
-        this.sortState.kolom = kolom;
-        this.renderTransaksiTable();
-      });
+    // Sort — click or keyboard on a column header
+    const sortFromHeader = (th) => {
+      const kolom = th.dataset.kolom;
+      this.sortState.arah = this.sortState.kolom === kolom
+        ? (this.sortState.arah === 'asc' ? 'desc' : 'asc')
+        : 'asc';
+      this.sortState.kolom = kolom;
+      this.renderTransaksiTable();
+    };
+    const transaksiHead = document.getElementById('transaksi-table').querySelector('thead');
+    transaksiHead.addEventListener('click', (e) => {
+      const th = e.target.closest('th[data-kolom]');
+      if (!th) return;
+      sortFromHeader(th);
+    });
+    transaksiHead.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const th = e.target.closest('th[data-kolom]');
+      if (!th) return;
+      e.preventDefault();
+      sortFromHeader(th);
+    });
 
     // Filter — Apply button
     document.getElementById('apply-filter').addEventListener('click', () => {
@@ -1658,6 +1671,10 @@ class ChillPOS {
     });
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
       el.title = t(el.dataset.i18nTitle);
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+      const str = t(el.dataset.i18nAria);
+      if (typeof str === 'string') el.setAttribute('aria-label', str);
     });
 
     // Re-render dynamic parts that contain translated strings
@@ -1990,9 +2007,11 @@ class ChillPOS {
 
     // Update sort icons (always — table header may be hidden but DOM intact)
     document.querySelectorAll('th[data-kolom]').forEach(th => {
+      const active = th.dataset.kolom === kolom;
+      th.setAttribute('aria-sort', active ? (arah === 'asc' ? 'ascending' : 'descending') : 'none');
       const icon = th.querySelector('.sort-icon');
       if (!icon) return;
-      icon.className = th.dataset.kolom === kolom
+      icon.className = active
         ? `sort-icon fas fa-sort-${arah === 'asc' ? 'up' : 'down'}`
         : 'sort-icon fas fa-sort';
     });

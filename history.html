@@ -28,7 +28,8 @@
     .shift-card.selected{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,102,204,0.18)}
     .shift-card-header{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;user-select:none}
     .shift-card-header:hover{background:var(--surface-hover)}
-    .shift-checkbox{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--primary)}
+    .shift-check{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-width:44px;min-height:44px}
+    .shift-checkbox{width:16px;height:16px;cursor:pointer;accent-color:var(--primary)}
     .shift-card-info{flex:1;min-width:0}
     .shift-card-date{font-weight:600;font-size:0.95rem}
     .shift-card-meta{font-size:0.8rem;color:var(--gray);margin-top:4px;line-height:1.4}
@@ -650,7 +651,7 @@ function renderList() {
 
     card.innerHTML = `
       <div class="shift-card-header">
-        <input type="checkbox" class="shift-checkbox" data-id="${shift.id}" ${selectedIds.has(shift.id) ? 'checked' : ''}>
+        <label class="shift-check"><input type="checkbox" class="shift-checkbox" data-id="${shift.id}" ${selectedIds.has(shift.id) ? 'checked' : ''}></label>
         <div class="shift-card-info">
           <div class="shift-card-date">${fmtDate(shift.closedAt)}</div>
           <div class="shift-card-meta">
@@ -669,7 +670,7 @@ function renderList() {
     `;
 
     card.querySelector('.shift-card-header').addEventListener('click', (e) => {
-      if (e.target.classList.contains('shift-checkbox')) return;
+      if (e.target.closest('.shift-check')) return;
       card.classList.toggle('open');
     });
 
@@ -1079,7 +1080,7 @@ initTheme();          // sync — theme persisted in localStorage, doesn't need 
   if (!window._isAdmin) {
     document.getElementById('history-toolbar').style.display = 'none';
     const s = document.createElement('style');
-    s.textContent = '.shift-checkbox{display:none}';
+    s.textContent = '.shift-check{display:none}';
     document.head.appendChild(s);
   }
 

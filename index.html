@@ -20,7 +20,7 @@
 
   <header>
     <h1><img id="header-logo" src="logo.png" class="brand-logo" alt="Logo"> <span id="brand-name">My Business</span></h1>
-    <button class="btn theme-toggle" id="toggle-header" title="Toggle header visibility" aria-label="Toggle header">
+    <button class="btn theme-toggle" id="toggle-header" title="Hide menu" aria-label="Hide menu" aria-expanded="true" aria-controls="header-actions-wrap filter-panel">
       <span class="pepper-icon slashed"><i class="fas fa-pepper-hot"></i></span>
     </button>
     <div id="user-menu-popup" class="user-menu-popup" style="display:none">
@@ -36,7 +36,7 @@
   </header>
 
   <!-- Menu row: header-actions (collapses when eye icon in header is clicked) -->
-  <div class="header-actions-wrap">
+  <div class="header-actions-wrap" id="header-actions-wrap">
     <div class="current-date" id="current-date"></div>
     <div class="header-actions">
       <button class="btn theme-toggle" id="open-settings" title="Settings">
@@ -120,14 +120,14 @@
     <table id="transaksi-table">
       <thead>
         <tr>
-          <th data-kolom="tanggalWaktu" style="cursor:pointer"><span data-i18n="colDateTime">Date/Time</span> <i class="sort-icon fas fa-sort-down"></i></th>
-          <th data-kolom="jenis"        style="cursor:pointer"><span data-i18n="colType">Type</span> <i class="sort-icon fas fa-sort"></i></th>
-          <th data-kolom="kategori"     style="cursor:pointer"><span data-i18n="colCategory">Category</span> <i class="sort-icon fas fa-sort"></i></th>
-          <th data-kolom="deskripsi"    style="cursor:pointer"><span data-i18n="colDescription">Description</span> <i class="sort-icon fas fa-sort"></i></th>
-          <th data-kolom="jumlah"       style="cursor:pointer"><span data-i18n="colAmount">Amount</span> <i class="sort-icon fas fa-sort"></i></th>
-          <th data-kolom="metode"       style="cursor:pointer"><span data-i18n="colMethod">Method</span> <i class="sort-icon fas fa-sort"></i></th>
+          <th data-kolom="tanggalWaktu" tabindex="0" style="cursor:pointer"><span data-i18n="colDateTime">Date/Time</span> <i class="sort-icon fas fa-sort-down"></i></th>
+          <th data-kolom="jenis"        tabindex="0" style="cursor:pointer"><span data-i18n="colType">Type</span> <i class="sort-icon fas fa-sort"></i></th>
+          <th data-kolom="kategori"     tabindex="0" style="cursor:pointer"><span data-i18n="colCategory">Category</span> <i class="sort-icon fas fa-sort"></i></th>
+          <th data-kolom="deskripsi"    tabindex="0" style="cursor:pointer"><span data-i18n="colDescription">Description</span> <i class="sort-icon fas fa-sort"></i></th>
+          <th data-kolom="jumlah"       tabindex="0" style="cursor:pointer"><span data-i18n="colAmount">Amount</span> <i class="sort-icon fas fa-sort"></i></th>
+          <th data-kolom="metode"       tabindex="0" style="cursor:pointer"><span data-i18n="colMethod">Method</span> <i class="sort-icon fas fa-sort"></i></th>
           <th><span data-i18n="colNote">Note</span></th>
-          <th data-kolom="staff"        style="cursor:pointer"><span data-i18n="colStaff">Staff</span> <i class="sort-icon fas fa-sort"></i></th>
+          <th data-kolom="staff"        tabindex="0" style="cursor:pointer"><span data-i18n="colStaff">Staff</span> <i class="sort-icon fas fa-sort"></i></th>
           <th><span data-i18n="colAction">Action</span></th>
         </tr>
       </thead>
@@ -358,7 +358,7 @@
 <!-- Users Management Modal (admin only) -->
 <div class="modal" id="users-modal">
   <div class="modal-content">
-    <span class="close-btn" id="close-users">&times;</span>
+    <button type="button" class="close-btn" id="close-users" data-i18n-aria="close" aria-label="Close">&times;</button>
     <h2 data-i18n="usersTitle">Manage Users</h2>
     <div id="users-list" class="users-list" style="margin-top:15px"></div>
     <hr style="margin:18px 0;border:0;border-top:1px solid var(--border-color)">
@@ -438,7 +438,7 @@
 <!-- Transaction Form Modal -->
 <div class="modal" id="form-modal">
   <div class="modal-content">
-    <span class="close-btn" id="close-form">&times;</span>
+    <button type="button" class="close-btn" id="close-form" data-i18n-aria="close" aria-label="Close">&times;</button>
     <h2 id="modal-title" data-i18n="newTransactionTitle">New Transaction</h2>
     <form id="transaksi-form">
       <div id="tx-staff-name" class="tx-staff-name"></div>
@@ -516,7 +516,7 @@
 <!-- Rental — one save writes guest income and the owner share -->
 <div class="modal" id="rental-modal">
   <div class="modal-content">
-    <span class="close-btn" id="close-rental">&times;</span>
+    <button type="button" class="close-btn" id="close-rental" data-i18n-aria="close" aria-label="Close">&times;</button>
     <h2><i class="fas fa-motorcycle" style="color:var(--info)"></i> <span data-i18n="rentalTitle">Rental Payment</span></h2>
     <form id="rental-form">
       <div class="form-group">
@@ -571,7 +571,7 @@
 <!-- Cash out — one save writes incoming payment and cash paid out -->
 <div class="modal" id="cashout-modal">
   <div class="modal-content">
-    <span class="close-btn" id="close-cashout">&times;</span>
+    <button type="button" class="close-btn" id="close-cashout" data-i18n-aria="close" aria-label="Close">&times;</button>
     <h2><i class="fas fa-money-bill-wave" style="color:var(--success)"></i> <span data-i18n="cashoutTitle">TarikTunai</span></h2>
     <form id="cashout-form">
       <div class="form-group">
@@ -604,7 +604,7 @@
 <!-- Card settlement into the cash box — amount only, methods are fixed -->
 <div class="modal" id="bank-modal">
   <div class="modal-content">
-    <span class="close-btn" id="close-bank">&times;</span>
+    <button type="button" class="close-btn" id="close-bank" data-i18n-aria="close" aria-label="Close">&times;</button>
     <h2><i class="fas fa-building-columns" style="color:var(--success)"></i> <span data-i18n="bankTitle">Kas dari bank</span></h2>
     <form id="bank-form">
       <div class="form-group">
@@ -695,7 +695,7 @@
 <!-- Settings Modal -->
 <div class="modal" id="settings-modal">
   <div class="modal-content">
-    <span class="close-btn" id="close-settings">&times;</span>
+    <button type="button" class="close-btn" id="close-settings" data-i18n-aria="close" aria-label="Close">&times;</button>
     <h2 data-i18n="settings">Settings</h2>
     <div class="form-group">
       <label for="settings-brand" data-i18n="brandName">Brand Name</label>
@@ -755,7 +755,7 @@
 <!-- Help / Quick Start Modal -->
 <div class="modal" id="help-modal">
   <div class="modal-content">
-    <span class="close-btn" id="close-help">&times;</span>
+    <button type="button" class="close-btn" id="close-help" data-i18n-aria="close" aria-label="Close">&times;</button>
     <h2><i class="fas fa-question-circle" style="color:var(--primary)"></i> <span data-i18n="helpTitle">Quick Start Guide</span></h2>
     <div class="help-content" id="help-content"></div>
   </div>
