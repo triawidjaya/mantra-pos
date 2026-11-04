@@ -27,7 +27,7 @@
   --danger: var(--danger-500);
   --light: var(--neutral-100);
   --dark: var(--neutral-900);
-  --gray: var(--neutral-500);
+  --gray: #5F6B7A;
   --info: var(--primary-500);
   --radius: 8px;
   --radius-sm: 4px;
@@ -38,6 +38,7 @@
   --text-color: var(--neutral-900);
   --card-bg: #FFFFFF;
   --border-color: var(--neutral-200);
+  --surface-hover: rgba(0, 0, 0, 0.05);
 }
 
 .dark-theme {
@@ -45,6 +46,7 @@
   --text-color: #F4F5F7;
   --card-bg: #1C1F24;
   --border-color: #2E333A;
+  --surface-hover: rgba(255, 255, 255, 0.06);
   --gray: #A7ADB7;
   --ink: #F4F5F7;
   --paper: #121417;
@@ -291,7 +293,7 @@ th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--bo
 
 th { background-color: var(--neutral-50); color: var(--neutral-700); font-weight: 600; position: sticky; top: 0; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; }
 
-tr:hover { background-color: rgba(0,0,0,0.05); }
+tr:hover { background-color: var(--surface-hover); }
 
 .income-badge  { background-color: var(--success-100); color: var(--success-700); border: none; border-radius: var(--radius-sm); padding: 2px 8px; font-size: 0.75rem; font-weight: 600; }
 .outgoing-badge { background-color: var(--danger-100); color: var(--danger-700); border: none; border-radius: var(--radius-sm); padding: 2px 8px; font-size: 0.75rem; font-weight: 600; }
@@ -692,8 +694,7 @@ body.light-theme #open-bank,
   color: var(--gray); border-radius: 5px;
   transition: background 0.15s, color 0.15s;
 }
-.cat-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-color); }
-.dark-theme .cat-btn:hover { background: rgba(255,255,255,0.08); }
+.cat-btn:hover { background: var(--surface-hover); color: var(--text-color); }
 .cat-delete:hover { color: var(--danger); }
 
 /* ── Auth UI ── */
@@ -832,8 +833,7 @@ option { font-size: 10px; }
 .shift-card.selected { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.18); }
 
 .shift-card-header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; user-select: none; }
-.shift-card-header:hover { background: rgba(0,0,0,0.025); }
-.dark-theme .shift-card-header:hover { background: rgba(255,255,255,0.04); }
+.shift-card-header:hover { background: var(--surface-hover); }
 
 .shift-checkbox { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: var(--primary); }
 
@@ -875,7 +875,7 @@ option { font-size: 10px; }
 .detail-table-wrap th { background: var(--primary); color: white; padding: 7px 10px; text-align: left; position: sticky; top: 0; font-weight: 500; }
 .detail-table-wrap td { padding: 6px 10px; border-bottom: 1px solid var(--border-color); }
 .detail-table-wrap tr:last-child td { border-bottom: none; }
-.detail-table-wrap tr:hover { background: rgba(0,0,0,0.03); }
+.detail-table-wrap tr:hover { background: var(--surface-hover); }
 
 @media (max-width: 600px) {
   .shift-card-badges { display: none; }
