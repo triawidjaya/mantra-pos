@@ -925,12 +925,27 @@ textarea:focus-visible {
   outline: 3px solid rgba(0, 102, 204, 0.28);
   outline-offset: 2px;
 }
-#local-mode-banner {
-  background: var(--warning-100) !important;
-  color: var(--warning-700) !important;
-  border-bottom: 1px solid #F3E2A0 !important;
-  font-weight: 600;
+.list-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 16px;
 }
+.list-pager[hidden] { display: none !important; }
+.list-pager .pager-status { color: var(--gray); font-size: 0.82rem; }
+.report-search { margin-top: 8px; }
+.report-search input[type="search"],
+#filter-search {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 16px;
+}
+
 .shift-badge,
 .role-badge,
 .pin-badge,

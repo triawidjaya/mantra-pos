@@ -131,6 +131,10 @@
       <button type="button" class="btn small date-preset active" data-preset="month">This Month</button>
       <button type="button" class="btn small date-preset"        data-preset="custom">Custom...</button>
     </div>
+    <div class="filter-group report-search">
+      <label for="report-search"><i class="fas fa-search"></i> <span id="report-search-label">Search</span></label>
+      <input type="search" id="report-search" placeholder="Staff, note, description..." autocomplete="off">
+    </div>
     <div class="filter-group date-custom" id="date-custom-group" style="display:none">
       <input type="date" id="date-from" title="From">
       <span>&ndash;</span>
@@ -142,6 +146,7 @@
   <div class="chart-container" id="chart-container"></div>
 
   <div class="shift-list" id="shift-list"></div>
+  <div id="report-pager" class="list-pager" hidden></div>
 
 </div>
 <div id="alert-container"></div>
@@ -218,6 +223,8 @@ function applyLang() {
   document.getElementById('delete-selected-label').textContent = t('deleteSelected');
   // Date filter labels
   document.getElementById('hist-date-label').textContent = t('dateRange');
+  document.getElementById('report-search-label').textContent = t('search');
+  document.getElementById('report-search').placeholder = t('reportSearchPlaceholder');
   const presetMap = { all: 'dateAll', today: 'dateToday', week: 'dateWeek', month: 'dateMonth', custom: 'dateCustom' };
   document.querySelectorAll('.date-preset').forEach(b => {
     b.textContent = t(presetMap[b.dataset.preset]);
@@ -254,6 +261,9 @@ function showAlert(message, type = 'info') {
 let history  = [];
 let selectedIds = new Set();
 let dateFilter  = { preset: 'month', from: null, to: null };
+let reportQuery = '';
+let reportPage  = 1;
+const REPORT_PAGE_SIZE = 10;
 
 // ── Date filter helpers ──
 function dateBounds() {
@@ -283,13 +293,26 @@ function dateBounds() {
 // on the 1st still belongs to the month it covers.
 function getFilteredShifts() {
   const range = dateBounds();
-  if (!range) return history;
-  const [from, to] = range;
-  return history.filter(s => {
+  const dated = !range ? history : history.filter(s => {
+    const [from, to] = range;
     const end   = new Date(s.closedAt).getTime();
     const start = s.startedAt ? new Date(s.startedAt).getTime() : end;
     return start <= to && end >= from;
   });
+  const q = reportQuery.trim().toLowerCase();
+  if (!q) return dated;
+  return dated.filter(s => shiftSearchText(s).includes(q));
+}
+
+function shiftSearchText(shift) {
+  const parts = [
+    ...(shift.staff || []),
+    shift.summary?.closingNote || '',
+  ];
+  (shift.transactions || []).forEach(tx => {
+    parts.push(tx.kategori, tx.staff, tx.metode, tx.jenis, tx.deskripsi, ledgerDescription(tx), ledgerNoteShort(tx));
+  });
+  return parts.join(' ').toLowerCase();
 }
 
 // ── Chart: daily cash flow (WITA calendar days, from transaction time) ──
@@ -580,13 +603,32 @@ function renderChart() {
 }
 
 // ── Render ──
+function renderReportPager(total, pages) {
+  const pager = document.getElementById('report-pager');
+  if (!pager) return;
+  if (total === 0) { pager.hidden = true; pager.innerHTML = ''; return; }
+  const start = (reportPage - 1) * REPORT_PAGE_SIZE + 1;
+  const end = Math.min(total, reportPage * REPORT_PAGE_SIZE);
+  pager.hidden = false;
+  pager.innerHTML = `
+    <button type="button" class="btn small" data-page="prev" ${reportPage <= 1 ? 'disabled' : ''}>${t('pagePrev')}</button>
+    <span class="pager-status">${t('pageStatus', { page: reportPage, pages, start, end, total })}</span>
+    <button type="button" class="btn small" data-page="next" ${reportPage >= pages ? 'disabled' : ''}>${t('pageNext')}</button>
+  `;
+}
+
 function renderList() {
   const list = document.getElementById('shift-list');
   list.innerHTML = '';
-  const visible = getFilteredShifts();
+  const matched = getFilteredShifts();
+  const pages = Math.max(1, Math.ceil(matched.length / REPORT_PAGE_SIZE));
+  if (reportPage > pages) reportPage = pages;
+  if (reportPage < 1) reportPage = 1;
+  const visible = matched.slice((reportPage - 1) * REPORT_PAGE_SIZE, reportPage * REPORT_PAGE_SIZE);
+  renderReportPager(matched.length, pages);
 
-  if (visible.length === 0) {
-    const isFiltered = dateFilter.preset !== 'all';
+  if (matched.length === 0) {
+    const isFiltered = dateFilter.preset !== 'all' || reportQuery.trim() !== '';
     list.innerHTML = `
       <div class="empty-state">
         <i class="fas fa-box-open"></i>
@@ -964,6 +1006,7 @@ function exportShift(shift, format) {
 // ── Date filter wiring ──
 function setDatePreset(preset) {
   dateFilter.preset = preset;
+  reportPage = 1;
   document.querySelectorAll('.date-preset').forEach(b => {
     b.classList.toggle('active', b.dataset.preset === preset);
   });
@@ -980,12 +1023,25 @@ function setDatePreset(preset) {
 document.querySelectorAll('.date-preset').forEach(btn => {
   btn.addEventListener('click', () => setDatePreset(btn.dataset.preset));
 });
+document.getElementById('report-search').addEventListener('input', (e) => {
+  reportQuery = e.target.value;
+  reportPage = 1;
+  renderList();
+});
+document.getElementById('report-pager').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-page]');
+  if (!btn || btn.disabled) return;
+  reportPage += btn.dataset.page === 'next' ? 1 : -1;
+  renderList();
+});
 document.getElementById('date-from').addEventListener('change', (e) => {
   dateFilter.from = e.target.value;
+  reportPage = 1;
   if (dateFilter.to) { renderChart(); renderList(); }
 });
 document.getElementById('date-to').addEventListener('change', (e) => {
   dateFilter.to = e.target.value;
+  reportPage = 1;
   if (dateFilter.from) { renderChart(); renderList(); }
 });
 

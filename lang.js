@@ -11,6 +11,10 @@ const STRINGS = {
     hideAll:'Hide All',showAll:'Show All',closeShift:'Close Shift',
     cashBalance:'Cash',cardBalance:'Card',transferBalance:'Transfer',qrisBalance:'QRIS',otherBalance:'Other',
     search:'Search',searchPlaceholder:'Description, category, staff...',
+    reportSearchPlaceholder:'Staff, note, plate, description...',
+    noSearchResults:'No matching rows',
+    pagePrev:'Previous',pageNext:'Next',
+    pageStatus: ({ start, end, total, page, pages }) => `${start}–${end} of ${total} · ${page}/${pages}`,
     filterType:'Type',filterAll:'All',filterIncome:'Income',filterOutgoing:'Outgoing',
     filterCategory:'Category',filterMethod:'Method',applyFilter:'Apply Filter',resetFilter:'Reset',
     colDateTime:'Date/Time',colType:'Type',colCategory:'Category',
@@ -87,9 +91,29 @@ const STRINGS = {
     loginTitle:'Sign In',signIn:'Sign In',selectUser:'Select User',enterPin:'Enter PIN',
     forgotPin:'Forgot PIN?',
     resetPinTitle:'Reset PIN',
-    resetPinHint:'Enter the access code to reset PIN for any user. The access code is shared with the business owner.',
-    accessCode:'Access Code',newPin:'New PIN (4-6 digits)',
+    resetPinHint:'We email a reset link to that person. Open the link, or type the code from the same email.',
+    resetPinChooseHint:(name) => `Choose a new PIN for ${name}.`,
+    resetPinSent:(email) => `Reset email sent to ${email}.`,
+    resetPinSentHint:'Open the link in the email, or type the code from that email below and press the button again.',
+    sendResetLink:'Send reset link',
+    resetPinCode:'Code from the email (optional)',
+    resetPinCodeWrong:'That code is not valid. Send a new link and try again.',
+    resetPinSendFailed:'Could not send the reset email.',
+    resetPinEmailMismatch:'That email is not on a staff account.',
+    resetPinNoEmailAdmin:'This admin has no email yet. Another admin must add one in Manage Users.',
+    resetPinNoEmailCashier:'This cashier has no email. An admin sets the PIN in Manage Users.',
+    newPin:'New PIN (4-6 digits)',
     resetPinBtn:'Reset PIN',
+    email:'Email',
+    emailHint:'Required for an admin. A cashier can leave this empty; an admin then sets their PIN.',
+    emailNone:'No email',
+    setEmail:'Set email',
+    emailPrompt:'Email address (leave empty to clear a cashier):',
+    invalidEmail:'Enter a valid email address.',
+    adminEmailRequired:'An admin needs an email address.',
+    emailInUse:'That email is already used by another user.',
+    syncCloseFailed:'Shift close has not reached the server yet. It stays closed here and will keep retrying.',
+    shiftClosePending:'A shift close is already waiting to sync. Wait for it before closing again.',
     wrongAccessCode:'Wrong access code.',
     alertPinReset:'PIN reset successfully. Please sign in.',
     adminUser:'Admin User (from staff list above)',adminPin:'Admin PIN (4-6 digits)',
@@ -122,7 +146,7 @@ const STRINGS = {
 <h3><i class="fas fa-rocket"></i> First-time setup</h3>
 <ol>
   <li>When you first open the app, the <b>Welcome wizard</b> appears.</li>
-  <li>Fill in your <b>brand name</b> and the <b>admin name</b>, then set a <b>4-6 digit PIN</b>.</li>
+  <li>Fill in your <b>brand name</b>, the <b>admin name</b>, the <b>admin email</b>, then set a <b>4-6 digit PIN</b>.</li>
   <li>Scooter-rental categories are set up for you. Add other staff later in <b>Manage Users</b>.</li>
   <li>Click <b>Finish Setup</b>. You'll be auto-logged in as Admin and the Start Shift screen appears.</li>
 </ol>
@@ -146,8 +170,8 @@ const STRINGS = {
 <h3><i class="fas fa-users-cog"></i> Managing users</h3>
 <ul>
   <li>Open <b>Settings</b> (gear icon) → <b>Manage Users</b>.</li>
-  <li>Add new user: username + role + optional PIN. Without PIN they log in by name only.</li>
-  <li>Pen icon = rename. Key icon = set/reset PIN. Trash = delete.</li>
+  <li>Add new user: username + role + email + optional PIN. Admin email is required. A cashier can have no email.</li>
+  <li>Pen icon = rename. Envelope = email. Key icon = set/reset PIN. Trash = delete.</li>
   <li>You can't delete or demote the last admin. You can't delete yourself.</li>
 </ul>
 
@@ -160,10 +184,9 @@ const STRINGS = {
 
 <h3><i class="fas fa-shield-alt"></i> Important notes</h3>
 <ul>
-  <li>All data is stored on this device (in browser). No cloud sync.</li>
-  <li><b>Don't clear browser data</b> for this site — you'll lose all transactions and users.</li>
-  <li><b>Forgot PIN?</b> Click "Forgot PIN?" on the login screen → select the user → enter the <b>access code</b> (the one set when first opening the app) → set new PIN. Works for any user including admin.</li>
-  <li>If both the PIN and the access code are forgotten, the only recovery is clearing browser data and re-running the wizard (you'll lose data). Keep the access code somewhere safe.</li>
+  <li>Mantra Lombok is always connected to its cloud database. The last 50 closed shifts are kept.</li>
+  <li><b>Forgot PIN?</b> On the login screen choose the person. If they have an email, we send a reset link to that address. A cashier with no email asks an admin to set the PIN.</li>
+  <li>While offline, new transactions, edits, deletes, and closing the shift stay on this device and sync when the connection returns.</li>
   <li>Open <code>history.html</code> to see closed shifts and re-export their data.</li>
 </ul>
 `,
@@ -177,26 +200,9 @@ const STRINGS = {
     catTypeIncome:'Income',
     catTypeOutgoing:'Outgoing',
     renameUserPrompt:'New username:',
-    // ── Mode choice (Local Basic vs Cloud Premium) ──
-    modeChoiceTitle:'Choose Mode',
-    modeChoiceHint:'Pick where your data should live. You can upgrade Local → Cloud later.',
-    modeLocal:'Local Mode',
-    modeLocalDesc:'Data stays in this browser only. No setup needed.',
-    modeCloud:'Cloud Mode',
-    modeCloudDesc:'Multi-device realtime sync. Needs a Supabase project.',
-    localModeBanner:'Local mode — data only in this browser. Export Excel regularly for backup.',
-    offlineBanner:'Offline — connection lost. New transactions will be saved here and synced when you reconnect.',
-    offlineQueued:'Offline — {n} transaction(s) waiting to sync.',
-    syncingQueued:'Syncing {n} transaction(s)…',
-    upgradeToCloud:'Upgrade to Cloud (Premium)',
-    upgradeToCloudTitle:'Upgrade to Cloud',
-    upgradeToCloudHint:'Migrates all your local data to a Supabase project. The target project must be empty (just-created).',
-    upgradeStart:'Start Migration',
-    upgradeChecking:'Checking cloud project...',
-    upgradeMigrating:'Migrating data... do not close this tab.',
-    upgradeDone:'Migration complete! Reloading...',
-    upgradeFailed:'Migration failed',
-    upgradeCloudNotEmpty:'The target Supabase project is not empty. Use a freshly-created project to avoid overwriting data.',
+    offlineBanner:'Offline — connection lost. New transactions, edits, deletes, and shift close stay on this device and sync when you reconnect.',
+    offlineQueued:'Offline — {n} change(s) waiting to sync.',
+    syncingQueued:'Syncing {n} change(s)…',
     // ── Admin approval categories ──
     adminApprovalRequired:'Admin approval required',
     adminApprovalHint:'This category requires an admin to approve. Pick an admin and enter their PIN.',
@@ -216,7 +222,7 @@ const STRINGS = {
     sbSetupHint:'Paste the Publishable Key of the Mantra Lombok POS project. Needed once per device.',
     sbKeyWhere:'Supabase → Mantra Lombok POS → Project Settings → API Keys.',
     sbSetupConnect:'Connect',
-    noSupabaseUseBasic:'No Supabase yet? Use Basic Mode →',
+    noSupabaseUseBasic:'',
     supabaseSection:'Cloud Backend (Supabase)',
     supabaseHint:'Get these from your Supabase project: Settings → Data API (URL) and API Keys (Publishable key).',
     supabaseUrl:'Supabase Project URL',
@@ -289,6 +295,10 @@ const STRINGS = {
     hideAll:'Sembunyikan',showAll:'Tampilkan',closeShift:'Tutup Shift',
     cashBalance:'Cash',cardBalance:'Card',transferBalance:'Transfer',qrisBalance:'QRIS',otherBalance:'Lainnya',
     search:'Cari',searchPlaceholder:'Deskripsi, kategori, staff...',
+    reportSearchPlaceholder:'Staff, catatan, plat, deskripsi...',
+    noSearchResults:'Tidak ada yang cocok',
+    pagePrev:'Sebelumnya',pageNext:'Berikutnya',
+    pageStatus: ({ start, end, total, page, pages }) => `${start}–${end} dari ${total} · ${page}/${pages}`,
     filterType:'Jenis',filterAll:'Semua',filterIncome:'Pemasukan',filterOutgoing:'Pengeluaran',
     filterCategory:'Kategori',filterMethod:'Metode',applyFilter:'Terapkan Filter',resetFilter:'Reset',
     colDateTime:'Tanggal/Waktu',colType:'Jenis',colCategory:'Kategori',
@@ -365,9 +375,29 @@ const STRINGS = {
     loginTitle:'Masuk',signIn:'Masuk',selectUser:'Pilih Pengguna',enterPin:'Masukkan PIN',
     forgotPin:'Lupa PIN?',
     resetPinTitle:'Reset PIN',
-    resetPinHint:'Masukkan kode akses untuk reset PIN user. Kode akses dipegang oleh pemilik usaha.',
-    accessCode:'Kode Akses',newPin:'PIN Baru (4-6 digit)',
+    resetPinHint:'Kami mengirim tautan reset ke email orang itu. Buka tautannya, atau ketik kode dari email yang sama.',
+    resetPinChooseHint:(name) => `Pilih PIN baru untuk ${name}.`,
+    resetPinSent:(email) => `Email reset terkirim ke ${email}.`,
+    resetPinSentHint:'Buka tautan di email, atau ketik kode dari email itu di bawah lalu tekan tombol lagi.',
+    sendResetLink:'Kirim tautan reset',
+    resetPinCode:'Kode dari email (opsional)',
+    resetPinCodeWrong:'Kode itu tidak valid. Kirim tautan baru lalu coba lagi.',
+    resetPinSendFailed:'Email reset tidak terkirim.',
+    resetPinEmailMismatch:'Email itu tidak terdaftar di akun staf.',
+    resetPinNoEmailAdmin:'Admin ini belum punya email. Admin lain harus menambahkannya di Kelola Pengguna.',
+    resetPinNoEmailCashier:'Kasir ini tidak punya email. Admin yang mengatur PIN-nya di Kelola Pengguna.',
+    newPin:'PIN Baru (4-6 digit)',
     resetPinBtn:'Reset PIN',
+    email:'Email',
+    emailHint:'Wajib untuk admin. Kasir boleh dikosongkan; PIN-nya diatur admin.',
+    emailNone:'Tanpa email',
+    setEmail:'Set email',
+    emailPrompt:'Alamat email (kosongkan untuk menghapus email kasir):',
+    invalidEmail:'Masukkan alamat email yang valid.',
+    adminEmailRequired:'Admin wajib punya alamat email.',
+    emailInUse:'Email itu sudah dipakai pengguna lain.',
+    syncCloseFailed:'Tutup shift belum sampai ke server. Di layar ini shift tetap tertutup dan akan dicoba lagi.',
+    shiftClosePending:'Tutup shift sebelumnya masih menunggu sync. Tunggu sampai selesai sebelum menutup lagi.',
     wrongAccessCode:'Kode akses salah.',
     alertPinReset:'PIN berhasil direset. Silakan login.',
     adminUser:'Pengguna Admin (dari daftar staff di atas)',adminPin:'PIN Admin (4-6 digit)',
@@ -400,7 +430,7 @@ const STRINGS = {
 <h3><i class="fas fa-rocket"></i> Setup pertama kali</h3>
 <ol>
   <li>Saat pertama buka app, <b>Welcome wizard</b> akan muncul.</li>
-  <li>Isi <b>nama brand</b> dan <b>nama admin</b>, lalu set <b>PIN 4-6 digit</b>.</li>
+  <li>Isi <b>nama brand</b>, <b>nama admin</b>, <b>email admin</b>, lalu set <b>PIN 4-6 digit</b>.</li>
   <li>Kategori penyewaan motor sudah disiapkan. Staf lain ditambahkan nanti lewat <b>Kelola Pengguna</b>.</li>
   <li>Klik <b>Selesai</b>. Anda otomatis login sebagai Admin dan layar Mulai Shift muncul.</li>
 </ol>
@@ -424,8 +454,8 @@ const STRINGS = {
 <h3><i class="fas fa-users-cog"></i> Mengelola pengguna</h3>
 <ul>
   <li>Buka <b>Pengaturan</b> (ikon gear) → <b>Kelola Pengguna</b>.</li>
-  <li>Tambah user: nama + role + PIN opsional. Tanpa PIN, login hanya pilih nama.</li>
-  <li>Ikon pena = ganti nama. Ikon kunci = set/reset PIN. Tong sampah = hapus.</li>
+  <li>Tambah user: nama + role + email + PIN opsional. Email admin wajib. Kasir boleh tanpa email.</li>
+  <li>Ikon pena = ganti nama. Amplop = email. Ikon kunci = set/reset PIN. Tong sampah = hapus.</li>
   <li>Tidak bisa hapus atau demote admin terakhir. Tidak bisa hapus diri sendiri.</li>
 </ul>
 
@@ -438,10 +468,9 @@ const STRINGS = {
 
 <h3><i class="fas fa-shield-alt"></i> Catatan penting</h3>
 <ul>
-  <li>Semua data disimpan di device ini (di browser). Tidak ada sync ke cloud.</li>
-  <li><b>Jangan clear data browser</b> untuk situs ini — semua transaksi dan user akan hilang.</li>
-  <li><b>Lupa PIN?</b> Klik "Lupa PIN?" di layar login → pilih user → masukkan <b>kode akses</b> (yang di-set saat pertama buka app) → atur PIN baru. Berlaku untuk semua user termasuk admin.</li>
-  <li>Kalau PIN dan kode akses sama-sama lupa, satu-satunya cara pulih adalah clear data browser dan ulang wizard (data hilang). Simpan kode akses di tempat aman.</li>
+  <li>Mantra Lombok selalu terhubung ke database cloud. 50 shift terakhir yang ditutup yang disimpan.</li>
+  <li><b>Lupa PIN?</b> Di layar masuk pilih orangnya. Kalau ada email, tautan reset dikirim ke alamat itu. Kasir tanpa email minta admin untuk set PIN.</li>
+  <li>Saat offline, transaksi baru, edit, hapus, dan tutup shift tetap di perangkat ini dan tersinkron saat koneksi kembali.</li>
   <li>Buka <code>history.html</code> untuk lihat shift yang sudah tertutup dan export ulang datanya.</li>
 </ul>
 `,
@@ -455,26 +484,9 @@ const STRINGS = {
     catTypeIncome:'Pemasukan',
     catTypeOutgoing:'Pengeluaran',
     renameUserPrompt:'Nama pengguna baru:',
-    // ── Mode choice ──
-    modeChoiceTitle:'Pilih Mode',
-    modeChoiceHint:'Pilih dimana data disimpan. Bisa upgrade Local → Cloud nanti.',
-    modeLocal:'Mode Lokal',
-    modeLocalDesc:'Data hanya di browser ini. Tidak perlu setup apa pun.',
-    modeCloud:'Mode Cloud',
-    modeCloudDesc:'Sync realtime antar device. Perlu Supabase project.',
-    localModeBanner:'Mode lokal — data hanya di browser ini. Export Excel rutin untuk backup.',
-    offlineBanner:'Offline — koneksi terputus. Transaksi baru disimpan di sini dan akan dikirim saat online kembali.',
-    offlineQueued:'Offline — {n} transaksi menunggu sync.',
-    syncingQueued:'Mengirim {n} transaksi…',
-    upgradeToCloud:'Upgrade ke Cloud (Premium)',
-    upgradeToCloudTitle:'Upgrade ke Cloud',
-    upgradeToCloudHint:'Migrasikan semua data lokal ke project Supabase. Project tujuan harus kosong (baru dibuat).',
-    upgradeStart:'Mulai Migrasi',
-    upgradeChecking:'Mengecek project cloud...',
-    upgradeMigrating:'Memigrasikan data... jangan tutup tab ini.',
-    upgradeDone:'Migrasi selesai! Reloading...',
-    upgradeFailed:'Migrasi gagal',
-    upgradeCloudNotEmpty:'Project Supabase tujuan tidak kosong. Pakai project baru supaya tidak overwrite data.',
+    offlineBanner:'Offline — koneksi terputus. Transaksi baru, edit, hapus, dan tutup shift tetap di perangkat ini dan tersinkron saat online kembali.',
+    offlineQueued:'Offline — {n} perubahan menunggu sync.',
+    syncingQueued:'Mengirim {n} perubahan…',
     // ── Admin approval categories ──
     adminApprovalRequired:'Butuh persetujuan admin',
     adminApprovalHint:'Kategori ini butuh approval admin. Pilih admin dan masukkan PIN-nya.',
@@ -494,7 +506,7 @@ const STRINGS = {
     sbSetupHint:'Tempel Publishable Key project Mantra Lombok POS. Cukup sekali per perangkat.',
     sbKeyWhere:'Supabase → Mantra Lombok POS → Project Settings → API Keys.',
     sbSetupConnect:'Hubungkan',
-    noSupabaseUseBasic:'Belum punya Supabase? Pakai Mode Basic →',
+    noSupabaseUseBasic:'',
     supabaseSection:'Backend Cloud (Supabase)',
     supabaseHint:'Ambil dari project Supabase: Settings → Data API (URL) dan API Keys (Publishable key).',
     supabaseUrl:'URL Project Supabase',

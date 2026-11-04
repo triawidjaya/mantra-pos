@@ -1,9 +1,9 @@
 # CHILL POS APP — Claude Code Context
 
 ## Overview
-A **generic POS (Point of Sale) / cashier web app template** — white-label, multi-device-capable via Supabase. Vanilla JS, HTML, CSS — no framework, no build step.
+The cashbook for **one shop, Mantra Lombok**. Always cloud, one Supabase project, two roles (admin and cashier). Vanilla JS, HTML, CSS — no framework, no build step.
 
-**Data model:** 1 business = 1 dedicated Supabase project = many devices sharing 1 codebase. The same GitHub Pages URL serves all businesses; each browser is paired with a specific Supabase project via the first-run wizard (URL + publishable key stored in `localStorage`). Data is fully isolated at the project level.
+**Data model:** one shop, one Supabase project (`MANTRA_SUPABASE_URL`), many browsers sharing that project. There is no local mode and no per-business project picker.
 
 Originally built for a hostel, then refactored as a white-label template, now extended with Supabase as the source of truth + realtime sync. UI prefs (theme, language, header visibility, access gate, Supabase config) stay in `localStorage` as per-browser state.
 
@@ -38,8 +38,7 @@ chill-pos/
 - **URL:** `https://triawidjaya.github.io/mantra-pos/` (repo `triawidjaya/mantra-pos`, GitHub Pages from `main`). It shares the `triawidjaya.github.io` origin with the older `chill-poss` app, which is still in daily use, so every localStorage key is written as `mantra:<key>` through `appStorage` in `supabase.js` (inline theme scripts read `mantra:theme`). Key names below are shown without the prefix. Never use `localStorage` directly, or the two apps start reading each other's Supabase config and data.
 - **Cloud-only, one project:** there is no mode choice; `DataStore` is always cloud and `MANTRA_SUPABASE_URL` in `supabase.js` fixes the project (Mantra Lombok POS). Each device pastes only the publishable key once; it is never committed because the permissive RLS lets that key read and write everything. A saved config for any other URL is ignored.
 - **Own Supabase project:** mantra-pos must never point at the Supabase project chill-poss operations use. On load, `DataStore._renameLegacyCategories()` rewrites old category names and adopts the rental template, so pointing it at the chill-poss project would change live data.
-- **One codebase, many businesses:** the same GitHub Pages URL serves every deployment. Each browser is paired with a Supabase project via the first-run wizard (URL + publishable key persisted in `pos_sb_config` localStorage). Data is fully isolated at the Supabase project level.
-- **First-run wizard:** runs when `SupabaseConfig.load()` returns null OR when `brand === DEFAULT_BRAND`. Collects Supabase URL/key (first device only; hidden on subsequent devices) plus brand + admin name + PIN. Categories always come from `RENTAL_SHOP_DEFAULTS`; the admin is the only user created (other staff via Manage Users). On submit: saves config, hydrates the cache, then writes brand/categories/admin to Supabase and logs the admin in.
+- **First-run wizard:** runs when `SupabaseConfig.load()` returns null OR when `brand === DEFAULT_BRAND`. The device pastes the Mantra Lombok publishable key (the URL is fixed), then brand, admin name, admin email, and PIN. Categories always come from `RENTAL_SHOP_DEFAULTS`; the admin is the only user created (other staff via Manage Users). On submit: saves config, hydrates the cache, then writes brand/categories/admin to Supabase and logs the admin in.
 - **Setup-admin fallback:** when hydrate succeeds, brand is set, but `pos_users` is empty (e.g. data initialised via SQL), a one-time "Set Up Admin Account" modal appears.
 - **Access gate:** before the wizard, an `APP_ACCESS_CODE` local prompt blocks unrecognised browsers. Granted state is per-browser in `pos_access_granted`.
 
@@ -84,13 +83,13 @@ chill-pos/
 | `MANAGE_SETTINGS` (open Settings) | ✅ | ❌ |
 | `MANAGE_USERS` (CRUD users) | ✅ | ❌ |
 | `DELETE_HISTORY` (delete shifts) | ✅ | ❌ |
-| `EDIT_TRANSACTION` | ✅ | ❌ |
+| `EDIT_TRANSACTION` | ✅ | ✅ |
 | `DELETE_TRANSACTION` | ✅ | ❌ |
 | `EXPORT_DATA` (Excel/CSV) | ✅ | ✅ |
 | `CLOSE_SHIFT` | ✅ | ✅ |
 | `CREATE_TRANSACTION` | ✅ | ✅ |
 
-**Disclaimer:** The RLS policy used by `SUPABASE_SETUP.md` is permissive (`anon full access`). The publishable key + URL pair is effectively the access secret for a tenant. Suitable for the per-business-project deployment model; revisit when migrating to multi-tenant.
+**Disclaimer:** The RLS policy used by `SUPABASE_SETUP.md` is permissive (`anon full access`). The publishable key is the access secret for this one shop.
 
 **PIN hashing:** SubtleCrypto SHA-256 with random 16-byte salt per user. Format: `sha256:<base64-salt>:<base64-hash>`. Cashier role can have `pinHash: null` (login by name only).
 
@@ -242,12 +241,11 @@ DEFAULT_BRAND      = 'My Business'
 - [x] XSS protection + localStorage validation + quota handling
 
 ## Next Tasks (pick up here)
-- [x] **Supabase migration (Fase 2):** done — per-business cloud sync + realtime, see Supabase Architecture above
-- [ ] Offline queue: cache writes when `navigator.onLine` is false, flush on reconnect
+- [x] **Supabase:** one Mantra Lombok project, always cloud, realtime on the six tables
+- [x] Offline queue for new transactions, edits, deletes, and shift close
+- [x] PIN reset by Supabase Auth email to that user's own address. The browser access code is unchanged and is not a PIN reset.
+- [x] Text search and pagination on the open shift (25 rows) and on Report (10 shifts). History stays capped at 50 shifts.
 - [ ] Connection status indicator in header (online / offline / reconnecting)
-- [ ] Settings → "Change Supabase project" modal (currently requires DevTools `SupabaseConfig.clear()` + reload)
-- [ ] Email magic link via Supabase Auth → replace `APP_ACCESS_CODE` + PIN reset (ROADMAP Batch 3.5)
-- [ ] Pagination for transaction table (25/50 rows per page)
 - [ ] Chart: Income vs Outgoing bar chart on dashboard (Chart.js — would need to be vendored)
 - [ ] Date range filter
 - [ ] Soft delete (flag deleted:true, restore option)
@@ -259,13 +257,11 @@ DEFAULT_BRAND      = 'My Business'
 Serve via any static HTTP server (the Supabase JS SDK won't run reliably from `file://`):
 `python -m http.server 8080` or `npx serve .` → open `http://localhost:8080/index.html`.
 
-## Deploying for a New Business
-1. Owner provisions a Supabase project per `SUPABASE_SETUP.md` (or you do it on their behalf).
-2. Owner opens the production GitHub Pages URL on each device (cashier PC, owner phone, etc.).
-3. On the first device: enter the access code → first-run wizard collects Supabase URL + publishable key + brand/admin name/PIN.
-4. On subsequent devices: enter the access code → wizard hides the Supabase section (config already known? No — config is per-browser, see note below) and re-collects URL + key. Same project = same data.
-
-> **Per-browser config:** each browser independently stores `pos_sb_config`. Sharing data across devices means re-entering the same URL + key on each device's first launch. There's currently no QR-code / paste-link onboarding — that's a future enhancement.
+## Opening the shop on a device
+1. The database is the existing Mantra Lombok project. Do not create another one.
+2. Open the app, enter the browser access code, then paste the publishable key once.
+3. If the shop is not set up yet, the wizard asks for brand, admin name, admin email, and PIN.
+4. Each browser stores `pos_sb_config` for itself. Another device pastes the same key.
 
 ## Notes for Claude Code
 - Cross-device data lives in Supabase. Local `pos_*` keys are UI prefs only (see localStorage Keys table).

@@ -207,7 +207,15 @@ function getSupabase() {
     throw new Error('Supabase SDK not loaded');
   }
   _client = supabase.createClient(cfg.url, cfg.key, {
-    auth: { persistSession: false },     // we manage our own user table
+    // PIN login stays on pos_users. Supabase Auth is used only to email a
+    // PIN-reset link. Implicit flow puts the tokens in the URL hash, so the
+    // link works when it is opened in a fresh tab (no PKCE verifier to keep).
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: true,
+      flowType: 'implicit',
+    },
     realtime: { params: { eventsPerSecond: 10 } },
   });
   return _client;
@@ -219,6 +227,7 @@ const toAppUser = (r) => ({
   username:  r.username,
   pinHash:   r.pin_hash,
   role:      r.role,
+  email:     r.email ? String(r.email).trim().toLowerCase() : null,
   createdAt: r.created_at,
 });
 const toDbUser = (u) => ({
@@ -226,6 +235,7 @@ const toDbUser = (u) => ({
   username:   u.username,
   pin_hash:   u.pinHash,
   role:       u.role,
+  email:      u.email ? String(u.email).trim().toLowerCase() : null,
   created_at: u.createdAt || new Date().toISOString(),
 });
 
@@ -278,18 +288,14 @@ const toDbShift = (s) => ({
 // would break the shared reference and silently desync the UI.
 // ============================================================
 
-// Every Mantra device shares one Supabase project, so mantra-pos is
-// cloud-only. The local-mode branches below stay for the shared code path
-// but are never reached.
+// Every Mantra device shares the one Mantra Lombok Supabase project.
 const DataStore = {
   hydrated: false,
-  _mode: 'cloud',
 
-  setMode() { this._mode = 'cloud'; },
+  setMode() {},
   clearMode() {},
   loadMode() { return 'cloud'; },
-  isLocal() { return this._mode === 'local'; },
-  isCloud() { return this._mode === 'cloud'; },
+  isCloud() { return true; },
 
   transactions: [],
   shifts:       [],
@@ -340,13 +346,16 @@ const DataStore = {
   },
 
   async hydrate() {
-    if (this.isLocal()) this._hydrateLocal();
-    else await this._hydrateCloud();
+    await this._hydrateCloud();
     try {
       await this._renameLegacyCategories();
     } catch (e) {
       console.error('[DataStore] legacy category cleanup failed:', e);
     }
+    // Queued writes are the source of truth until they reach the server.
+    // Replaying them keeps the screen (especially an open vs closed shift)
+    // aligned with what the cashier already confirmed.
+    if (window.OfflineQueue) OfflineQueue.replayOntoCache();
   },
 
   // Shops set up before the scooter-rental defaults still carry the old
@@ -390,13 +399,10 @@ const DataStore = {
     const oldShifts = this.shifts.filter(s => (s.transactions || []).some(t => RENAMED[t.kategori]));
     for (const shift of oldShifts) {
       shift.transactions = shift.transactions.map(t => ({ ...t, kategori: rename(t.kategori) }));
-      if (!this.isLocal()) {
-        const { error } = await getSupabase().from('pos_shifts')
-          .update({ transactions: shift.transactions }).eq('id', shift.id);
-        if (error) throw error;
-      }
+      const { error } = await getSupabase().from('pos_shifts')
+        .update({ transactions: shift.transactions }).eq('id', shift.id);
+      if (error) throw error;
     }
-    if (oldShifts.length && this.isLocal()) _lsSet('pos_shift_history', this.shifts);
 
     const renameList = (list) => {
       const out = [];
@@ -423,27 +429,6 @@ const DataStore = {
     });
     if (adoptTemplate || changed(types, s.categoryTypes)) await this.saveSetting('category_types', types);
     if (!s.templateApplied && (adoptTemplate || hasTypes)) await this.saveSetting('template_applied', true);
-  },
-
-  _hydrateLocal() {
-    this.transactions.length = 0;
-    (_lsGet('pos_transactions', []) || []).forEach(t => this.transactions.push(t));
-    this.shifts.length = 0;
-    (_lsGet('pos_shift_history', []) || []).forEach(s => this.shifts.push(s));
-    this.categories.length = 0;
-    (_lsGet('pos_categories', []) || []).forEach(c => this.categories.push(c));
-    this.users.length = 0;
-    (_lsGet('pos_users', []) || []).forEach(u => this.users.push(u));
-    this.session = _lsGet('pos_session', null);
-    this.settings.brand           = _lsGet('pos_brand',             'My Business');
-    this.settings.lang            = _lsGet('pos_lang',              'en');
-    this.settings.shiftActive     = _lsGet('pos_shift_active',      false);
-    this.settings.adminCategories = _lsGet('pos_admin_categories',  []);
-    this.settings.nonRevenueCategories = _lsGet('pos_non_revenue_categories', []);
-    this.settings.categoryTypes   = normalizeCategoryTypes(_lsGet('pos_category_types', {}));
-    this.settings.templateApplied = _lsGet('pos_template_applied', false) === true;
-    this.settings.logoData        = _lsGet('pos_logo_data',         null);
-    this.hydrated = true;
   },
 
   async _hydrateCloud() {
@@ -492,7 +477,6 @@ const DataStore = {
 
   // ── Realtime ──
   subscribeRealtime() {
-    if (this.isLocal()) return;   // no realtime in local mode
     const sb = getSupabase();
     sb.channel('pos-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_transactions' }, (p) => this._onTxChange(p))
@@ -510,6 +494,9 @@ const DataStore = {
   },
 
   _onTxChange(p) {
+    const id = p.eventType === 'DELETE' ? p.old.id : p.new.id;
+    // Keep optimistic edits and deletes on screen until the queue flushes.
+    if (p.eventType !== 'DELETE' && window.OfflineQueue && OfflineQueue.blocksRemoteTx(id)) return;
     if (p.eventType === 'INSERT') {
       if (!this.transactions.some(t => t.id === p.new.id)) this.transactions.unshift(toAppTx(p.new));
     } else if (p.eventType === 'UPDATE') {
@@ -576,7 +563,12 @@ const DataStore = {
     const { key, value } = p.new;
     if      (key === 'brand')            this.settings.brand           = value;
     else if (key === 'lang')             this.settings.lang            = value;
-    else if (key === 'shift_active')     this.settings.shiftActive     = value;
+    else if (key === 'shift_active') {
+      // A queued close or a queued shift flag is the cashier's latest choice.
+      // Ignore the server copy until that write lands, or the till flips back open.
+      if (window.OfflineQueue && OfflineQueue.holdsShiftFlag()) return;
+      this.settings.shiftActive = value;
+    }
     else if (key === 'admin_categories') this.settings.adminCategories = value;
     else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
     else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
@@ -585,76 +577,158 @@ const DataStore = {
     this._fire('settings');
   },
 
+  _rememberTransaction(tx) {
+    const idx = this.transactions.findIndex(t => t.id === tx.id);
+    if (idx === -1) this.transactions.unshift({ ...tx });
+    else this.transactions[idx] = { ...tx };
+    this._fire('transactions');
+  },
+
+  _dropTransaction(id) {
+    const idx = this.transactions.findIndex(t => t.id === id);
+    if (idx !== -1) this.transactions.splice(idx, 1);
+    this._fire('transactions');
+  },
+
+  _applySettingLocal(key, value) {
+    if      (key === 'brand')            this.settings.brand           = value;
+    else if (key === 'lang')             this.settings.lang            = value;
+    else if (key === 'shift_active')     this.settings.shiftActive     = value === true;
+    else if (key === 'admin_categories') this.settings.adminCategories = value;
+    else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
+    else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
+    else if (key === 'template_applied') this.settings.templateApplied = value === true;
+    else if (key === 'logo_data')        this.settings.logoData        = value;
+    this._fire('settings');
+  },
+
+  // Screen copy of a close. The same steps run again on reload via the queue
+  // replay, so a refresh does not show the shift as still open.
+  _applyCloseLocal(payload) {
+    const ids = new Set(payload.transactionIds || []);
+    for (let i = this.transactions.length - 1; i >= 0; i--) {
+      if (ids.has(this.transactions[i].id)) this.transactions.splice(i, 1);
+    }
+    if (payload.shift && !this.shifts.some(s => s.id === payload.shift.id)) {
+      this.shifts.unshift({ ...payload.shift });
+    }
+    if (this.shifts.length > 50) this.shifts.splice(50);
+    this.settings.shiftActive = false;
+    this._fire('transactions');
+    this._fire('shifts');
+    this._fire('settings');
+  },
+
+  // Idempotent server close: a retry after a dropped connection must not
+  // create a second history row or delete a later shift's transactions.
+  async _commitCloseShift(payload) {
+    const sb = getSupabase();
+    const { error: shiftErr } = await sb.from('pos_shifts').insert([toDbShift(payload.shift)]);
+    if (shiftErr && !isDuplicateError(shiftErr)) throw shiftErr;
+    const ids = payload.transactionIds || [];
+    if (ids.length) {
+      const { error } = await sb.from('pos_transactions').delete().in('id', ids);
+      if (error) throw error;
+    }
+    const { error: setErr } = await sb.from('pos_settings').upsert({ key: 'shift_active', value: false });
+    if (setErr) throw setErr;
+    const { data, error } = await sb.from('pos_shifts').select('id').order('closed_at', { ascending: false });
+    if (error) throw error;
+    if (data && data.length > 50) {
+      const extra = data.slice(50).map(row => row.id);
+      const { error: trimErr } = await sb.from('pos_shifts').delete().in('id', extra);
+      if (trimErr) console.error('[DataStore] shift trim failed:', trimErr);
+    }
+  },
+
+  // One queued operation. The screen closes only together with the queue
+  // entry, and the queue is not dropped on a permanent error.
+  async closeShift(payload) {
+    if (this._closing || OfflineQueue.load().some(item => item.op === 'closeShift')) {
+      const err = new Error('shiftClosePending');
+      err.code = 'shiftClosePending';
+      throw err;
+    }
+    this._closing = true;
+    try {
+      await this._commitCloseShift(payload);
+      this._applyCloseLocal(payload);
+    } catch (e) {
+      if (!isNetworkError(e)) throw e;
+      OfflineQueue.enqueue('closeShift', {
+        shift: payload.shift,
+        transactionIds: [...(payload.transactionIds || [])],
+      });
+      this._applyCloseLocal(payload);
+    } finally {
+      this._closing = false;
+    }
+  },
+
   // ── Transaction CRUD ──
   async insertTransaction(tx) {
-    if (this.isLocal()) {
-      if (!this.transactions.some(t => t.id === tx.id)) this.transactions.unshift({ ...tx });
-      _lsSet('pos_transactions', this.transactions);
-      this._fire('transactions');
+    const write = async () => {
+      const { error } = await getSupabase().from('pos_transactions').insert([toDbTx(tx)]);
+      if (error && !isDuplicateError(error)) throw error;
+    };
+    // A close still waiting in the queue must run first, or this row could
+    // land and then be left behind a shift the cashier already finished.
+    if (OfflineQueue.load().some(item => item.op === 'closeShift')) {
+      OfflineQueue.enqueue('insertTransaction', tx);
+      this._rememberTransaction(tx);
       return;
     }
-    // Cloud mode: try Supabase first. On network failure, queue the insert
-    // and optimistically update the cache so the UI behaves as if the write
-    // succeeded — the OfflineQueue will flush it when connectivity returns.
-    // The realtime INSERT event that fires post-flush is deduped by id below.
     try {
-      const { error } = await getSupabase().from('pos_transactions').insert([toDbTx(tx)]);
-      if (error) {
-        if (isNetworkError(error)) {
-          OfflineQueue.enqueue('insertTransaction', tx);
-          if (!this.transactions.some(t => t.id === tx.id)) this.transactions.unshift({ ...tx });
-          this._fire('transactions');
-          return;
-        }
-        throw error;
-      }
-      if (!this.transactions.some(t => t.id === tx.id)) this.transactions.unshift({ ...tx });
+      await write();
+      this._rememberTransaction(tx);
     } catch (e) {
-      if (isNetworkError(e)) {
-        OfflineQueue.enqueue('insertTransaction', tx);
-        if (!this.transactions.some(t => t.id === tx.id)) this.transactions.unshift({ ...tx });
-        this._fire('transactions');
-        return;
-      }
-      throw e;
+      if (!isNetworkError(e)) throw e;
+      OfflineQueue.enqueue('insertTransaction', tx);
+      this._rememberTransaction(tx);
     }
   },
 
   async updateTransaction(tx) {
-    if (this.isLocal()) {
-      const idx = this.transactions.findIndex(t => t.id === tx.id);
-      if (idx !== -1) this.transactions[idx] = { ...tx };
-      _lsSet('pos_transactions', this.transactions);
-      this._fire('transactions');
+    const write = async () => {
+      const { error } = await getSupabase().from('pos_transactions').update(toDbTx(tx)).eq('id', tx.id);
+      if (error) throw error;
+    };
+    if (OfflineQueue.load().some(item => item.op === 'closeShift')) {
+      OfflineQueue.enqueue('updateTransaction', tx);
+      this._rememberTransaction(tx);
       return;
     }
-    const { error } = await getSupabase().from('pos_transactions').update(toDbTx(tx)).eq('id', tx.id);
-    if (error) throw error;
-    const idx = this.transactions.findIndex(t => t.id === tx.id);
-    if (idx !== -1) this.transactions[idx] = { ...tx };
+    try {
+      await write();
+      this._rememberTransaction(tx);
+    } catch (e) {
+      if (!isNetworkError(e)) throw e;
+      OfflineQueue.enqueue('updateTransaction', tx);
+      this._rememberTransaction(tx);
+    }
   },
 
   async deleteTransaction(id) {
-    if (this.isLocal()) {
-      const idx = this.transactions.findIndex(t => t.id === id);
-      if (idx !== -1) this.transactions.splice(idx, 1);
-      _lsSet('pos_transactions', this.transactions);
-      this._fire('transactions');
+    const write = async () => {
+      const { error } = await getSupabase().from('pos_transactions').delete().eq('id', id);
+      if (error) throw error;
+    };
+    if (OfflineQueue.load().some(item => item.op === 'closeShift')) {
+      OfflineQueue.enqueue('deleteTransaction', id);
+      this._dropTransaction(id);
       return;
     }
-    const { error } = await getSupabase().from('pos_transactions').delete().eq('id', id);
-    if (error) throw error;
-    const idx = this.transactions.findIndex(t => t.id === id);
-    if (idx !== -1) this.transactions.splice(idx, 1);
+    try {
+      await write();
+      this._dropTransaction(id);
+    } catch (e) {
+      if (!isNetworkError(e)) throw e;
+      OfflineQueue.enqueue('deleteTransaction', id);
+      this._dropTransaction(id);
+    }
   },
 
   async clearTransactions() {
-    if (this.isLocal()) {
-      this.transactions.length = 0;
-      _lsSet('pos_transactions', this.transactions);
-      this._fire('transactions');
-      return;
-    }
     // .delete() requires a filter clause — neq an impossible UUID matches all rows.
     const { error } = await getSupabase().from('pos_transactions')
       .delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -664,36 +738,20 @@ const DataStore = {
 
   // ── Shift CRUD ──
   async insertShift(shift) {
-    if (this.isLocal()) {
-      if (!this.shifts.some(s => s.id === shift.id)) this.shifts.unshift({ ...shift });
-      if (this.shifts.length > 50) this.shifts.splice(50);
-      _lsSet('pos_shift_history', this.shifts);
-      this._fire('shifts');
-      return;
-    }
     const { error } = await getSupabase().from('pos_shifts').insert([toDbShift(shift)]);
-    if (error) throw error;
+    if (error && !isDuplicateError(error)) throw error;
     if (!this.shifts.some(s => s.id === shift.id)) this.shifts.unshift({ ...shift });
     if (this.shifts.length > 50) {
       const toRemove = this.shifts.splice(50);
       const ids = toRemove.map(s => s.id);
-      await getSupabase().from('pos_shifts').delete().in('id', ids).then(({ error }) => {
-        if (error) console.error('[DataStore] shift trim failed:', error);
+      await getSupabase().from('pos_shifts').delete().in('id', ids).then(({ error: trimErr }) => {
+        if (trimErr) console.error('[DataStore] shift trim failed:', trimErr);
       });
     }
   },
 
   async deleteShifts(ids) {
     if (!ids || ids.length === 0) return;
-    if (this.isLocal()) {
-      const set = new Set(ids);
-      for (let i = this.shifts.length - 1; i >= 0; i--) {
-        if (set.has(this.shifts[i].id)) this.shifts.splice(i, 1);
-      }
-      _lsSet('pos_shift_history', this.shifts);
-      this._fire('shifts');
-      return;
-    }
     const { error } = await getSupabase().from('pos_shifts').delete().in('id', ids);
     if (error) throw error;
     const set = new Set(ids);
@@ -710,13 +768,6 @@ const DataStore = {
     // wipe the local list. Snapshot first.
     const input = [...categories];
 
-    if (this.isLocal()) {
-      this.categories.length = 0;
-      input.forEach(n => this.categories.push(n));
-      _lsSet('pos_categories', this.categories);
-      this._fire('categories');
-      return;
-    }
     const sb = getSupabase();
     const { data: existing, error: e1 } = await sb.from('pos_categories').select('id,name,sort_order,is_system');
     if (e1) throw e1;
@@ -756,12 +807,6 @@ const DataStore = {
 
   // ── User CRUD ──
   async insertUser(user) {
-    if (this.isLocal()) {
-      if (!this.users.some(u => u.id === user.id)) this.users.push({ ...user });
-      _lsSet('pos_users', this.users);
-      this._fire('users');
-      return { ...user };
-    }
     const { data, error } = await getSupabase().from('pos_users').insert([toDbUser(user)]).select().single();
     if (error) throw error;
     const created = toAppUser(data);
@@ -770,21 +815,11 @@ const DataStore = {
   },
 
   async updateUser(userId, updates) {
-    if (this.isLocal()) {
-      const idx = this.users.findIndex(x => x.id === userId);
-      if (idx !== -1) {
-        if ('username' in updates) this.users[idx].username = updates.username;
-        if ('pinHash'  in updates) this.users[idx].pinHash  = updates.pinHash;
-        if ('role'     in updates) this.users[idx].role     = updates.role;
-      }
-      _lsSet('pos_users', this.users);
-      this._fire('users');
-      return this.users[idx];
-    }
     const dbUpdates = {};
     if ('username' in updates) dbUpdates.username = updates.username;
     if ('pinHash'  in updates) dbUpdates.pin_hash = updates.pinHash;
     if ('role'     in updates) dbUpdates.role     = updates.role;
+    if ('email'    in updates) dbUpdates.email    = updates.email ? String(updates.email).trim().toLowerCase() : null;
     const { data, error } = await getSupabase().from('pos_users').update(dbUpdates).eq('id', userId).select().single();
     if (error) throw error;
     const u = toAppUser(data);
@@ -794,13 +829,6 @@ const DataStore = {
   },
 
   async deleteUser(userId) {
-    if (this.isLocal()) {
-      const idx = this.users.findIndex(u => u.id === userId);
-      if (idx !== -1) this.users.splice(idx, 1);
-      _lsSet('pos_users', this.users);
-      this._fire('users');
-      return;
-    }
     const { error } = await getSupabase().from('pos_users').delete().eq('id', userId);
     if (error) throw error;
     const idx = this.users.findIndex(u => u.id === userId);
@@ -809,12 +837,6 @@ const DataStore = {
 
   // ── Session (single row id=1) ──
   async saveSession(session) {
-    if (this.isLocal()) {
-      this.session = { ...session };
-      _lsSet('pos_session', this.session);
-      this._fire('session');
-      return;
-    }
     const { error } = await getSupabase().from('pos_session')
       .update({ user_id: session.userId, login_at: session.loginAt }).eq('id', 1);
     if (error) throw error;
@@ -822,12 +844,6 @@ const DataStore = {
   },
 
   async clearSession() {
-    if (this.isLocal()) {
-      this.session = null;
-      _lsSet('pos_session', null);
-      this._fire('session');
-      return;
-    }
     const { error } = await getSupabase().from('pos_session')
       .update({ user_id: null, login_at: null }).eq('id', 1);
     if (error) throw error;
@@ -836,28 +852,24 @@ const DataStore = {
 
   // ── Settings ──
   async saveSetting(key, value) {
-    if (this.isLocal()) {
-      if      (key === 'brand')            { this.settings.brand           = value; _lsSet('pos_brand',             value); }
-      else if (key === 'lang')             { this.settings.lang            = value; _lsSet('pos_lang',              value); }
-      else if (key === 'shift_active')     { this.settings.shiftActive     = value; _lsSet('pos_shift_active',      value); }
-      else if (key === 'admin_categories') { this.settings.adminCategories = value; _lsSet('pos_admin_categories',  value); }
-      else if (key === 'non_revenue_categories') { this.settings.nonRevenueCategories = value; _lsSet('pos_non_revenue_categories', value); }
-      else if (key === 'category_types')   { this.settings.categoryTypes   = normalizeCategoryTypes(value); _lsSet('pos_category_types', this.settings.categoryTypes); }
-      else if (key === 'template_applied') { this.settings.templateApplied = value === true; _lsSet('pos_template_applied', value === true); }
-      else if (key === 'logo_data')        { this.settings.logoData       = value; _lsSet('pos_logo_data',         value); }
-      this._fire('settings');
+    const queuedClose = OfflineQueue.load().some(item => item.op === 'closeShift');
+    if (key === 'shift_active' && queuedClose) {
+      OfflineQueue.enqueue('saveSetting', { key, value });
+      this._applySettingLocal(key, value);
       return;
     }
-    const { error } = await getSupabase().from('pos_settings').upsert({ key, value });
-    if (error) throw error;
-    if      (key === 'brand')            this.settings.brand           = value;
-    else if (key === 'lang')             this.settings.lang            = value;
-    else if (key === 'shift_active')     this.settings.shiftActive     = value;
-    else if (key === 'admin_categories') this.settings.adminCategories = value;
-    else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
-    else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
-    else if (key === 'template_applied') this.settings.templateApplied = value === true;
-    else if (key === 'logo_data')        this.settings.logoData        = value;
+    try {
+      const { error } = await getSupabase().from('pos_settings').upsert({ key, value });
+      if (error) throw error;
+      this._applySettingLocal(key, value);
+    } catch (e) {
+      if (key === 'shift_active' && isNetworkError(e)) {
+        OfflineQueue.enqueue('saveSetting', { key, value });
+        this._applySettingLocal(key, value);
+        return;
+      }
+      throw e;
+    }
   },
 };
 
@@ -879,10 +891,6 @@ const LOCAL_ONLY_KEYS = new Set([
   'pos_staff',          // derived from users; cached locally for legacy callers
   'pos_migrated_v1',
   'pos_session',          // per-device session — see AuthStorage below
-  'pos_admin_categories', // local-mode mirror of settings.admin_categories
-  'pos_non_revenue_categories', // local-mode mirror of settings.non_revenue_categories
-  'pos_category_types',   // local-mode mirror of settings.category_types
-  'pos_template_applied', // local-mode mirror of settings.template_applied
   SB_CONFIG_KEY,
 ]);
 
@@ -979,9 +987,9 @@ const AuthStorage = {
       const ex = existingById.get(u.id);
       if (!ex) {
         await DataStore.insertUser(u);
-      } else if (ex.username !== u.username || ex.pinHash !== u.pinHash || ex.role !== u.role) {
+      } else if (ex.username !== u.username || ex.pinHash !== u.pinHash || ex.role !== u.role || (ex.email || null) !== (u.email || null)) {
         await DataStore.updateUser(u.id, {
-          username: u.username, pinHash: u.pinHash, role: u.role,
+          username: u.username, pinHash: u.pinHash, role: u.role, email: u.email || null,
         });
       }
     }
@@ -1008,120 +1016,23 @@ const AuthStorage = {
 };
 
 // ============================================================
-// Migrate Local-mode data to a fresh Supabase project.
-// Returns counts on success; throws on validation / non-empty target /
-// network failure. Caller persists config + setMode('cloud') + reloads
-// only when this resolves.
+// Offline queue — inserts, edits, deletes, and shift close.
 // ============================================================
-async function migrateLocalToCloud(url, key) {
-  if (!SupabaseConfig.isValidUrl(url)) throw new Error('invalidSupabaseUrl');
-  if (!SupabaseConfig.isValidKey(key)) throw new Error('invalidSupabaseKey');
-  if (typeof supabase === 'undefined' || !supabase.createClient) {
-    throw new Error('Supabase SDK not loaded');
-  }
-  const cleanUrl = SupabaseConfig._normalizeUrl(url);
-  const cleanKey = String(key).trim();
-  const client = supabase.createClient(cleanUrl, cleanKey, {
-    auth: { persistSession: false },
-  });
-
-  // 1. Verify target project has no real data — refuse to overwrite.
-  // Only users / transactions / shifts matter. Brand is intentionally NOT
-  // checked: it's overwritten by the migration anyway, and a leftover brand
-  // from a prior wizard run shouldn't block an otherwise-empty project.
-  const [usersRes, txRes, shiftRes] = await Promise.all([
-    client.from('pos_users').select('id', { count: 'exact', head: true }),
-    client.from('pos_transactions').select('id', { count: 'exact', head: true }),
-    client.from('pos_shifts').select('id', { count: 'exact', head: true }),
-  ]);
-  if (usersRes.error) throw new Error(`Cloud check failed: ${usersRes.error.message}`);
-  if (txRes.error)    throw new Error(`Cloud check failed: ${txRes.error.message}`);
-  if (shiftRes.error) throw new Error(`Cloud check failed: ${shiftRes.error.message}`);
-
-  const isFresh = (usersRes.count ?? 0) === 0
-               && (txRes.count ?? 0)    === 0
-               && (shiftRes.count ?? 0) === 0;
-  if (!isFresh) throw new Error('cloudNotEmpty');
-
-  // 2. Snapshot local data (DataStore is still in local mode).
-  const localTxs    = DataStore.transactions.map(t => ({ ...t }));
-  const localShifts = DataStore.shifts.map(s => ({ ...s }));
-  const localCats   = [...DataStore.categories];
-  const localUsers  = DataStore.users.map(u => ({ ...u }));
-  const localBrand        = DataStore.settings.brand;
-  const localShiftActive  = DataStore.settings.shiftActive;
-  const localSession      = _lsGet('pos_session', null);
-
-  // 3. Write to cloud. Order matters only for FK / unique constraints.
-  await client.from('pos_settings').upsert({ key: 'brand',        value: localBrand });
-  await client.from('pos_settings').upsert({ key: 'shift_active', value: localShiftActive });
-  await client.from('pos_settings').upsert({ key: 'admin_categories',       value: DataStore.settings.adminCategories || [] });
-  await client.from('pos_settings').upsert({ key: 'non_revenue_categories', value: DataStore.settings.nonRevenueCategories || [] });
-  await client.from('pos_settings').upsert({ key: 'category_types',         value: normalizeCategoryTypes(DataStore.settings.categoryTypes) });
-  await client.from('pos_settings').upsert({ key: 'template_applied',       value: DataStore.settings.templateApplied === true });
-
-  // Categories: replace seeded non-system rows with local list. START BALANCE
-  // is already seeded; upsert by name updates its sort_order.
-  {
-    const { error } = await client.from('pos_categories').delete().eq('is_system', false);
-    if (error) throw new Error(`Categories cleanup failed: ${error.message}`);
-    if (localCats.length > 0) {
-      const rows = localCats.map((name, idx) => ({
-        name, sort_order: idx, is_system: name === 'START BALANCE',
-      }));
-      const { error: e2 } = await client.from('pos_categories').upsert(rows, { onConflict: 'name' });
-      if (e2) throw new Error(`Categories migrate failed: ${e2.message}`);
-    }
-  }
-
-  if (localUsers.length > 0) {
-    // Legacy local data may have "usr_<uuid>" ids, which the UUID column
-    // rejects. Drop any non-UUID id and let Postgres generate a fresh one.
-    // Transactions/shifts attribute by username (TEXT), not id, so this is safe.
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const rows = localUsers.map(u => {
-      const row = toDbUser(u);
-      if (!UUID_RE.test(row.id || '')) delete row.id;
-      return row;
-    });
-    const { error } = await client.from('pos_users').insert(rows);
-    if (error) throw new Error(`Users migrate failed: ${error.message}`);
-  }
-  if (localTxs.length > 0) {
-    const { error } = await client.from('pos_transactions').insert(localTxs.map(toDbTx));
-    if (error) throw new Error(`Transactions migrate failed: ${error.message}`);
-  }
-  if (localShifts.length > 0) {
-    const { error } = await client.from('pos_shifts').insert(localShifts.map(toDbShift));
-    if (error) throw new Error(`Shifts migrate failed: ${error.message}`);
-  }
-  // Session is intentionally NOT migrated: legacy ids may have been regenerated
-  // above, so the local session id might not match. The user simply signs in
-  // once after the reload — a minor, one-time step.
-
-  return {
-    transactions: localTxs.length,
-    shifts:       localShifts.length,
-    users:        localUsers.length,
-    categories:   localCats.length,
-  };
+function isDuplicateError(error) {
+  if (!error) return false;
+  if (error.code === '23505') return true;
+  const msg = String(error.message || error.details || '').toLowerCase();
+  return msg.includes('duplicate key') || msg.includes('already exists');
 }
 
 // ============================================================
-// OfflineQueue — Cloud-mode-only buffer for transactions that
-// failed to reach Supabase due to connectivity loss.
+// OfflineQueue — buffer for writes that did not reach Supabase.
 //
-// Scope (intentionally minimal): only `insertTransaction` is
-// queued. Edits, deletes, shift-close, settings, and user CRUD
-// keep their original throw-on-error behavior — they're rare
-// enough that a retry-by-user is acceptable, and queueing them
-// would multiply edge cases (close-shift especially is multi-
-// table and not safe to defer).
-//
-// Why opaque permanent-error drop: if a queued insert fails
-// with a non-network error during flush (RLS, constraint, etc.),
-// retrying it on every reconnect would loop forever. We log and
-// discard. Network errors keep the item in the queue.
+// Queued: new transactions, edits, deletes, shift close, and the
+// shift-open flag when it has to stay ordered behind a close.
+// A shift close is kept until it succeeds. Other ops are dropped
+// only when the server rejects them for a reason that will not
+// change on retry (constraint, RLS).
 // ============================================================
 const OFFLINE_QUEUE_KEY = 'pos_offline_queue';
 
@@ -1138,6 +1049,7 @@ function isNetworkError(err) {
 
 const OfflineQueue = {
   _flushing: false,
+  _blocked: null,
   _listeners: [],
 
   load() {
@@ -1149,6 +1061,24 @@ const OfflineQueue = {
     catch (e) { console.error('[OfflineQueue] persist failed:', e); }
   },
   size() { return this.load().length; },
+  blocked() { return this._blocked; },
+
+  holdsShiftFlag() {
+    return this.load().some(item =>
+      item.op === 'closeShift' ||
+      (item.op === 'saveSetting' && item.payload && item.payload.key === 'shift_active')
+    );
+  },
+
+  blocksRemoteTx(id) {
+    return this.load().some(item => {
+      if (!item || !item.payload) return false;
+      if (item.op === 'insertTransaction' || item.op === 'updateTransaction') return item.payload.id === id;
+      if (item.op === 'deleteTransaction') return item.payload === id;
+      if (item.op === 'closeShift') return (item.payload.transactionIds || []).includes(id);
+      return false;
+    });
+  },
 
   enqueue(op, payload) {
     const q = this.load();
@@ -1160,47 +1090,94 @@ const OfflineQueue = {
       retries:   0,
     });
     this._persist(q);
+    this._blocked = null;
     this._fire();
   },
 
-  // Flush in order. Stops at the first network error (item stays).
-  // Drops items that fail with permanent errors.
+  // Re-apply queued intent onto the cache after a server hydrate.
+  replayOntoCache() {
+    const removed = new Set();
+    this.load().forEach(item => {
+      if (item.op === 'closeShift') {
+        (item.payload.transactionIds || []).forEach(id => removed.add(id));
+        DataStore._applyCloseLocal(item.payload);
+      } else if (item.op === 'deleteTransaction') {
+        removed.add(item.payload);
+        DataStore._dropTransaction(item.payload);
+      } else if (item.op === 'insertTransaction') {
+        removed.delete(item.payload.id);
+        DataStore._rememberTransaction(item.payload);
+      } else if (item.op === 'updateTransaction') {
+        if (removed.has(item.payload.id)) return;
+        DataStore._rememberTransaction(item.payload);
+      } else if (item.op === 'saveSetting') {
+        DataStore._applySettingLocal(item.payload.key, item.payload.value);
+      }
+    });
+  },
+
+  async _run(item) {
+    const sb = getSupabase();
+    if (item.op === 'insertTransaction') {
+      const { error } = await sb.from('pos_transactions').insert([toDbTx(item.payload)]);
+      if (error && !isDuplicateError(error)) throw error;
+      return;
+    }
+    if (item.op === 'updateTransaction') {
+      const { error } = await sb.from('pos_transactions').update(toDbTx(item.payload)).eq('id', item.payload.id);
+      if (error) throw error;
+      return;
+    }
+    if (item.op === 'deleteTransaction') {
+      const { error } = await sb.from('pos_transactions').delete().eq('id', item.payload);
+      if (error) throw error;
+      return;
+    }
+    if (item.op === 'closeShift') {
+      await DataStore._commitCloseShift(item.payload);
+      return;
+    }
+    if (item.op === 'saveSetting') {
+      const { error } = await sb.from('pos_settings').upsert({
+        key: item.payload.key,
+        value: item.payload.value,
+      });
+      if (error) throw error;
+      return;
+    }
+    const unknown = new Error('unknown op ' + item.op);
+    unknown.permanent = true;
+    throw unknown;
+  },
+
   async flush() {
     if (this._flushing) return;
-    if (DataStore.isLocal()) return;            // no-op in local mode
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
 
     this._flushing = true;
-    this._fire();   // UI can show "Syncing..." while we work
+    this._fire();
     try {
       let q = this.load();
       while (q.length > 0) {
         const item = q[0];
-        let dropped = false;
+        let drop = false;
         try {
-          if (item.op === 'insertTransaction') {
-            const { error } = await getSupabase()
-              .from('pos_transactions')
-              .insert([toDbTx(item.payload)]);
-            if (error) {
-              if (isNetworkError(error)) break;   // try again later
-              console.error('[OfflineQueue] permanent error, dropping item:', error, item);
-              dropped = true;
-            }
-          } else {
-            console.warn('[OfflineQueue] unknown op, dropping:', item);
-            dropped = true;
-          }
+          await this._run(item);
+          this._blocked = null;
         } catch (e) {
           if (isNetworkError(e)) break;
-          console.error('[OfflineQueue] exception, dropping item:', e, item);
-          dropped = true;
+          if (item.op === 'closeShift') {
+            this._blocked = e;
+            console.error('[OfflineQueue] shift close failed, keeping it queued:', e);
+            break;
+          }
+          console.error('[OfflineQueue] permanent error, dropping item:', e, item);
+          drop = true;
         }
-        // Successful flush OR permanent drop — both remove from queue.
+        if (this._blocked && !drop) break;
         q.shift();
         this._persist(q);
         this._fire();
-        if (dropped) continue;
       }
     } finally {
       this._flushing = false;
@@ -1210,22 +1187,24 @@ const OfflineQueue = {
 
   on(cb) { this._listeners.push(cb); },
   _fire() {
+    const state = {
+      size: this.size(),
+      flushing: this._flushing,
+      online: typeof navigator === 'undefined' || navigator.onLine !== false,
+      blocked: !!this._blocked,
+    };
     this._listeners.forEach(cb => {
-      try { cb({ size: this.size(), flushing: this._flushing, online: navigator.onLine !== false }); }
+      try { cb(state); }
       catch (e) { console.error('[OfflineQueue] listener error:', e); }
     });
   },
 };
 
-// Auto-flush triggers: browser fires 'online' when connectivity returns.
-// Also opportunistically flush whenever the realtime channel re-opens
-// (Supabase reconnect after sleep/lock); scheduled in subscribeRealtime.
 if (typeof window !== 'undefined') {
   window.addEventListener('online',  () => OfflineQueue.flush());
   window.addEventListener('offline', () => OfflineQueue._fire());
 }
 
-// Expose DataStore + SupabaseConfig globally for script.js / history.html
 window.DataStore           = DataStore;
 window.SupabaseConfig      = SupabaseConfig;
 window.getSupabase         = getSupabase;
@@ -1233,4 +1212,3 @@ window.Storage             = Storage;
 window.AuthStorage         = AuthStorage;
 window.OfflineQueue        = OfflineQueue;
 window.isNetworkError      = isNetworkError;
-window.migrateLocalToCloud = migrateLocalToCloud;

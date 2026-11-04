@@ -75,17 +75,11 @@ function resizeLogoToBase64(file, maxW = 300, maxH = 150) {
   });
 }
 
-// Access gate — change this code to restrict who can use the app
+// Browser access gate — unlocks this browser only. It is not a PIN reset.
 const APP_ACCESS_CODE       = 'smallbutspicy_v2';
 const APP_CODE_VERSION      = 2;  // Increment this when changing APP_ACCESS_CODE
 const STORAGE_KEY_ACCESS    = 'pos_access_granted';
 const STORAGE_KEY_CODE_VER  = 'pos_code_version';
-
-// AccessGate adapter — designed for Opsi 2 migration to Supabase.
-// Currently compares to a hardcoded constant. When migrating, swap the body
-// to call `supabase.rpc('verify_access_code', { code })` or remove entirely
-// in favor of email magic links. Caller code does not change.
-// See ROADMAP.md > Fase 2 > Batch 3.5 for the migration plan.
 const AccessGate = {
   async verify(code) {
     if (code === APP_ACCESS_CODE) {
@@ -154,10 +148,22 @@ const Auth = {
     return `sha256:${salt}:${hash}`;
   },
 
-  async createUser({ username, pin, role }) {
+  _normalizeEmail(email) {
+    const value = String(email || '').trim().toLowerCase();
+    if (!value) return null;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new Error('invalidEmail');
+    return value;
+  },
+
+  async createUser({ username, pin, role, email }) {
     const users = await AuthStorage.getUsers();
+    const cleanEmail = this._normalizeEmail(email);
+    if (role === 'admin' && !cleanEmail) throw new Error('adminEmailRequired');
     if (users.some(u => u.username === username)) {
       throw new Error('userExists');
+    }
+    if (cleanEmail && users.some(u => (u.email || '') === cleanEmail)) {
+      throw new Error('emailInUse');
     }
     // Raw UUID — must match pos_users.id UUID column on Supabase.
     const user = {
@@ -165,6 +171,7 @@ const Auth = {
       username,
       pinHash:   await this._buildPinHash(pin),
       role,
+      email:     cleanEmail,
       createdAt: new Date().toISOString(),
     };
     users.push(user);
@@ -237,6 +244,21 @@ const Auth = {
     if (idx === -1) throw new Error('userNotFound');
     users[idx].pinHash = await this._buildPinHash(newPin);
     await AuthStorage.saveUsers(users);
+    if (this._currentUser?.id === userId) this._currentUser.pinHash = users[idx].pinHash;
+  },
+
+  async setUserEmail(userId, email) {
+    const users = await AuthStorage.getUsers();
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx === -1) throw new Error('userNotFound');
+    const cleanEmail = this._normalizeEmail(email);
+    if (users[idx].role === 'admin' && !cleanEmail) throw new Error('adminEmailRequired');
+    if (cleanEmail && users.some(u => u.id !== userId && (u.email || '') === cleanEmail)) {
+      throw new Error('emailInUse');
+    }
+    users[idx].email = cleanEmail;
+    await AuthStorage.saveUsers(users);
+    if (this._currentUser?.id === userId) this._currentUser.email = cleanEmail;
   },
 
   async setUserRole(userId, role) {
@@ -247,6 +269,7 @@ const Auth = {
       const adminCount = users.filter(u => u.role === 'admin').length;
       if (adminCount <= 1) throw new Error('cannotDemoteLastAdmin');
     }
+    if (role === 'admin' && !users[idx].email) throw new Error('adminEmailRequired');
     users[idx].role = role;
     await AuthStorage.saveUsers(users);
   },
@@ -280,7 +303,8 @@ class ChillPOS {
     this.currentEditId = null;
     this.confirmAction = null;
     this.sortState     = { kolom: 'tanggalWaktu', arah: 'desc' };
-    this.filterState   = { type: '', category: '', method: '' };
+    this.filterState   = { type: '', category: '', method: '', query: '' };
+    this.txPage        = 1;
 
     this.initElements();
     this.initEventListeners();
@@ -307,7 +331,6 @@ class ChillPOS {
       return;
     }
     DataStore.setMode('cloud');
-    this._applyModeBanner();
     this._bindOfflineQueueBanner();
 
     if (!SupabaseConfig.load()) {
@@ -323,14 +346,10 @@ class ChillPOS {
     this._bindDataStore();
     DataStore.subscribeRealtime();
     this._registerRealtimeListeners();
+    const pinReset = await this._preparePinResetFromEmail();
     this.renderAll();
+    if (pinReset) return;
     await this.bootstrapAuth();
-  }
-
-  // Show or hide the local-mode warning banner above the header.
-  _applyModeBanner() {
-    const banner = document.getElementById('local-mode-banner');
-    if (banner) banner.style.display = DataStore.isLocal() ? 'block' : 'none';
   }
 
   // One-time wiring: OfflineQueue + browser online/offline events both
@@ -346,19 +365,27 @@ class ChillPOS {
     this._renderOfflineBanner();
   }
 
-  // Render the offline / sync-queue banner. Hidden unless we're offline OR
-  // there are queued writes pending. Only meaningful in Cloud mode — local
-  // mode never queues. Bound to OfflineQueue events in bootstrap().
+  // Render the offline / sync-queue banner. Hidden unless we're offline,
+  // a close is stuck, or there are queued writes. Bound to OfflineQueue.
   _renderOfflineBanner(state) {
     const el   = document.getElementById('offline-banner');
     const icon = document.getElementById('offline-banner-icon');
     const text = document.getElementById('offline-banner-text');
     if (!el || !icon || !text) return;
-    if (!DataStore.isCloud()) { el.style.display = 'none'; return; }
-
     const size     = state ? state.size     : (window.OfflineQueue ? OfflineQueue.size() : 0);
     const flushing = state ? state.flushing : false;
     const online   = state ? state.online   : (navigator.onLine !== false);
+
+    const blocked = state ? !!state.blocked : !!(window.OfflineQueue && OfflineQueue.blocked());
+    if (blocked) {
+      el.style.display = 'block';
+      el.style.background  = '#fee2e2';
+      el.style.color       = '#7f1d1d';
+      el.style.borderColor = '#fca5a5';
+      icon.className       = 'fas fa-exclamation-triangle';
+      text.textContent     = t('syncCloseFailed');
+      return;
+    }
 
     if (online && size === 0) { el.style.display = 'none'; return; }
 
@@ -538,9 +565,12 @@ class ChillPOS {
     };
   }
 
-  // PIN reset via shared access code — works for any user including last admin.
-  // See ROADMAP.md > Fase 2 > Batch 3.5 for the planned migration to email-based reset.
+  // Forgot PIN sends a Supabase Auth email to that user's own address.
+  // The link (or the code in the same email) proves they own the inbox,
+  // then this screen asks for a new PIN. A cashier with no email is reset
+  // by an admin from Manage Users. There is no shared access code.
   async showResetPinModal() {
+    this._pinResetUser = null;
     const sel = document.getElementById('rp-user');
     sel.innerHTML = '';
     const users = await AuthStorage.getUsers();
@@ -551,34 +581,144 @@ class ChillPOS {
       sel.appendChild(opt);
     });
     document.getElementById('reset-pin-form').reset();
+    document.getElementById('rp-code').value = '';
+    this._showResetPinStep('request');
     document.getElementById('login-modal').style.display = 'none';
     document.getElementById('reset-pin-modal').style.display = 'flex';
+    this._refreshResetPinHint();
+  }
+
+  _showResetPinStep(step) {
+    this._pinResetStep = step;
+    const request = step === 'request';
+    const choose  = step === 'choose';
+    document.getElementById('rp-user-group').style.display = request ? '' : 'none';
+    document.getElementById('rp-code-group').style.display = request ? '' : 'none';
+    document.getElementById('rp-new-pin-group').style.display = choose ? '' : 'none';
+    const submit = document.getElementById('rp-submit');
+    const label = submit.querySelector('span');
+    if (label) label.textContent = choose ? t('resetPinBtn') : t('sendResetLink');
+    document.getElementById('rp-hint').textContent = choose
+      ? t('resetPinChooseHint', this._pinResetUser?.username || '')
+      : t('resetPinHint');
+    if (request) this._refreshResetPinHint();
+  }
+
+  async _refreshResetPinHint() {
+    if (this._pinResetStep !== 'request') return;
+    const users = await AuthStorage.getUsers();
+    const user = users.find(u => u.id === document.getElementById('rp-user').value);
+    const note = document.getElementById('rp-no-email');
+    const submit = document.getElementById('rp-submit');
+    const codeGroup = document.getElementById('rp-code-group');
+    if (!user || !user.email) {
+      note.style.display = '';
+      note.textContent = !user ? ''
+        : (user.role === 'admin' ? t('resetPinNoEmailAdmin') : t('resetPinNoEmailCashier'));
+      submit.style.display = 'none';
+      codeGroup.style.display = 'none';
+      return;
+    }
+    note.style.display = 'none';
+    submit.style.display = '';
+    codeGroup.style.display = '';
   }
 
   hideResetPinModal() {
     document.getElementById('reset-pin-modal').style.display = 'none';
+    this._pinResetUser = null;
     this.showLoginModal();
   }
 
+  async _preparePinResetFromEmail() {
+    let sb;
+    try { sb = getSupabase(); } catch { return false; }
+    const { data } = await sb.auth.getSession();
+    const email = data?.session?.user?.email;
+    if (!email) return false;
+    try { await sb.auth.signOut(); } catch {}
+    if (window.location.hash || /[?&]code=/.test(window.location.search)) {
+      history.replaceState(null, '', window.location.pathname + window.location.search.replace(/([?&])code=[^&]*&?/, '$1').replace(/[?&]$/, ''));
+    }
+    const user = DataStore.users.find(u => (u.email || '') === String(email).trim().toLowerCase());
+    if (!user) {
+      this.showAlert(t('resetPinEmailMismatch'), 'error');
+      return false;
+    }
+    this._pinResetUser = user;
+    document.getElementById('login-modal').style.display = 'none';
+    document.getElementById('reset-pin-modal').style.display = 'flex';
+    this._showResetPinStep('choose');
+    return true;
+  }
+
   async handleResetPin() {
-    const userId  = document.getElementById('rp-user').value;
-    const code    = document.getElementById('rp-access-code').value;
-    const newPin  = document.getElementById('rp-new-pin').value;
-    const confirm = document.getElementById('rp-confirm-pin').value;
-
-    if (!/^\d{4,6}$/.test(newPin)) { this.showAlert(t('pinTooShort'), 'error'); return; }
-    if (newPin !== confirm)        { this.showAlert(t('pinMismatch'),  'error'); return; }
-
-    if (!(await AccessGate.verify(code))) {
-      this.showAlert(t('wrongAccessCode'), 'error');
-      document.getElementById('rp-access-code').value = '';
-      document.getElementById('rp-access-code').focus();
+    if (this._pinResetStep === 'choose') {
+      await this._saveResetPin(this._pinResetUser && this._pinResetUser.id);
       return;
     }
+    const users = await AuthStorage.getUsers();
+    const user = users.find(u => u.id === document.getElementById('rp-user').value);
+    if (!user) { this.showAlert(t('userNotFound'), 'error'); return; }
+    if (!user.email) {
+      this.showAlert(user.role === 'admin' ? t('resetPinNoEmailAdmin') : t('resetPinNoEmailCashier'), 'error');
+      return;
+    }
+    const code = document.getElementById('rp-code').value.trim();
+    if (code) {
+      await this._verifyResetCode(user, code);
+      return;
+    }
+    const btn = document.getElementById('rp-submit');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    try {
+      const redirect = window.location.origin + window.location.pathname;
+      const { error } = await getSupabase().auth.signInWithOtp({
+        email: user.email,
+        options: { emailRedirectTo: redirect, shouldCreateUser: true },
+      });
+      if (error) throw error;
+      this._pinResetUser = user;
+      this.showAlert(t('resetPinSent', user.email), 'success');
+      document.getElementById('rp-hint').textContent = t('resetPinSentHint');
+    } catch (e) {
+      this.showAlert(t('resetPinSendFailed') + (e?.message ? ` (${e.message})` : ''), 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  }
 
+  async _verifyResetCode(user, code) {
+    try {
+      const { data, error } = await getSupabase().auth.verifyOtp({
+        email: user.email,
+        token: code,
+        type: 'email',
+      });
+      if (error) throw error;
+      const email = data?.user?.email || data?.session?.user?.email;
+      if (!email || email.toLowerCase() !== user.email) throw new Error('resetPinEmailMismatch');
+      try { await getSupabase().auth.signOut(); } catch {}
+      this._pinResetUser = user;
+      document.getElementById('rp-code').value = '';
+      this._showResetPinStep('choose');
+    } catch (e) {
+      this.showAlert(t(e.message) === e.message ? t('resetPinCodeWrong') : (t(e.message) || e.message), 'error');
+    }
+  }
+
+  async _saveResetPin(userId) {
+    const newPin  = document.getElementById('rp-new-pin').value;
+    const confirm = document.getElementById('rp-confirm-pin').value;
+    if (!/^\d{4,6}$/.test(newPin)) { this.showAlert(t('pinTooShort'), 'error'); return; }
+    if (newPin !== confirm)        { this.showAlert(t('pinMismatch'),  'error'); return; }
+    if (!userId) { this.showAlert(t('userNotFound'), 'error'); return; }
     try {
       await Auth.setUserPIN(userId, newPin);
       document.getElementById('reset-pin-modal').style.display = 'none';
+      this._pinResetUser = null;
       this.showAlert(t('alertPinReset'), 'success');
       this.showLoginModal();
     } catch (e) {
@@ -667,6 +807,7 @@ class ChillPOS {
       opt.value = s; opt.textContent = s;
       sel.appendChild(opt);
     });
+    document.getElementById('sa-admin-email').value = '';
     document.getElementById('sa-admin-pin').value  = '';
     document.getElementById('sa-admin-pin2').value = '';
     document.getElementById('setup-admin-modal').style.display = 'flex';
@@ -674,6 +815,7 @@ class ChillPOS {
 
   async saveSetupAdmin() {
     const name = document.getElementById('sa-admin-name').value;
+    const email = document.getElementById('sa-admin-email').value;
     const pin  = document.getElementById('sa-admin-pin').value;
     const pin2 = document.getElementById('sa-admin-pin2').value;
     if (!/^\d{4,6}$/.test(pin))   { this.showAlert(t('pinTooShort'), 'error'); return; }
@@ -681,7 +823,12 @@ class ChillPOS {
     try {
       // Create the chosen admin (with PIN), and others as cashier (no PIN)
       for (const s of this.staffList) {
-        await Auth.createUser({ username: s, pin: s === name ? pin : null, role: s === name ? 'admin' : 'cashier' });
+        await Auth.createUser({
+          username: s,
+          pin: s === name ? pin : null,
+          role: s === name ? 'admin' : 'cashier',
+          email: s === name ? email : null,
+        });
       }
       const result = await Auth.login(name, pin);
       if (!result.ok) { this.showAlert(t('userNotFound'), 'error'); return; }
@@ -879,6 +1026,7 @@ class ChillPOS {
           <div class="user-row-meta">
             <span class="role-badge role-${u.role}">${t(u.role === 'admin' ? 'roleAdmin' : 'roleCashier')}</span>
             <span class="pin-badge ${u.pinHash ? 'has-pin' : 'no-pin'}">${t(u.pinHash ? 'pinSet' : 'pinNone')}</span>
+            <span class="pin-badge ${u.email ? 'has-pin' : 'no-pin'}">${this.escapeHtml(u.email || t('emailNone'))}</span>
           </div>
         </div>
         <div class="user-row-actions">
@@ -888,6 +1036,9 @@ class ChillPOS {
           </select>
           <button class="btn small user-edit-name" data-id="${u.id}" data-name="${this.escapeHtml(u.username)}" title="Rename">
             <i class="fas fa-pen"></i>
+          </button>
+          <button class="btn small user-set-email" data-id="${u.id}" data-email="${this.escapeHtml(u.email || '')}" title="${this.escapeHtml(t('setEmail'))}">
+            <i class="fas fa-envelope"></i>
           </button>
           <button class="btn small user-set-pin" data-id="${u.id}" data-name="${this.escapeHtml(u.username)}" title="Set/Reset PIN">
             <i class="fas fa-key"></i>
@@ -905,10 +1056,11 @@ class ChillPOS {
     const username = document.getElementById('new-username').value.trim();
     const role     = document.getElementById('new-user-role').value;
     const pin      = document.getElementById('new-user-pin').value;
+    const email    = document.getElementById('new-user-email').value;
     if (!username) return;
     if (pin && !/^\d{4,6}$/.test(pin)) { this.showAlert(t('pinTooShort'), 'error'); return; }
     try {
-      await Auth.createUser({ username, pin: pin || null, role });
+      await Auth.createUser({ username, pin: pin || null, role, email });
       document.getElementById('add-user-form').reset();
       await this._syncStaffFromUsers();
       await this.renderUsersList();
@@ -920,6 +1072,7 @@ class ChillPOS {
 
   async handleUserListClick(e) {
     const editNameBtn = e.target.closest('.user-edit-name');
+    const setEmailBtn = e.target.closest('.user-set-email');
     const setPinBtn   = e.target.closest('.user-set-pin');
     const delBtn      = e.target.closest('.user-delete');
     if (editNameBtn) {
@@ -934,6 +1087,15 @@ class ChillPOS {
           this.applyAuthUI();
         }
         await this._syncStaffFromUsers();
+        await this.renderUsersList();
+        this.showAlert(t('userUpdated'), 'success');
+      } catch (e) { this.showAlert(t(e.message) || e.message, 'error'); }
+    }
+    if (setEmailBtn) {
+      const next = prompt(t('emailPrompt'), setEmailBtn.dataset.email || '');
+      if (next === null) return;
+      try {
+        await Auth.setUserEmail(setEmailBtn.dataset.id, next);
         await this.renderUsersList();
         this.showAlert(t('userUpdated'), 'success');
       } catch (e) { this.showAlert(t(e.message) || e.message, 'error'); }
@@ -981,6 +1143,7 @@ class ChillPOS {
   showFirstRunWizard() {
     document.getElementById('fr-brand').value      = '';
     document.getElementById('fr-admin-name').value = '';
+    document.getElementById('fr-admin-email').value = '';
     document.getElementById('fr-admin-pin').value  = '';
     document.getElementById('fr-admin-pin2').value = '';
     document.getElementById('first-run-modal').style.display = 'flex';
@@ -1003,6 +1166,7 @@ class ChillPOS {
   async saveFirstRunWizard() {
     const brand = document.getElementById('fr-brand').value.trim();
     const adminName = document.getElementById('fr-admin-name').value.trim();
+    const adminEmail = document.getElementById('fr-admin-email').value;
     const pin       = document.getElementById('fr-admin-pin').value;
     const pin2      = document.getElementById('fr-admin-pin2').value;
     // Categories come from the rental template and other staff are added in
@@ -1031,7 +1195,7 @@ class ChillPOS {
     Storage.set('pos_staff', staff);   // local cache for offline UI fallback
 
     try {
-      await Auth.createUser({ username: adminName, pin, role: 'admin' });
+      await Auth.createUser({ username: adminName, pin, role: 'admin', email: adminEmail });
       const result = await Auth.login(adminName, pin);
       if (!result.ok) { this.showAlert(t('userNotFound'), 'error'); return; }
     } catch (e) {
@@ -1308,6 +1472,13 @@ class ChillPOS {
       this.filterState.type = document.getElementById('filter-type').value;
       this.filterState.category = document.getElementById('filter-category').value;
       this.filterState.method = document.getElementById('filter-method').value;
+      this.filterState.query = document.getElementById('filter-search').value;
+      this.txPage = 1;
+      this.renderTransaksiTable();
+    });
+    document.getElementById('filter-search').addEventListener('input', (e) => {
+      this.filterState.query = e.target.value;
+      this.txPage = 1;
       this.renderTransaksiTable();
     });
 
@@ -1316,9 +1487,18 @@ class ChillPOS {
       document.getElementById('filter-type').value = '';
       document.getElementById('filter-category').value = '';
       document.getElementById('filter-method').value = '';
+      document.getElementById('filter-search').value = '';
       this.filterState.type = '';
       this.filterState.category = '';
       this.filterState.method = '';
+      this.filterState.query = '';
+      this.txPage = 1;
+      this.renderTransaksiTable();
+    });
+    document.getElementById('tx-pager').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-page]');
+      if (!btn || btn.disabled) return;
+      this.txPage += btn.dataset.page === 'next' ? 1 : -1;
       this.renderTransaksiTable();
     });
 
@@ -1368,6 +1548,7 @@ class ChillPOS {
     // PIN reset flow
     document.getElementById('open-reset-pin').addEventListener('click', () => this.showResetPinModal());
     document.getElementById('rp-cancel').addEventListener('click',     () => this.hideResetPinModal());
+    document.getElementById('rp-user').addEventListener('change',      () => this._refreshResetPinHint());
     document.getElementById('reset-pin-form').addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleResetPin();
@@ -1380,19 +1561,6 @@ class ChillPOS {
       popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
     });
     document.getElementById('logout-btn').addEventListener('click', () => this.handleLogout());
-
-    // Upgrade to Cloud (Local mode only)
-    document.getElementById('open-upgrade-cloud').addEventListener('click', () => {
-      this.hideSettings();
-      this.showUpgradeCloudModal();
-    });
-    document.getElementById('close-upgrade-cloud').addEventListener('click', () => {
-      document.getElementById('upgrade-cloud-modal').style.display = 'none';
-    });
-    document.getElementById('upgrade-cloud-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await this.handleUpgradeCloud();
-    });
 
     // Users management modal
     document.getElementById('open-users').addEventListener('click', () => {
@@ -1712,7 +1880,7 @@ class ChillPOS {
     // default logo.png. Footer logo is the static developer branding.
     const img = document.getElementById('header-logo');
     if (!img) return;
-    const custom = !DataStore.isLocal() && DataStore.settings.logoData;
+    const custom = DataStore.settings.logoData;
     img.src = custom || 'logo.png';
   }
 
@@ -1755,6 +1923,10 @@ class ChillPOS {
     if (this.filterState.method) {
       txs = txs.filter(tx => tx.metode === this.filterState.method);
     }
+    const q = (this.filterState.query || '').trim().toLowerCase();
+    if (q) {
+      txs = txs.filter(tx => this._txSearchText(tx).includes(q));
+    }
 
     const { kolom, arah } = this.sortState;
     return txs.slice().sort((a, b) => {
@@ -1766,6 +1938,18 @@ class ChillPOS {
       if (va > vb) return arah === 'asc' ?  1 : -1;
       return (new Date(b.tanggalWaktu) - new Date(a.tanggalWaktu)) || ledgerTypeOrder(a, b);
     });
+  }
+
+  _txSearchText(tx) {
+    return [
+      ledgerDescription(tx),
+      ledgerNoteShort(tx),
+      tx.deskripsi,
+      tx.kategori,
+      tx.staff,
+      tx.metode,
+      tx.jenis,
+    ].join(' ').toLowerCase();
   }
 
   // Populate category dropdown with ONLY categories that exist in current transactions
@@ -1790,7 +1974,14 @@ class ChillPOS {
   // Dispatcher: pick table or card layout based on viewport.
   // Both renderers use the same getVisibleTransactions() pipeline.
   renderTransaksiTable() {
-    const transactions = this.getVisibleTransactions();
+    const all = this.getVisibleTransactions();
+    const pageSize = 25;
+    const pages = Math.max(1, Math.ceil(all.length / pageSize));
+    if (this.txPage > pages) this.txPage = pages;
+    if (this.txPage < 1) this.txPage = 1;
+    const start = (this.txPage - 1) * pageSize;
+    const transactions = all.slice(start, start + pageSize);
+    this._renderTxPager(all.length, pages, pageSize);
     const { kolom, arah } = this.sortState;
 
     // Update sort icons (always — table header may be hidden but DOM intact)
@@ -1809,13 +2000,32 @@ class ChillPOS {
     }
   }
 
+  _emptyTxMessage() {
+    const filtered = this.filterState.query || this.filterState.type || this.filterState.category || this.filterState.method;
+    return (filtered && this.transactions.length) ? t('noSearchResults') : t('noTransactionsTable');
+  }
+
+  _renderTxPager(total, pages, pageSize) {
+    const pager = document.getElementById('tx-pager');
+    if (!pager) return;
+    if (total === 0) { pager.hidden = true; pager.innerHTML = ''; return; }
+    const start = (this.txPage - 1) * pageSize + 1;
+    const end = Math.min(total, this.txPage * pageSize);
+    pager.hidden = false;
+    pager.innerHTML = `
+      <button type="button" class="btn small" data-page="prev" ${this.txPage <= 1 ? 'disabled' : ''}>${t('pagePrev')}</button>
+      <span class="pager-status">${t('pageStatus', { page: this.txPage, pages, start, end, total })}</span>
+      <button type="button" class="btn small" data-page="next" ${this.txPage >= pages ? 'disabled' : ''}>${t('pageNext')}</button>
+    `;
+  }
+
   _renderTableRows(transactions) {
     this.elements.transaksiTable.innerHTML = '';
     if (transactions.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
       td.colSpan = 9; td.style.textAlign = 'center';
-      td.textContent = t('noTransactionsTable');
+      td.textContent = this._emptyTxMessage();
       tr.appendChild(td);
       this.elements.transaksiTable.appendChild(tr);
       return;
@@ -1855,7 +2065,7 @@ class ChillPOS {
     if (transactions.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty-card';
-      empty.textContent = t('noTransactionsTable');
+      empty.textContent = this._emptyTxMessage();
       container.appendChild(empty);
       return;
     }
@@ -2125,13 +2335,9 @@ class ChillPOS {
       this.showAlert(t('noPermission'), 'error'); return;
     }
     document.getElementById('open-users').style.display = Auth.can(PERMISSIONS.MANAGE_USERS) ? '' : 'none';
-    // "Upgrade to Cloud" only shows for admin while running in Local mode.
-    document.getElementById('open-upgrade-cloud').style.display =
-      (DataStore.isLocal() && Auth.can(PERMISSIONS.MANAGE_SETTINGS)) ? '' : 'none';
-    // Logo upload is a Cloud-only feature — Basic (Local) mode keeps the static logo.png.
     const logoGroup = document.getElementById('settings-logo-group');
     if (logoGroup) {
-      logoGroup.style.display = DataStore.isLocal() ? 'none' : '';
+      logoGroup.style.display = '';
       const fileInput = document.getElementById('settings-logo');
       const preview   = document.getElementById('settings-logo-preview');
       if (fileInput) fileInput.value = '';
@@ -2185,51 +2391,6 @@ class ChillPOS {
       `;
       list.appendChild(row);
     });
-  }
-
-  // Open the Local→Cloud migration modal.
-  showUpgradeCloudModal() {
-    const modal = document.getElementById('upgrade-cloud-modal');
-    document.getElementById('uc-url').value = '';
-    document.getElementById('uc-key').value = '';
-    document.getElementById('uc-progress').style.display = 'none';
-    modal.style.display = 'flex';
-  }
-
-  async handleUpgradeCloud() {
-    const url    = document.getElementById('uc-url').value;
-    const key    = document.getElementById('uc-key').value;
-    const submit = document.getElementById('uc-submit');
-    const prog   = document.getElementById('uc-progress');
-    const progT  = document.getElementById('uc-progress-text');
-
-    if (!SupabaseConfig.isValidUrl(url)) { this.showAlert(t('invalidSupabaseUrl'), 'error'); return; }
-    if (!SupabaseConfig.isValidKey(key)) { this.showAlert(t('invalidSupabaseKey'), 'error'); return; }
-
-    submit.disabled = true;
-    prog.style.display = '';
-    progT.textContent = t('upgradeChecking');
-
-    try {
-      progT.textContent = t('upgradeMigrating');
-      const counts = await migrateLocalToCloud(url, key);
-      // Persist config + switch mode, then reload to bootstrap into Cloud.
-      SupabaseConfig.save(url, key);
-      DataStore.setMode('cloud');
-      this.showAlert(
-        `${t('upgradeDone')} (${counts.transactions} tx, ${counts.shifts} shifts, ${counts.users} users)`,
-        'success'
-      );
-      setTimeout(() => window.location.reload(), 1200);
-    } catch (e) {
-      submit.disabled = false;
-      prog.style.display = 'none';
-      const msgKey = e?.message === 'cloudNotEmpty'        ? 'upgradeCloudNotEmpty'
-                   : e?.message === 'invalidSupabaseUrl'   ? 'invalidSupabaseUrl'
-                   : e?.message === 'invalidSupabaseKey'   ? 'invalidSupabaseKey'
-                   : null;
-      this.showAlert(msgKey ? t(msgKey) : `${t('upgradeFailed')} (${e?.message || e})`, 'error');
-    }
   }
 
   hideSettings() { this.elements.settingsModal.style.display = 'none'; }
@@ -2289,7 +2450,7 @@ class ChillPOS {
       console.error('[Settings] category_types save failed:', e));
 
     // Logo upload (Cloud only). Resize + convert to PNG, then persist as base64.
-    const logoFile = !DataStore.isLocal() && document.getElementById('settings-logo')
+    const logoFile = document.getElementById('settings-logo')
       ? document.getElementById('settings-logo').files[0] : null;
     if (logoFile) {
       resizeLogoToBase64(logoFile)
@@ -2948,10 +3109,10 @@ class ChillPOS {
     });
   }
 
-  saveToCSV() {
+  saveToCSV(rows = this.transactions) {
     try {
-      if (this.transactions.length === 0) return;
-      const csv  = Papa.unparse(this.transactions);
+      if (!rows || rows.length === 0) return;
+      const csv  = Papa.unparse(rows);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const d    = new Date();
@@ -3130,15 +3291,22 @@ class ChillPOS {
       closingNote:     note,
     };
 
+    const confirmBtn = document.getElementById('ts-confirm-close');
+    if (confirmBtn) confirmBtn.disabled = true;
     try {
-      await this.saveShiftHistory();
-      this.saveToCSV();
-      await DataStore.clearTransactions();
+      const shiftRecord = this.buildShiftRecord();
+      await DataStore.closeShift({
+        shift: shiftRecord,
+        transactionIds: shiftRecord.transactions.map(tx => tx.id),
+      });
+      this.saveToCSV(shiftRecord.transactions);
       this.shiftActive = false;
-      await DataStore.saveSetting('shift_active', false);
     } catch (e) {
-      this.showAlert(`${t('alertShiftClosed')} (${e?.message || e})`, 'error');
+      const pending = e?.code === 'shiftClosePending' || e?.message === 'shiftClosePending';
+      this.showAlert(pending ? t('shiftClosePending') : (e?.message || String(e)), 'error');
       return;
+    } finally {
+      if (confirmBtn) confirmBtn.disabled = false;
     }
     this._pendingActual    = null;
     this._actualForHistory = null;
@@ -3154,7 +3322,7 @@ class ChillPOS {
   // Max 50 shifts — oldest is auto-removed
   // ============================================================
 
-  async saveShiftHistory() {
+  buildShiftRecord() {
     const staff    = [...new Set(this.transactions.map(tx => tx.staff))];
     const cash     = this.calculateSaldo('Cash');
     const card     = this.calculateSaldo('Card');
@@ -3202,7 +3370,6 @@ class ChillPOS {
       transactions: this.transactions.map(tx => ({ ...tx }))
     };
 
-    await DataStore.insertShift(shiftRecord);
     return shiftRecord;
   }
 
