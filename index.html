@@ -80,6 +80,11 @@
   <div id="filter-panel" class="filter-panel" style="display:none">
     <div class="filter-controls">
       <div class="filter-group">
+        <label for="filter-search" data-i18n="search">Search</label>
+        <input type="search" id="filter-search" data-i18n-ph="searchPlaceholder" placeholder="Description, category, staff..." autocomplete="off">
+      </div>
+
+      <div class="filter-group">
         <label for="filter-type" data-i18n="filterType">Type</label>
         <select id="filter-type">
           <option value="">-- All --</option>
@@ -93,11 +98,6 @@
         <select id="filter-category">
           <option value="">-- All --</option>
         </select>
-      </div>
-
-      <div class="filter-group">
-        <label for="filter-search" data-i18n="search">Search</label>
-        <input type="search" id="filter-search" data-i18n-ph="searchPlaceholder" placeholder="Description, category, staff..." autocomplete="off">
       </div>
 
       <div class="filter-group">
