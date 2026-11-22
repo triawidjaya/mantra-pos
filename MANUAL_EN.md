@@ -25,7 +25,7 @@ Scooter-rental categories are created for you. Add other staff later in Manage U
 
 1. **Start shift.** Pick who is on duty, enter the cash in the till, and enter that person's PIN (an admin can use their own PIN).
 2. **Record** income and outgoing as they happen. Rental, TarikTunai, and PETTY-CASH each have their own button and write the paired rows together.
-3. **Close shift.** Enter the counted cash, card, transfer, and QRIS. If a count does not match, a note is required. Confirming close saves the shift and clears the open list.
+3. **Close shift** (once, at month end, on the last day or in the first days of the next month). Pick the **period end date** (today by default); rows dated after it stay in the next shift. Enter the counted cash. For Card, Transfer, and QRIS, **leave the field blank** if the money has not reached the bank yet: it is marked **waiting for bank** and is not a shortage. Fill the bank amounts later in Report > Bank; the closed shift shows a banner until every day is filled. If a counted amount does not match, a note is required. Confirming close saves the shift and removes the closed rows from the open list.
 
 The counter runs **one shift for the whole month**, from the start of the books to the end of the month (28, 29, 30 or 31 days). There is no daily open and close. Close the shift once, at month end.
 

@@ -1284,6 +1284,7 @@ class MantraPOS {
       tutupShiftModal:     document.getElementById('tutup-shift-modal'),
       tsStepInput:         document.getElementById('ts-step-input'),
       tsStepSummary:       document.getElementById('ts-step-summary'),
+      tsCutoff:                document.getElementById('ts-cutoff'),
       tsActualCash:            document.getElementById('ts-actual-cash'),
       tsActualCashPreview:     document.getElementById('ts-actual-cash-preview'),
       tsActualCard:            document.getElementById('ts-actual-card'),
@@ -1876,6 +1877,9 @@ class MantraPOS {
       staff,
       tanggalWaktu: new Date().toISOString()
     };
+    // Rows carried over from a past-day close are older than "now": open the new shift just before them.
+    const carried = this.transactions.map(tx => new Date(tx.tanggalWaktu).getTime()).filter(Number.isFinite);
+    if (carried.length) startTx.tanggalWaktu = new Date(Math.min(Date.now(), ...carried) - 1000).toISOString();
 
     try {
       await DataStore.insertTransaction(startTx);
@@ -2339,10 +2343,29 @@ class MantraPOS {
     }).format(amount);
   }
 
-  calculateSaldo(metode) {
-    return this.transactions
+  calculateSaldo(metode, list = this.transactions) {
+    return list
       .filter(tx => tx.metode === metode)
       .reduce((sum, tx) => sum + tx.jumlah, 0);
+  }
+
+  // Calendar day of a transaction as shown in the table (device local time), YYYY-MM-DD.
+  _dayKey(value) {
+    const d = value instanceof Date ? value : new Date(value);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  _todayKey() { return this._dayKey(new Date()); }
+
+  // A method with nothing to collect (expected 0) has nothing to wait for: blank counts as 0.
+  _bankActual(actual, expected) { return actual === null && expected === 0 ? 0 : actual; }
+
+  // Month-end close with a cutoff day: rows up to that day close with the shift,
+  // later rows stay on screen and belong to the next shift.
+  _closeSplit(cutoff) {
+    const cut = cutoff || this._todayKey();
+    const closing = [], remaining = [];
+    this.transactions.forEach(tx => (this._dayKey(tx.tanggalWaktu) <= cut ? closing : remaining).push(tx));
+    return { cutoff: cut, closing, remaining };
   }
 
   // Categories flagged in Settings as cash movements (transfer, receivable, opening
@@ -3231,28 +3254,43 @@ class MantraPOS {
     resetField(this.elements.tsActualCard,     this.elements.tsActualCardPreview);
     resetField(this.elements.tsActualTransfer, this.elements.tsActualTransferPreview);
     resetField(this.elements.tsActualQris,     this.elements.tsActualQrisPreview);
+    // Period end date: today by default, never in the future, never before the opening row.
+    const today = this._todayKey();
+    const opening = this.transactions.find(tx => tx.kategori === 'START BALANCE');
+    this.elements.tsCutoff.max   = today;
+    this.elements.tsCutoff.min   = opening ? this._dayKey(opening.tanggalWaktu) : '';
+    this.elements.tsCutoff.value = today;
     this.elements.tsStepInput.style.display     = '';
     this.elements.tsStepSummary.style.display   = 'none';
     this.elements.tutupShiftModal.style.display = 'flex';
   }
 
   showTutupShiftSummary() {
-    const actualCash     = parseFloat(this.elements.tsActualCash.dataset.raw     || '0') || 0;
-    const actualCard     = parseFloat(this.elements.tsActualCard.dataset.raw     || '0') || 0;
-    const actualTransfer = parseFloat(this.elements.tsActualTransfer.dataset.raw || '0') || 0;
-    const actualQris     = parseFloat(this.elements.tsActualQris.dataset.raw     || '0') || 0;
+    // Period end date and the rows that close with it
+    const cutoff = (this.elements.tsCutoff && this.elements.tsCutoff.value) || this._todayKey();
+    const split  = this._closeSplit(cutoff);
+    const list   = split.closing;
 
-    const expectedCash     = this.calculateSaldo('Cash');
-    const expectedCard     = this.calculateSaldo('Card');
-    const expectedTransfer = this.calculateSaldo('Transfer');
-    const expectedQris     = this.calculateSaldo('Qris');
+    const num = (el) => parseFloat(el.dataset.raw || '0') || 0;
+    // Card, Transfer and QRIS reach the bank on a later day: a blank field means "waiting for bank", not zero.
+    const optional = (el) => (el.dataset.raw === '' || el.dataset.raw === undefined) ? null : num(el);
+    const actualCash     = num(this.elements.tsActualCash);
+    const expectedCash     = this.calculateSaldo('Cash', list);
+    const expectedCard     = this.calculateSaldo('Card', list);
+    const expectedTransfer = this.calculateSaldo('Transfer', list);
+    const expectedQris     = this.calculateSaldo('Qris', list);
+    const actualCard     = this._bankActual(optional(this.elements.tsActualCard), expectedCard);
+    const actualTransfer = this._bankActual(optional(this.elements.tsActualTransfer), expectedTransfer);
+    const actualQris     = this._bankActual(optional(this.elements.tsActualQris), expectedQris);
 
-    const selisihCash     = actualCash     - expectedCash;
-    const selisihCard     = actualCard     - expectedCard;
-    const selisihTransfer = actualTransfer - expectedTransfer;
-    const selisihQris     = actualQris     - expectedQris;
+    const diff = (a, e) => (a === null ? null : a - e);
+    const selisihCash     = actualCash - expectedCash;
+    const selisihCard     = diff(actualCard, expectedCard);
+    const selisihTransfer = diff(actualTransfer, expectedTransfer);
+    const selisihQris     = diff(actualQris, expectedQris);
 
     const fmtSelisih = (val) => {
+      if (val === null) return `<span class="ts-diff-wait">${t('closeWaitingBank')}</span>`;
       if (val === 0) return `<span class="ts-diff-exact">${t('exact')}</span>`;
       const sign  = val > 0 ? '+' : '';
       const cls   = val > 0 ? 'ts-diff-over' : 'ts-diff-short';
@@ -3261,16 +3299,18 @@ class MantraPOS {
       return `<span class="${cls}"><span class="diff-amt">${sign}${this.formatCurrency(val)}</span><span class="diff-label">${label}</span></span>`;
     };
 
-    const hasSelisih = selisihCash !== 0 || selisihCard !== 0 ||
-                       selisihTransfer !== 0 || selisihQris !== 0;
+    // Only a counted amount can be short or over; "waiting for bank" never needs an explanation.
+    const hasSelisih = [selisihCash, selisihCard, selisihTransfer, selisihQris].some(v => v !== null && v !== 0);
+    const waitingBank = [[actualCard, expectedCard], [actualTransfer, expectedTransfer], [actualQris, expectedQris]]
+      .some(([a, e]) => a === null && e !== 0);
 
-    this._pendingActual = { actualCash, actualCard, actualTransfer, actualQris, hasSelisih };
+    this._pendingActual = { actualCash, actualCard, actualTransfer, actualQris, hasSelisih, cutoff };
 
     const row = (icon, label, expected, actual, selisih) => `
       <tr>
         <td><i class="fas ${icon}"></i> ${label}</td>
         <td>${this.formatCurrency(expected)}</td>
-        <td class="actual-cell">${this.formatCurrency(actual)}</td>
+        <td class="actual-cell">${actual === null ? '—' : this.formatCurrency(actual)}</td>
         <td>${fmtSelisih(selisih)}</td>
       </tr>`;
 
@@ -3278,10 +3318,10 @@ class MantraPOS {
     const noteHintText  = hasSelisih ? t('closingNoteRequired') : t('closingNoteOptional');
 
     // Revenue breakdown — split raw income/outgoing into business revenue vs cash movements.
-    const totalNonRevenueIn  = this.transactions.filter(tx => tx.jenis === 'INCOME'   &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
-    const totalNonRevenueOut = this.transactions.filter(tx => tx.jenis === 'OUTGOING' &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
-    const totalIncomeAll     = this.transactions.filter(tx => tx.jenis === 'INCOME'  ).reduce((s, tx) => s + tx.jumlah, 0);
-    const totalOutgoingAll   = this.transactions.filter(tx => tx.jenis === 'OUTGOING').reduce((s, tx) => s + tx.jumlah, 0);
+    const totalNonRevenueIn  = list.filter(tx => tx.jenis === 'INCOME'   &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalNonRevenueOut = list.filter(tx => tx.jenis === 'OUTGOING' &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalIncomeAll     = list.filter(tx => tx.jenis === 'INCOME'  ).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalOutgoingAll   = list.filter(tx => tx.jenis === 'OUTGOING').reduce((s, tx) => s + tx.jumlah, 0);
     const revenue            = totalIncomeAll   - totalNonRevenueIn;
     const operatingExpense   = totalOutgoingAll - totalNonRevenueOut; // negative
     const netRevenue         = revenue + operatingExpense;
@@ -3344,6 +3384,8 @@ class MantraPOS {
           <textarea id="ts-closing-note" rows="2" maxlength="500"></textarea>
           <small class="${noteHintClass}">${noteHintText}</small>
         </div>
+        ${waitingBank ? `<p class="summary-info">${t('closeBankPendingNote')}</p>` : ''}
+        ${split.remaining.length ? `<p class="summary-info">${t('closeCarryOver', { n: split.remaining.length, date: cutoff })}</p>` : ''}
         <p class="summary-info">${t('balanceReset')}</p>
       </div>
     `;
@@ -3353,8 +3395,8 @@ class MantraPOS {
   }
 
   async eksekusiTutupShift() {
-    const { actualCash, actualCard, actualTransfer, actualQris, hasSelisih } =
-      this._pendingActual || { actualCash: 0, actualCard: 0, actualTransfer: 0, actualQris: 0, hasSelisih: false };
+    const { actualCash, actualCard, actualTransfer, actualQris, hasSelisih, cutoff } =
+      this._pendingActual || { actualCash: 0, actualCard: null, actualTransfer: null, actualQris: null, hasSelisih: false, cutoff: this._todayKey() };
 
     // Note is mandatory when there's a difference — staff must explain why.
     const noteEl = document.getElementById('ts-closing-note');
@@ -3365,24 +3407,31 @@ class MantraPOS {
       return;
     }
 
-    const expectedCash     = this.calculateSaldo('Cash');
-    const expectedCard     = this.calculateSaldo('Card');
-    const expectedTransfer = this.calculateSaldo('Transfer');
-    const expectedQris     = this.calculateSaldo('Qris');
+    const { closing } = this._closeSplit(cutoff);
+    const expectedCash     = this.calculateSaldo('Cash', closing);
+    const expectedCard     = this.calculateSaldo('Card', closing);
+    const expectedTransfer = this.calculateSaldo('Transfer', closing);
+    const expectedQris     = this.calculateSaldo('Qris', closing);
+    const diff = (a, e) => (a === null ? null : a - e);
 
     this._actualForHistory = {
-      actualCash, actualCard, actualTransfer, actualQris,
-      selisihCash:     actualCash     - expectedCash,
-      selisihCard:     actualCard     - expectedCard,
-      selisihTransfer: actualTransfer - expectedTransfer,
-      selisihQris:     actualQris     - expectedQris,
+      actualCash,
+      actualCard:     this._bankActual(actualCard, expectedCard),
+      actualTransfer: this._bankActual(actualTransfer, expectedTransfer),
+      actualQris:     this._bankActual(actualQris, expectedQris),
+      selisihCash:     actualCash - expectedCash,
+      selisihCard:     diff(actualCard, expectedCard),
+      selisihTransfer: diff(actualTransfer, expectedTransfer),
+      selisihQris:     diff(actualQris, expectedQris),
+      bankPending:     [[actualCard, expectedCard], [actualTransfer, expectedTransfer], [actualQris, expectedQris]]
+                         .some(([a, e]) => a === null && e !== 0),
       closingNote:     note,
     };
 
     const confirmBtn = document.getElementById('ts-confirm-close');
     if (confirmBtn) confirmBtn.disabled = true;
     try {
-      const shiftRecord = this.buildShiftRecord();
+      const shiftRecord = this.buildShiftRecord(closing, cutoff);
       await DataStore.closeShift({
         shift: shiftRecord,
         transactionIds: shiftRecord.transactions.map(tx => tx.id),
@@ -3410,30 +3459,37 @@ class MantraPOS {
   // Max 50 shifts — oldest is auto-removed
   // ============================================================
 
-  buildShiftRecord() {
-    const staff    = [...new Set(this.transactions.map(tx => tx.staff))];
-    const cash     = this.calculateSaldo('Cash');
-    const card     = this.calculateSaldo('Card');
-    const transfer = this.calculateSaldo('Transfer');
-    const qris     = this.calculateSaldo('Qris');
+  buildShiftRecord(list = list, cutoff = null) {
+    const staff    = [...new Set(list.map(tx => tx.staff))];
+    const cash     = this.calculateSaldo('Cash', list);
+    const card     = this.calculateSaldo('Card', list);
+    const transfer = this.calculateSaldo('Transfer', list);
+    const qris     = this.calculateSaldo('Qris', list);
 
     // startedAt sourced from the START BALANCE tx — it's always inserted at shift start.
-    const startedAt = this.transactions.find(tx => tx.kategori === 'START BALANCE')?.tanggalWaktu ?? null;
+    const startedAt = list.find(tx => tx.kategori === 'START BALANCE')?.tanggalWaktu ?? null;
 
     // Revenue breakdown — splits raw INCOME/OUTGOING into business revenue vs
     // non-revenue (transfers, receivables, opening balance). totalIncome/totalOutgoing
     // are kept for backward compat with shifts closed before this feature shipped.
-    const totalIncome      = this.transactions.filter(tx => tx.jenis === 'INCOME').reduce((s, tx) => s + tx.jumlah, 0);
-    const totalOutgoing    = this.transactions.filter(tx => tx.jenis === 'OUTGOING').reduce((s, tx) => s + tx.jumlah, 0);
-    const totalNonRevenueIn  = this.transactions.filter(tx => tx.jenis === 'INCOME'   &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
-    const totalNonRevenueOut = this.transactions.filter(tx => tx.jenis === 'OUTGOING' &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalIncome      = list.filter(tx => tx.jenis === 'INCOME').reduce((s, tx) => s + tx.jumlah, 0);
+    const totalOutgoing    = list.filter(tx => tx.jenis === 'OUTGOING').reduce((s, tx) => s + tx.jumlah, 0);
+    const totalNonRevenueIn  = list.filter(tx => tx.jenis === 'INCOME'   &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalNonRevenueOut = list.filter(tx => tx.jenis === 'OUTGOING' &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
     const totalRevenue          = totalIncome   - totalNonRevenueIn;
     const totalOperatingExpense = totalOutgoing - totalNonRevenueOut;
+
+    // Closing a past day (cutoff before today): the shift ends at the end of that day.
+    let closedAt = new Date();
+    if (cutoff && cutoff < this._todayKey()) {
+      const [y, m, d] = cutoff.split('-').map(Number);
+      closedAt = new Date(y, m - 1, d, 23, 59, 59, 999);
+    }
 
     const shiftRecord = {
       id:        `shift_${Date.now()}`,
       startedAt,
-      closedAt:  new Date().toISOString(),
+      closedAt:  closedAt.toISOString(),
       staff,
       summary: {
         cash, card, transfer, qris,
@@ -3444,7 +3500,7 @@ class MantraPOS {
         totalOperatingExpense,
         totalNonRevenueIn,
         totalNonRevenueOut,
-        jumlahTransaksi:  this.transactions.length,
+        jumlahTransaksi:  list.length,
         actualCash:      this._actualForHistory?.actualCash      ?? null,
         actualCard:      this._actualForHistory?.actualCard      ?? null,
         actualTransfer:  this._actualForHistory?.actualTransfer  ?? null,
@@ -3453,9 +3509,10 @@ class MantraPOS {
         selisihCard:     this._actualForHistory?.selisihCard     ?? null,
         selisihTransfer: this._actualForHistory?.selisihTransfer ?? null,
         selisihQris:     this._actualForHistory?.selisihQris     ?? null,
+        bankPending:     this._actualForHistory?.bankPending     ?? false,
         closingNote:     this._actualForHistory?.closingNote     ?? '',
       },
-      transactions: this.transactions.map(tx => ({ ...tx }))
+      transactions: list.map(tx => ({ ...tx }))
     };
 
     return shiftRecord;

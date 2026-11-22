@@ -666,10 +666,16 @@
         Verify the actual balance for each payment method.
       </p>
       <div class="form-group">
+        <label for="ts-cutoff" data-i18n="closeCutoff">Period end date</label>
+        <input type="date" id="ts-cutoff">
+        <small style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block" data-i18n="closeCutoffHint">Transactions after this date stay in the next shift.</small>
+      </div>
+      <div class="form-group">
         <label for="ts-actual-cash" data-i18n="actualCash">Actual Cash</label>
         <input type="text" id="ts-actual-cash" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
         <small id="ts-actual-cash-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
       </div>
+      <p class="ts-bank-hint" data-i18n="closeBankHint">Card, Transfer and QRIS: leave blank if the money has not reached the bank yet. It is marked "waiting for bank" instead of a shortage.</p>
       <div class="form-group">
         <label for="ts-actual-card" data-i18n="actualCard">Actual Card</label>
         <input type="text" id="ts-actual-card" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
