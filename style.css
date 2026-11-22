@@ -1281,3 +1281,12 @@ th[data-kolom]:focus-visible {
   .rec-table .rec-wd { display: none; }
   .rec-table .bank-actual { width: 84px; padding: 4px 6px; }
 }
+.rec-rates { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-4); margin: var(--space-3) 0 var(--space-2); }
+.rec-rate { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--gray); }
+.rec-rate .bank-rate {
+  width: 90px; height: 34px; box-sizing: border-box; text-align: right; padding: 4px 8px;
+  border: 1px solid var(--border-color); border-radius: var(--radius-xs); background: var(--card-bg);
+  color: var(--text-color); font-size: 0.9rem;
+}
+.rec-rate .bank-rate:focus { border-color: var(--primary); box-shadow: var(--focus-ring); outline: none; }
+.rec-rate strong { color: var(--text-color); font-size: 0.95rem; }

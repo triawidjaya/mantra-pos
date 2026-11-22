@@ -169,6 +169,20 @@ function normalizeBankRecon(value) {
   return out;
 }
 
+// Percentages for the bank reconciliation. cardSurcharge is what the EDC adds for the renter,
+// cardMdr and qrisMdr are what the bank keeps. Missing or invalid values fall back to the defaults.
+const BANK_RATE_DEFAULTS = { cardSurcharge: 3, cardMdr: 3, qrisMdr: 1 };
+function normalizeBankRates(value) {
+  const out = { ...BANK_RATE_DEFAULTS };
+  if (value && typeof value === 'object') {
+    Object.keys(BANK_RATE_DEFAULTS).forEach(k => {
+      const n = Number(value[k]);
+      if (value[k] !== null && value[k] !== '' && Number.isFinite(n) && n >= 0 && n <= 20) out[k] = n;
+    });
+  }
+  return out;
+}
+
 // ── Config storage ──
 const SB_CONFIG_KEY = 'pos_sb_config';
 // mantra-pos only ever talks to the Mantra Lombok POS project. The URL is not
@@ -344,6 +358,7 @@ const DataStore = {
     nonRevenueCategories: [], // category names excluded from revenue/expense totals (transfer, receivable, opening balance)
     categoryTypes:   {},   // { name: 'INCOME' | 'OUTGOING' }; missing = usable on both sides
     bankRecon:       {},   // { 'YYYY-MM-DD': amount that reached the bank that day } for Card/QRIS/Transfer reconciliation
+    bankRates:       { cardSurcharge: 3, cardMdr: 3, qrisMdr: 1 }, // percentages used to work out what the bank should pay out
     logoData:        null, // base64 PNG of custom logo (cloud only); null = use static logo.png
   },
 
@@ -376,6 +391,7 @@ const DataStore = {
     this.settings.nonRevenueCategories = [];
     this.settings.categoryTypes   = {};
     this.settings.bankRecon       = {};
+    this.settings.bankRates       = normalizeBankRates(null);
     this.settings.templateApplied = false;
     this.settings.logoData        = null;
     this.hydrated = false;
@@ -510,6 +526,7 @@ const DataStore = {
     this.settings.nonRevenueCategories = map.non_revenue_categories ?? [];
     this.settings.categoryTypes   = normalizeCategoryTypes(map.category_types);
     this.settings.bankRecon       = normalizeBankRecon(map.bank_recon);
+    this.settings.bankRates       = normalizeBankRates(map.bank_rates);
     this.settings.templateApplied = map.template_applied === true;
     this.settings.logoData        = map.logo_data        ?? null;
 
@@ -614,6 +631,7 @@ const DataStore = {
     else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
     else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
     else if (key === 'bank_recon')       this.settings.bankRecon       = normalizeBankRecon(value);
+    else if (key === 'bank_rates')       this.settings.bankRates       = normalizeBankRates(value);
     else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
     this._fire('settings');
@@ -640,6 +658,7 @@ const DataStore = {
     else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
     else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
     else if (key === 'bank_recon')       this.settings.bankRecon       = normalizeBankRecon(value);
+    else if (key === 'bank_rates')       this.settings.bankRates       = normalizeBankRates(value);
     else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
     this._fire('settings');

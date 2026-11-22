@@ -587,7 +587,12 @@ function buildBankRecon() {
     });
     const actual = Object.prototype.hasOwnProperty.call(actuals, day.key) ? Number(actuals[day.key]) : null;
     if (!touched && actual === null) return;
-    rows.push({ key: day.key, ...by, expected: by.Card + by.Qris + by.Transfer, actual });
+    // What the bank should pay: the EDC charges the renter Card + surcharge, the bank keeps its cut of that
+    // total; QRIS arrives minus the bank's cut; Transfer arrives whole. Rounded to whole rupiah.
+    const rt = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 3, qrisMdr: 1 };
+    const expected = Math.round(by.Card * (1 + rt.cardSurcharge / 100) * (1 - rt.cardMdr / 100)
+      + by.Qris * (1 - rt.qrisMdr / 100) + by.Transfer);
+    rows.push({ key: day.key, ...by, expected, actual });
   });
   let cum = 0;
   rows.forEach(r => {
@@ -602,7 +607,7 @@ function renderBankRecon() {
   const el = document.getElementById('bank-container');
   if (!el) return;
   const typing = document.activeElement;
-  if (typing && typing.classList?.contains('bank-actual') && el.contains(typing)) return; // do not wipe a field being typed in
+  if (typing && (typing.classList?.contains('bank-actual') || typing.classList?.contains('bank-rate')) && el.contains(typing)) return; // do not wipe a field being typed in
   const rows = buildBankRecon();
   const head = `<div class="chart-header"><h3>${t('recTitle')}</h3>
       <button type="button" class="btn small success" id="bank-export"><i class="fas fa-file-excel"></i> ${t('recExport')}</button></div>
@@ -621,6 +626,7 @@ function renderBankRecon() {
   const totalActual = sum(r => r.actual ?? 0);
   const gap = totalExpected - totalActual;               // > 0: money still missing
   const admin = !!window._isAdmin;
+  const rates = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 3, qrisMdr: 1 };
   const diffCell = (r) => {
     if (r.diff === null) return '<td class="hs-num">—</td>';
     const cls = r.diff === 0 ? 'rec-ok' : (r.diff < 0 ? 'rec-short' : 'rec-over');
@@ -647,6 +653,13 @@ function renderBankRecon() {
       <div class="chart-kpi ${gap === 0 ? 'in' : (gap > 0 ? 'out' : '')}"><div class="chart-kpi-label">${gap < 0 ? t('recAhead') : (gap === 0 ? t('recMatched') : t('recKpiDiff'))}</div><div class="chart-kpi-value">${fmt(Math.abs(gap))}</div></div>
     </div>
     ${admin ? '' : `<p class="sum-note">${t('recAdminOnly')}</p>`}
+    <div class="rec-rates">
+      ${[['cardSurcharge', 'recRateSurcharge'], ['cardMdr', 'recRateCardMdr'], ['qrisMdr', 'recRateQris']].map(([k, label]) => `
+        <label class="rec-rate"><span>${t(label)}</span>
+          ${admin ? `<input type="text" inputmode="decimal" class="bank-rate" data-rate="${k}" value="${String(rates[k]).replace('.', ',')}" autocomplete="off">` : `<strong>${String(rates[k]).replace('.', ',')}</strong>`}
+        </label>`).join('')}
+    </div>
+    <p class="sum-note">${t('recFormula')} = Card × (1 + ${String(rates.cardSurcharge).replace('.', ',')}%) × (1 − ${String(rates.cardMdr).replace('.', ',')}%) + QRIS × (1 − ${String(rates.qrisMdr).replace('.', ',')}%) + Transfer</p>
     <div class="sum-table-wrap"><table class="sum-table rec-table"><thead><tr>
       <th>${t('xlDate')}</th><th class="hs-num rec-detail">Card</th><th class="hs-num rec-detail">QRIS</th><th class="hs-num rec-detail">Transfer</th><th class="hs-num rec-detail">${t('recColOut')}</th>
       <th class="hs-num">${t('recColApp')}</th><th class="hs-num">${t('recColActual')}</th><th class="hs-num">${t('recColDiff')}</th><th class="hs-num">${t('recColCum')}</th>
@@ -656,6 +669,19 @@ function renderBankRecon() {
         <td class="hs-num">${fmtN(totalExpected)}</td><td class="hs-num">${fmtN(totalActual)}</td><td class="hs-num"></td><td class="hs-num ${cumCls(rows[rows.length - 1].cum)}">${fmtN(rows[rows.length - 1].cum)}</td></tr>
     </tbody></table></div>
     <p class="sum-note">${t('recWithdrawn')}: ${fmtN(-sum(r => r.Out))} · ${t('recUnit')} · ${t('recNeg')}</p></div>`;
+}
+
+async function saveBankRate(key, raw) {
+  const n = Number(String(raw).trim().replace(',', '.'));
+  const next = { ...(DataStore.settings.bankRates || {}) };
+  if (String(raw).trim() !== '' && Number.isFinite(n) && n >= 0 && n <= 20) next[key] = n;
+  try {
+    await DataStore.saveSetting('bank_rates', next);
+    showAlert(t('recRatesSaved'), 'success');
+  } catch (err) {
+    showAlert(`${t('recSaveFail')} (${err?.message || err})`, 'error');
+  }
+  renderBankRecon();
 }
 
 async function saveBankActual(day, raw) {
@@ -693,6 +719,8 @@ function exportBankRecon() {
 }
 
 document.getElementById('bank-container').addEventListener('change', (e) => {
+  const rate = e.target.closest('.bank-rate');
+  if (rate) { const k = rate.dataset.rate, raw = rate.value; rate.blur(); saveBankRate(k, raw); return; }
   const input = e.target.closest('.bank-actual');
   if (!input) return;
   const day = input.dataset.day, raw = input.value;
