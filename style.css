@@ -1290,3 +1290,9 @@ th[data-kolom]:focus-visible {
 }
 .rec-rate .bank-rate:focus { border-color: var(--primary); box-shadow: var(--focus-ring); outline: none; }
 .rec-rate strong { color: var(--text-color); font-size: 0.95rem; }
+.rec-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.rec-wait { color: var(--gray); font-style: italic; }
+@media (max-width: 900px) { .rec-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .rec-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rec-table th, .rec-table td { padding: 8px 8px; }
+.rec-table th { font-size: 0.7rem; letter-spacing: 0.2px; }

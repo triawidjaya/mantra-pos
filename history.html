@@ -570,6 +570,14 @@ function renderSummary() {
 
 // ── Bank reconciliation: Card + QRIS + Transfer all settle into one account ──
 const BANK_METHODS = ['Card', 'Qris', 'Transfer'];
+// The bank pays a settlement on the next banking day: Monday to Thursday -> next day;
+// Friday, Saturday and Sunday -> Monday. Public holidays are not known to the app.
+function nextBankDay(key) {
+  const d = new Date(`${key}T00:00:00Z`);
+  const dow = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() + (dow === 5 ? 3 : dow === 6 ? 2 : 1));
+  return d.toISOString().slice(0, 10);
+}
 const canonBankMethod = (m) => BANK_METHODS.find(x => x.toLowerCase() === String(m || '').trim().toLowerCase()) || null;
 
 function buildBankRecon() {
@@ -596,9 +604,13 @@ function buildBankRecon() {
       + by.Qris * (1 - rt.qrisMdr / 100) + by.Transfer);
     rows.push({ key: day.key, ...by, expected, actual });
   });
+  // A row is "pending" while the bank has not had its payout day yet: nothing is missing, it is just not due.
+  const todayKey = dayKey(Date.now());
   let cum = 0;
   rows.forEach(r => {
-    cum += (r.actual ?? 0) - r.expected;
+    r.arrive = nextBankDay(r.key);
+    r.pending = r.actual === null && r.expected !== 0 && r.arrive >= todayKey;
+    if (!r.pending) cum += (r.actual ?? 0) - r.expected;
     r.diff = r.actual === null ? null : r.actual - r.expected;
     r.cum = cum;
   });
@@ -626,10 +638,12 @@ function renderBankRecon() {
   const sum = (f) => rows.reduce((s, r) => s + f(r), 0);
   const totalExpected = sum(r => r.expected);
   const totalActual = sum(r => r.actual ?? 0);
-  const gap = totalExpected - totalActual;               // > 0: money still missing
+  const totalPending = sum(r => r.pending ? r.expected : 0);   // not due yet
+  const gap = (totalExpected - totalPending) - totalActual;    // > 0: money due but not entered / not received
   const admin = !!window._isAdmin;
   const rates = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 };
   const diffCell = (r) => {
+    if (r.pending) return `<td class="hs-num rec-wait">${t('recPending')}</td>`;
     if (r.diff === null) return '<td class="hs-num">—</td>';
     const cls = r.diff === 0 ? 'rec-ok' : (r.diff < 0 ? 'rec-short' : 'rec-over');
     return `<td class="hs-num ${cls}">${r.diff === 0 ? '✓ ' : ''}${fmtN(r.diff)}</td>`;
@@ -641,6 +655,7 @@ function renderBankRecon() {
       <td class="hs-num rec-detail">${fmtN(r.Card)}</td><td class="hs-num rec-detail">${fmtN(r.Qris)}</td><td class="hs-num rec-detail">${fmtN(r.Transfer)}</td>
       <td class="hs-num rec-detail">${fmtN(r.Out)}</td>
       <td class="hs-num"><strong>${fmtN(r.expected)}</strong></td>
+      <td class="hs-num rec-detail ${r.pending ? 'rec-wait' : ''}">${escapeHtml(dayLabel(r.arrive))}</td>
       <td class="hs-num">${admin
         ? `<input type="text" inputmode="numeric" class="bank-actual" data-day="${r.key}" value="${r.actual === null ? '' : group(r.actual)}" placeholder="—" autocomplete="off" aria-label="${escapeHtml(t('recColActual'))} ${escapeHtml(dayLabel(r.key))}">`
         : (r.actual === null ? '—' : fmtN(r.actual))}</td>
@@ -653,6 +668,7 @@ function renderBankRecon() {
       <div class="chart-kpi"><div class="chart-kpi-label">${t('recKpiApp')}</div><div class="chart-kpi-value">${fmt(totalExpected)}</div></div>
       <div class="chart-kpi in"><div class="chart-kpi-label">${t('recKpiActual')}</div><div class="chart-kpi-value">${fmt(totalActual)}</div></div>
       <div class="chart-kpi ${gap === 0 ? 'in' : (gap > 0 ? 'out' : '')}"><div class="chart-kpi-label">${gap < 0 ? t('recAhead') : (gap === 0 ? t('recMatched') : t('recKpiDiff'))}</div><div class="chart-kpi-value">${fmt(Math.abs(gap))}</div></div>
+      <div class="chart-kpi"><div class="chart-kpi-label">${t('recKpiPending')}</div><div class="chart-kpi-value">${fmt(totalPending)}</div></div>
     </div>
     ${admin ? '' : `<p class="sum-note">${t('recAdminOnly')}</p>`}
     <div class="rec-rates">
@@ -664,11 +680,11 @@ function renderBankRecon() {
     <p class="sum-note">${t('recFormula')} = Card × (1 + ${String(rates.cardSurcharge).replace('.', ',')}%) × (1 − ${String(rates.cardMdr).replace('.', ',')}%) + QRIS × (1 − ${String(rates.qrisMdr).replace('.', ',')}%) + Transfer</p>
     <div class="sum-table-wrap"><table class="sum-table rec-table"><thead><tr>
       <th>${t('xlDate')}</th><th class="hs-num rec-detail">Card</th><th class="hs-num rec-detail">QRIS</th><th class="hs-num rec-detail">Transfer</th><th class="hs-num rec-detail">${t('recColOut')}</th>
-      <th class="hs-num">${t('recColApp')}</th><th class="hs-num">${t('recColActual')}</th><th class="hs-num">${t('recColDiff')}</th><th class="hs-num">${t('recColCum')}</th>
+      <th class="hs-num">${t('recColApp')}</th><th class="hs-num rec-detail">${t('recColArrive')}</th><th class="hs-num">${t('recColActual')}</th><th class="hs-num">${t('recColDiff')}</th><th class="hs-num">${t('recColCum')}</th>
     </tr></thead><tbody>${body}
       <tr class="sum-total"><td>${t('xlTotal')}</td>
         <td class="hs-num rec-detail">${fmtN(sum(r => r.Card))}</td><td class="hs-num rec-detail">${fmtN(sum(r => r.Qris))}</td><td class="hs-num rec-detail">${fmtN(sum(r => r.Transfer))}</td><td class="hs-num rec-detail">${fmtN(sum(r => r.Out))}</td>
-        <td class="hs-num">${fmtN(totalExpected)}</td><td class="hs-num">${fmtN(totalActual)}</td><td class="hs-num"></td><td class="hs-num ${cumCls(rows[rows.length - 1].cum)}">${fmtN(rows[rows.length - 1].cum)}</td></tr>
+        <td class="hs-num">${fmtN(totalExpected)}</td><td class="hs-num rec-detail"></td><td class="hs-num">${fmtN(totalActual)}</td><td class="hs-num"></td><td class="hs-num ${cumCls(rows[rows.length - 1].cum)}">${fmtN(rows[rows.length - 1].cum)}</td></tr>
     </tbody></table></div>
     <p class="sum-note">${t('recWithdrawn')}: ${fmtN(-sum(r => r.Out))} · ${t('recUnit')} · ${t('recNeg')}</p></div>`;
 }
@@ -703,10 +719,10 @@ function exportBankRecon() {
   const rows = buildBankRecon();
   if (!rows.length) { showAlert(t('recNone'), 'info'); return; }
   const money = '#,##0;-#,##0';
-  const header = [t('xlDate'), 'Card', 'QRIS', 'Transfer', t('recColOut'), t('recColApp'), t('recColActual'), t('recColDiff'), t('recColCum')];
-  const data = rows.map(r => [r.key, r.Card, r.Qris, r.Transfer, r.Out, r.expected, r.actual ?? '', r.diff ?? '', r.cum]);
+  const header = [t('xlDate'), 'Card', 'QRIS', 'Transfer', t('recColOut'), t('recColApp'), t('recColArrive'), t('recColActual'), t('recColDiff'), t('recColCum')];
+  const data = rows.map(r => [r.key, r.Card, r.Qris, r.Transfer, r.Out, r.expected, r.arrive, r.actual ?? '', r.diff ?? '', r.cum]);
   data.push([t('xlTotal'), rows.reduce((s, r) => s + r.Card, 0), rows.reduce((s, r) => s + r.Qris, 0), rows.reduce((s, r) => s + r.Transfer, 0), rows.reduce((s, r) => s + r.Out, 0),
-    rows.reduce((s, r) => s + r.expected, 0), rows.reduce((s, r) => s + (r.actual ?? 0), 0), '', rows[rows.length - 1].cum]);
+    rows.reduce((s, r) => s + r.expected, 0), '', rows.reduce((s, r) => s + (r.actual ?? 0), 0), '', rows[rows.length - 1].cum]);
   const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
   const range = XLSX.utils.decode_range(ws['!ref']);
   for (let r = 1; r <= range.e.r; r++) for (let c = 1; c <= range.e.c; c++) {
