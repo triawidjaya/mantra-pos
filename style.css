@@ -1292,7 +1292,15 @@ th[data-kolom]:focus-visible {
 .rec-rate strong { color: var(--text-color); font-size: 0.95rem; }
 .sum-table .sum-neg { color: var(--danger); }
 .ts-diff-wait { color: var(--gray); font-style: italic; font-size: 0.82rem; }
-.ts-bank-hint { color: var(--gray); font-size: 0.82rem; margin: 4px 0 10px; line-height: 1.4; }
 .shift-bank-wait, .shift-bank-done { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px 12px; border-radius: var(--radius-xs); font-size: 0.85rem; }
 .shift-bank-wait { background: var(--warning-100, rgba(250, 176, 5, 0.12)); color: var(--warning-700); }
 .shift-bank-done { background: var(--success-100); color: var(--success-700); }
+.ts-bank-box { margin: 4px 0 16px; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--neutral-50); }
+.ts-bank-box h4 { margin: 0 0 8px; font-size: 0.9rem; color: var(--gray); }
+.ts-bank-line { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 0.9rem; }
+.ts-bank-line.ok strong { color: var(--success); } .ts-bank-line.short strong { color: var(--danger); } .ts-bank-line.over strong { color: var(--warning-700); }
+.ts-bank-line.wait { color: var(--gray); font-style: italic; }
+.ts-bank-note { margin: 8px 0 0; font-size: 0.78rem; color: var(--gray); line-height: 1.4; }
+.ts-summary-table td:first-child { white-space: normal; }
+.ts-diff-wait { display: inline-block; max-width: 84px; line-height: 1.2; text-align: right; white-space: normal; }
+@media (max-width: 480px) { .ts-summary-table th, .ts-summary-table td { padding: 6px 4px; font-size: 0.76rem; } .ts-summary-table th { font-size: 0.64rem; letter-spacing: 0; } }

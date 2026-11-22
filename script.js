@@ -1287,12 +1287,7 @@ class MantraPOS {
       tsCutoff:                document.getElementById('ts-cutoff'),
       tsActualCash:            document.getElementById('ts-actual-cash'),
       tsActualCashPreview:     document.getElementById('ts-actual-cash-preview'),
-      tsActualCard:            document.getElementById('ts-actual-card'),
-      tsActualCardPreview:     document.getElementById('ts-actual-card-preview'),
-      tsActualTransfer:        document.getElementById('ts-actual-transfer'),
-      tsActualTransferPreview: document.getElementById('ts-actual-transfer-preview'),
-      tsActualQris:            document.getElementById('ts-actual-qris'),
-      tsActualQrisPreview:     document.getElementById('ts-actual-qris-preview'),
+      tsBankBox:               document.getElementById('ts-bank-box'),
       tsSummaryContent:        document.getElementById('ts-summary-content'),
     };
   }
@@ -1479,9 +1474,8 @@ class MantraPOS {
       });
     };
     fmtInput(this.elements.tsActualCash,     this.elements.tsActualCashPreview);
-    fmtInput(this.elements.tsActualCard,     this.elements.tsActualCardPreview);
-    fmtInput(this.elements.tsActualTransfer, this.elements.tsActualTransferPreview);
-    fmtInput(this.elements.tsActualQris,     this.elements.tsActualQrisPreview);
+    // Card, Transfer and QRIS are read from Report > Bank. Changing the end date recounts them.
+    this.elements.tsCutoff.addEventListener('change', () => this._renderCloseBankBox());
 
     document.getElementById('ts-next').addEventListener('click',         () => this.showTutupShiftSummary());
     document.getElementById('ts-back').addEventListener('click',         () => {
@@ -2355,9 +2349,6 @@ class MantraPOS {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
   _todayKey() { return this._dayKey(new Date()); }
-
-  // A method with nothing to collect (expected 0) has nothing to wait for: blank counts as 0.
-  _bankActual(actual, expected) { return actual === null && expected === 0 ? 0 : actual; }
 
   // Month-end close with a cutoff day: rows up to that day close with the shift,
   // later rows stay on screen and belong to the next shift.
@@ -3251,18 +3242,37 @@ class MantraPOS {
       preview.textContent = '';
     };
     resetField(this.elements.tsActualCash,     this.elements.tsActualCashPreview);
-    resetField(this.elements.tsActualCard,     this.elements.tsActualCardPreview);
-    resetField(this.elements.tsActualTransfer, this.elements.tsActualTransferPreview);
-    resetField(this.elements.tsActualQris,     this.elements.tsActualQrisPreview);
     // Period end date: today by default, never in the future, never before the opening row.
     const today = this._todayKey();
     const opening = this.transactions.find(tx => tx.kategori === 'START BALANCE');
     this.elements.tsCutoff.max   = today;
     this.elements.tsCutoff.min   = opening ? this._dayKey(opening.tanggalWaktu) : '';
     this.elements.tsCutoff.value = today;
+    this._renderCloseBankBox();
     this.elements.tsStepInput.style.display     = '';
     this.elements.tsStepSummary.style.display   = 'none';
     this.elements.tutupShiftModal.style.display = 'flex';
+  }
+
+  // Read-only bank figures for the close dialog. They come from Report > Bank and cannot be typed here.
+  _renderCloseBankBox() {
+    const box = this.elements.tsBankBox;
+    if (!box) return;
+    const cutoff = (this.elements.tsCutoff && this.elements.tsCutoff.value) || this._todayKey();
+    const bank = summariseBank(this._closeSplit(cutoff).closing, DataStore.settings.bankRecon, DataStore.settings.bankRates);
+    const money = (v) => this.formatCurrency(v);
+    if (!bank.days) {
+      box.innerHTML = `<h4>${t('closeBankTitle')}</h4><p class="ts-bank-note">${t('closeBankNone')}</p>`;
+      return;
+    }
+    const line = (label, value, cls = '') => `<div class="ts-bank-line ${cls}"><span>${label}</span><strong>${value}</strong></div>`;
+    box.innerHTML = `
+      <h4>${t('closeBankTitle')}</h4>
+      ${line(t('closeBankExpected'), money(bank.expected))}
+      ${line(t('closeBankReceived'), money(bank.received))}
+      ${bank.filledDays ? line(t('closeBankDiff'), `${bank.diff > 0 ? '+' : ''}${money(bank.diff)}`, bank.diff === 0 ? 'ok' : (bank.diff < 0 ? 'short' : 'over')) : ''}
+      ${bank.pendingDays ? line(t('closeBankWaiting', { days: bank.pendingDays }), money(bank.pendingExpected), 'wait') : ''}
+      <p class="ts-bank-note">${t('closeBankSource')}</p>`;
   }
 
   showTutupShiftSummary() {
@@ -3271,23 +3281,12 @@ class MantraPOS {
     const split  = this._closeSplit(cutoff);
     const list   = split.closing;
 
-    const num = (el) => parseFloat(el.dataset.raw || '0') || 0;
-    // Card, Transfer and QRIS reach the bank on a later day: a blank field means "waiting for bank", not zero.
-    const optional = (el) => (el.dataset.raw === '' || el.dataset.raw === undefined) ? null : num(el);
-    const actualCash     = num(this.elements.tsActualCash);
-    const expectedCash     = this.calculateSaldo('Cash', list);
-    const expectedCard     = this.calculateSaldo('Card', list);
-    const expectedTransfer = this.calculateSaldo('Transfer', list);
-    const expectedQris     = this.calculateSaldo('Qris', list);
-    const actualCard     = this._bankActual(optional(this.elements.tsActualCard), expectedCard);
-    const actualTransfer = this._bankActual(optional(this.elements.tsActualTransfer), expectedTransfer);
-    const actualQris     = this._bankActual(optional(this.elements.tsActualQris), expectedQris);
-
-    const diff = (a, e) => (a === null ? null : a - e);
-    const selisihCash     = actualCash - expectedCash;
-    const selisihCard     = diff(actualCard, expectedCard);
-    const selisihTransfer = diff(actualTransfer, expectedTransfer);
-    const selisihQris     = diff(actualQris, expectedQris);
+    const actualCash   = parseFloat(this.elements.tsActualCash.dataset.raw || '0') || 0;
+    const expectedCash = this.calculateSaldo('Cash', list);
+    const selisihCash  = actualCash - expectedCash;
+    // Card, Transfer and QRIS are checked against the bank figures typed in Report > Bank, never typed here.
+    const bank = summariseBank(list, DataStore.settings.bankRecon, DataStore.settings.bankRates);
+    const appTotal = ['Cash', 'Card', 'Transfer', 'Qris'].reduce((sum, m) => sum + this.calculateSaldo(m, list), 0);
 
     const fmtSelisih = (val) => {
       if (val === null) return `<span class="ts-diff-wait">${t('closeWaitingBank')}</span>`;
@@ -3299,12 +3298,10 @@ class MantraPOS {
       return `<span class="${cls}"><span class="diff-amt">${sign}${this.formatCurrency(val)}</span><span class="diff-label">${label}</span></span>`;
     };
 
-    // Only a counted amount can be short or over; "waiting for bank" never needs an explanation.
-    const hasSelisih = [selisihCash, selisihCard, selisihTransfer, selisihQris].some(v => v !== null && v !== 0);
-    const waitingBank = [[actualCard, expectedCard], [actualTransfer, expectedTransfer], [actualQris, expectedQris]]
-      .some(([a, e]) => a === null && e !== 0);
+    // Only an amount that really arrived can be short or over; "waiting for bank" never needs an explanation.
+    const hasSelisih = selisihCash !== 0 || (bank.filledDays > 0 && bank.diff !== 0);
 
-    this._pendingActual = { actualCash, actualCard, actualTransfer, actualQris, hasSelisih, cutoff };
+    this._pendingActual = { actualCash, hasSelisih, cutoff };
 
     const row = (icon, label, expected, actual, selisih) => `
       <tr>
@@ -3368,23 +3365,22 @@ class MantraPOS {
               </tr>
             </thead>
             <tbody>
-              ${row('fa-money-bill-wave', 'Cash',     expectedCash,     actualCash,     selisihCash)}
-              ${row('fa-credit-card',     'Card',     expectedCard,     actualCard,     selisihCard)}
-              ${row('fa-exchange-alt',    'Transfer', expectedTransfer, actualTransfer, selisihTransfer)}
-              ${row('fa-qrcode',          'QRIS',     expectedQris,     actualQris,     selisihQris)}
+              ${row('fa-money-bill-wave', 'Cash', expectedCash, actualCash, selisihCash)}
+              ${bank.filledDays ? row('fa-building-columns', t('closeBankReceivedRow'), bank.filledExpected, bank.received, bank.diff) : ''}
+              ${bank.pendingDays ? row('fa-hourglass-half', t('closeBankWaitingRow', { days: bank.pendingDays }), bank.pendingExpected, null, null) : ''}
             </tbody>
           </table>
         </div>
         <div class="total-summary">
           <span>${t('totalExpected')}</span>
-          <span class="total-amount">${this.formatCurrency(expectedCash + expectedCard + expectedTransfer + expectedQris)}</span>
+          <span class="total-amount">${this.formatCurrency(appTotal)}</span>
         </div>
         <div class="form-group ts-note-group">
           <label for="ts-closing-note">${t('closingNote')}${hasSelisih ? ' <span class="req-marker">*</span>' : ''}</label>
           <textarea id="ts-closing-note" rows="2" maxlength="500"></textarea>
           <small class="${noteHintClass}">${noteHintText}</small>
         </div>
-        ${waitingBank ? `<p class="summary-info">${t('closeBankPendingNote')}</p>` : ''}
+        ${bank.pendingDays ? `<p class="summary-info">${t('closeBankPendingNote', { days: bank.pendingDays })}</p>` : ''}
         ${split.remaining.length ? `<p class="summary-info">${t('closeCarryOver', { n: split.remaining.length, date: cutoff })}</p>` : ''}
         <p class="summary-info">${t('balanceReset')}</p>
       </div>
@@ -3395,8 +3391,8 @@ class MantraPOS {
   }
 
   async eksekusiTutupShift() {
-    const { actualCash, actualCard, actualTransfer, actualQris, hasSelisih, cutoff } =
-      this._pendingActual || { actualCash: 0, actualCard: null, actualTransfer: null, actualQris: null, hasSelisih: false, cutoff: this._todayKey() };
+    const { actualCash, hasSelisih, cutoff } =
+      this._pendingActual || { actualCash: 0, hasSelisih: false, cutoff: this._todayKey() };
 
     // Note is mandatory when there's a difference — staff must explain why.
     const noteEl = document.getElementById('ts-closing-note');
@@ -3408,24 +3404,16 @@ class MantraPOS {
     }
 
     const { closing } = this._closeSplit(cutoff);
-    const expectedCash     = this.calculateSaldo('Cash', closing);
-    const expectedCard     = this.calculateSaldo('Card', closing);
-    const expectedTransfer = this.calculateSaldo('Transfer', closing);
-    const expectedQris     = this.calculateSaldo('Qris', closing);
-    const diff = (a, e) => (a === null ? null : a - e);
+    const expectedCash = this.calculateSaldo('Cash', closing);
+    const bank = summariseBank(closing, DataStore.settings.bankRecon, DataStore.settings.bankRates);
 
+    // Card, Transfer and QRIS are not counted at the till: their figures live in Report > Bank.
     this._actualForHistory = {
-      actualCash,
-      actualCard:     this._bankActual(actualCard, expectedCard),
-      actualTransfer: this._bankActual(actualTransfer, expectedTransfer),
-      actualQris:     this._bankActual(actualQris, expectedQris),
-      selisihCash:     actualCash - expectedCash,
-      selisihCard:     diff(actualCard, expectedCard),
-      selisihTransfer: diff(actualTransfer, expectedTransfer),
-      selisihQris:     diff(actualQris, expectedQris),
-      bankPending:     [[actualCard, expectedCard], [actualTransfer, expectedTransfer], [actualQris, expectedQris]]
-                         .some(([a, e]) => a === null && e !== 0),
-      closingNote:     note,
+      actualCash, actualCard: null, actualTransfer: null, actualQris: null,
+      selisihCash: actualCash - expectedCash, selisihCard: null, selisihTransfer: null, selisihQris: null,
+      bankPending: bank.pendingDays > 0,
+      bankSnapshot: { expected: bank.expected, received: bank.received, diff: bank.diff, pendingDays: bank.pendingDays, pendingExpected: bank.pendingExpected },
+      closingNote: note,
     };
 
     const confirmBtn = document.getElementById('ts-confirm-close');
@@ -3510,6 +3498,7 @@ class MantraPOS {
         selisihTransfer: this._actualForHistory?.selisihTransfer ?? null,
         selisihQris:     this._actualForHistory?.selisihQris     ?? null,
         bankPending:     this._actualForHistory?.bankPending     ?? false,
+        bank:            this._actualForHistory?.bankSnapshot    ?? null,
         closingNote:     this._actualForHistory?.closingNote     ?? '',
       },
       transactions: list.map(tx => ({ ...tx }))

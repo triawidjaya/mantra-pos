@@ -608,26 +608,8 @@ function buildBankRecon() {
 
 // Card/QRIS/Transfer of a closed shift whose bank amount has not been typed in the Bank tab yet.
 function shiftBankPending(shift) {
-  const actuals = DataStore.settings.bankRecon || {};
-  const rt = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 };
-  const byDay = new Map();
-  (shift.transactions || []).forEach(tx => {
-    const m = canonBankMethod(tx.metode);
-    const amount = Number(tx.jumlah) || 0;
-    const ms = new Date(tx.tanggalWaktu).getTime();
-    if (!m || amount <= 0 || !Number.isFinite(ms)) return;
-    const key = dayKey(ms);
-    const o = byDay.get(key) || { Card: 0, Qris: 0, Transfer: 0 };
-    o[m] += amount;
-    byDay.set(key, o);
-  });
-  let days = 0, amount = 0;
-  byDay.forEach((o, key) => {
-    if (Object.prototype.hasOwnProperty.call(actuals, key)) return;
-    const expected = Math.round(o.Card * (1 + rt.cardSurcharge / 100) * (1 - rt.cardMdr / 100) + o.Qris * (1 - rt.qrisMdr / 100) + o.Transfer);
-    if (expected > 0) { days++; amount += expected; }
-  });
-  return { days, amount };
+  const b = summariseBank(shift.transactions, DataStore.settings.bankRecon, DataStore.settings.bankRates);
+  return { days: b.pendingDays, amount: b.pendingExpected };
 }
 
 function renderBankRecon() {
@@ -1026,7 +1008,7 @@ function renderDetail(shift) {
     <tr>
       <td class="hs-method">${icon} ${label}</td>
       <td class="hs-num">${fmt(expected || 0)}</td>
-      <td class="hs-num hs-actual">${fmt(actual)}</td>
+      <td class="hs-num hs-actual">${actual === null || actual === undefined ? '—' : fmt(actual)}</td>
       <td class="hs-num">${fmtDiff(selisih)}</td>
     </tr>`;
 
