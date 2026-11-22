@@ -1304,3 +1304,8 @@ th[data-kolom]:focus-visible {
 .ts-summary-table td:first-child { white-space: normal; }
 .ts-diff-wait { display: inline-block; max-width: 84px; line-height: 1.2; text-align: right; white-space: normal; }
 @media (max-width: 480px) { .ts-summary-table th, .ts-summary-table td { padding: 6px 4px; font-size: 0.76rem; } .ts-summary-table th { font-size: 0.64rem; letter-spacing: 0; } }
+.ts-ok { color: var(--success); font-size: 1.05rem; }
+.ts-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.ts-badge i { font-size: 0.7rem; }
+.ts-badge.short { background: var(--danger-100); color: var(--danger-700); }
+.ts-badge.over  { background: var(--warning-100, rgba(250, 176, 5, 0.15)); color: var(--warning-700); }

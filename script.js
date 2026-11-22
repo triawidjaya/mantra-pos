@@ -3290,12 +3290,12 @@ class MantraPOS {
 
     const fmtSelisih = (val) => {
       if (val === null) return '<span class="ts-diff-wait">—</span>';   // the row label already says "waiting"
-      if (val === 0) return `<span class="ts-diff-exact">${t('exact')}</span>`;
-      const sign  = val > 0 ? '+' : '';
-      const cls   = val > 0 ? 'ts-diff-over' : 'ts-diff-short';
-      const label = val > 0 ? t('over') : t('short');
-      // Two lines: amount on top, label below — keeps Difference column narrow.
-      return `<span class="${cls}"><span class="diff-amt">${sign}${this.formatCurrency(val)}</span><span class="diff-label">${label}</span></span>`;
+      if (val === 0) return `<span class="ts-ok" title="${t('exact')}" aria-label="${t('exact')}"><i class="fas fa-circle-check"></i></span>`;
+      // Over / short: one coloured pill with an arrow and the amount; the word stays in the tooltip.
+      const over  = val > 0;
+      const label = String(over ? t('over') : t('short')).replace(/[()]/g, '').trim();
+      return `<span class="ts-badge ${over ? 'over' : 'short'}" title="${label}" aria-label="${label} ${this.formatCurrency(Math.abs(val))}">`
+        + `<i class="fas fa-arrow-${over ? 'up' : 'down'}"></i>${this.formatCurrency(Math.abs(val))}</span>`;
     };
 
     // Only an amount that really arrived can be short or over; "waiting for bank" never needs an explanation.
