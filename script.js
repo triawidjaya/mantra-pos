@@ -346,7 +346,7 @@ class MantraPOS {
     this._bindDataStore();
     DataStore.subscribeRealtime();
     this._registerRealtimeListeners();
-    // Paint the loaded shop before Auth runs. A reset-link session must not
+    // Paint the loaded counter before Auth runs. A reset-link session must not
     // block the rows that were just read.
     this._applyFilterFromUrl();
     this.renderAll();
@@ -1163,7 +1163,7 @@ class MantraPOS {
   // ============================================================
 
   isFirstRun() {
-    // Staff accounts mean the shop is already set up, even if the stored
+    // Staff accounts mean the counter is already set up, even if the stored
     // brand is still the default "My Business".
     return this.brandName === DEFAULT_BRAND && DataStore.users.length === 0;
   }

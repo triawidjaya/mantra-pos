@@ -1,6 +1,6 @@
 # Mantra POS — Handbook (English)
 
-Cashbook for **one shop: Mantra Lombok**. The app is always online to its cloud database. There is no local mode and no second business to set up.
+Cashbook for **one counter: Mantra Lombok**. The app is always online to its cloud database. There is no local mode and no second business to set up.
 
 ## What it is
 
@@ -16,8 +16,8 @@ Two roles:
 ## First time on a device
 
 1. Open the app and enter the access code. That code only unlocks this browser. It does not reset a PIN.
-2. Paste the publishable key for the Mantra Lombok project. The project address is already set. One key, one shop.
-3. If the shop has not been set up, enter the brand name, the admin name, the **admin email**, and a 4–6 digit PIN.
+2. Paste the publishable key for the Mantra Lombok project. The project address is already set. One key, one counter.
+3. If the counter has not been set up, enter the brand name, the admin name, the **admin email**, and a 4–6 digit PIN.
 
 Scooter-rental categories are created for you. Add other staff later in Manage Users.
 

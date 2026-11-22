@@ -1,10 +1,10 @@
 # Mantra POS — Roadmap
 
-This is the cashbook for **Mantra Lombok**, one scooter-rental shop. It runs in the browser, always against one Supabase project. It is not a product for many businesses, and it is not a stock or receipt register.
+This is the cashbook for **Mantra Lombok**, one scooter-rental counter. It runs in the browser, always against one Supabase project. It is not a product for many businesses, and it is not a stock or receipt register.
 
 ## In place
 
-- One shop, always cloud. Six tables: `pos_users`, `pos_categories`, `pos_transactions`, `pos_shifts`, `pos_settings`, `pos_session`.
+- One counter, always cloud. Six tables: `pos_users`, `pos_categories`, `pos_transactions`, `pos_shifts`, `pos_settings`, `pos_session`.
 - Two roles: admin and cashier.
 - Shift open and close, rental, TarikTunai, PETTY-CASH, and ordinary in/out.
 - Report of the **last 50 closed shifts**, with date filter, text search, and 10 shifts per page.

@@ -25,7 +25,7 @@ const appStorage = {
   remove(key)     { localStorage.removeItem(STORAGE_PREFIX + key); },
 };
 
-// Category names follow the shop's own cashbook (October 2026 export).
+// Category names follow the counter's own cashbook (October 2026 export).
 const RENTAL_GUEST_CATEGORY = 'RENTAL PAYMENT';
 const RENTAL_OWNER_CATEGORY = 'PAY TO OWNER';
 const CASHOUT_CATEGORY = 'TarikTunai';
@@ -33,7 +33,7 @@ const BANK_CATEGORY = 'PETTY-CASH';
 // Money moving between methods, never a sale or an expense, even if Settings unchecks them.
 const SYSTEM_NON_REVENUE = [CASHOUT_CATEGORY, BANK_CATEGORY];
 
-// New-shop setup for a scooter rental, taken from the October 2026 cashbook.
+// New-counter setup for a scooter rental, taken from the October 2026 cashbook.
 // types: which side of the toggle a category belongs to; missing = both sides.
 const RENTAL_SHOP_DEFAULTS = {
   categories: [
@@ -213,7 +213,7 @@ function _requireSupabaseConfig() {
 function getSupabase() {
   if (_client) return _client;
   const cfg = _requireSupabaseConfig();
-  // Shop rows are readable by the anon key only (RLS policy "anon full access").
+  // Counter rows are readable by the anon key only (RLS policy "anon full access").
   // A user JWT from a PIN-reset link would make every select return no rows,
   // so the till looks empty and the brand falls back to "My Business".
   // accessToken null keeps the publishable key on data and realtime requests.
@@ -223,7 +223,7 @@ function getSupabase() {
   });
   return _client;
 }
-// Separate Auth client. Its session must never authorize shop queries.
+// Separate Auth client. Its session must never authorize counter queries.
 function getResetAuth() {
   if (_resetAuth) return _resetAuth;
   const cfg = _requireSupabaseConfig();
@@ -403,7 +403,7 @@ const DataStore = {
       const next = rename(name);
       if (!nextCats.includes(next)) nextCats.push(next);
     });
-    // A shop set up before the rental template has no category sides at all:
+    // A counter set up before the rental template has no category sides at all:
     // give it the template's categories once; its own extra categories stay.
     // template_applied keeps an owner's later "In & out everywhere" choice.
     const hasTypes = Object.keys(this.settings.categoryTypes || {}).length > 0;

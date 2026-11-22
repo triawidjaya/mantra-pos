@@ -1,6 +1,6 @@
 # Mantra POS — Buku Panduan (Indonesia)
 
-Buku kas untuk **satu toko: Mantra Lombok**. Aplikasi selalu terhubung ke database cloud. Tidak ada mode lokal, dan tidak ada usaha kedua yang harus disiapkan.
+Buku kas untuk **satu konter: Mantra Lombok**. Aplikasi selalu terhubung ke database cloud. Tidak ada mode lokal, dan tidak ada usaha kedua yang harus disiapkan.
 
 ## Apa ini
 
@@ -16,8 +16,8 @@ Dua peran:
 ## Pertama kali di satu perangkat
 
 1. Buka aplikasi dan masukkan kode akses. Kode itu hanya membuka browser ini. Kode itu tidak mereset PIN.
-2. Tempel publishable key proyek Mantra Lombok. Alamat proyeknya sudah tetap. Satu key, satu toko.
-3. Kalau toko belum disiapkan, isi nama brand, nama admin, **email admin**, dan PIN 4–6 digit.
+2. Tempel publishable key proyek Mantra Lombok. Alamat proyeknya sudah tetap. Satu key, satu konter.
+3. Kalau konter belum disiapkan, isi nama brand, nama admin, **email admin**, dan PIN 4–6 digit.
 
 Kategori sewa motor sudah disiapkan. Staf lain ditambah nanti di Kelola Pengguna.
 

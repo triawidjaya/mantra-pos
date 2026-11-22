@@ -1,9 +1,9 @@
 # MANTRA POS APP — Claude Code Context
 
 ## Overview
-The cashbook for **one shop, Mantra Lombok**. Always cloud, one Supabase project, two roles (admin and cashier). Vanilla JS, HTML, CSS — no framework, no build step.
+The cashbook for **one counter, Mantra Lombok**. Always cloud, one Supabase project, two roles (admin and cashier). Vanilla JS, HTML, CSS — no framework, no build step.
 
-**Data model:** one shop, one Supabase project (`MANTRA_SUPABASE_URL`), many browsers sharing that project. There is no local mode and no per-business project picker.
+**Data model:** one counter, one Supabase project (`MANTRA_SUPABASE_URL`), many browsers sharing that project. There is no local mode and no per-business project picker.
 
 Originally built for a hostel, then refactored as a white-label template, now extended with Supabase as the source of truth + realtime sync. UI prefs (theme, language, header visibility, access gate, Supabase config) stay in `localStorage` as per-browser state.
 
@@ -89,7 +89,7 @@ mantra-pos/
 | `CLOSE_SHIFT` | ✅ | ✅ |
 | `CREATE_TRANSACTION` | ✅ | ✅ |
 
-**Disclaimer:** The RLS policy used by `SUPABASE_SETUP.md` is permissive (`anon full access`). The publishable key is the access secret for this one shop.
+**Disclaimer:** The RLS policy used by `SUPABASE_SETUP.md` is permissive (`anon full access`). The publishable key is the access secret for this one counter.
 
 **PIN hashing:** SubtleCrypto SHA-256 with random 16-byte salt per user. Format: `sha256:<base64-salt>:<base64-hash>`. Cashier role can have `pinHash: null` (login by name only).
 
@@ -257,10 +257,10 @@ DEFAULT_BRAND      = 'My Business'
 Serve via any static HTTP server (the Supabase JS SDK won't run reliably from `file://`):
 `python -m http.server 8080` or `npx serve .` → open `http://localhost:8080/index.html`.
 
-## Opening the shop on a device
+## Opening the counter on a device
 1. The database is the existing Mantra Lombok project. Do not create another one.
 2. Open the app, enter the browser access code, then paste the publishable key once.
-3. If the shop is not set up yet, the wizard asks for brand, admin name, admin email, and PIN.
+3. If the counter is not set up yet, the wizard asks for brand, admin name, admin email, and PIN.
 4. Each browser stores `pos_sb_config` for itself. Another device pastes the same key.
 
 ## Notes for Claude Code
