@@ -1258,3 +1258,26 @@ th[data-kolom]:focus-visible {
   .sum-table th, .sum-table td { padding: 6px 8px; }
   .sum-table th { font-size: 0.7rem; letter-spacing: 0; }
 }
+
+/* ── Bank reconciliation ── */
+.rec-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rec-table .bank-actual {
+  width: 130px; max-width: 100%; height: 34px; box-sizing: border-box; text-align: right;
+  padding: 4px 8px; border: 1px solid var(--border-color); border-radius: var(--radius-xs);
+  background: var(--card-bg); color: var(--text-color); font-size: 0.88rem; font-variant-numeric: tabular-nums;
+}
+.rec-table .bank-actual:focus { border-color: var(--primary); box-shadow: var(--focus-ring); outline: none; }
+.rec-ok { color: var(--success); font-weight: 600; }
+.rec-short { color: var(--danger); font-weight: 600; }
+.rec-over { color: var(--warning-700); font-weight: 600; }
+@media (max-width: 600px) { .rec-kpis { grid-template-columns: minmax(0, 1fr); } .rec-table .bank-actual { width: 104px; } }
+@media (max-width: 600px) { .rec-table .rec-detail { display: none; } }
+@media (max-width: 600px) {
+  .rec-table th, .rec-table td { padding: 6px 5px; font-size: 0.76rem; }
+  .rec-table th { font-size: 0.64rem; }
+  .rec-table .bank-actual { width: 92px; font-size: 0.8rem; }
+}
+@media (max-width: 600px) {
+  .rec-table .rec-wd { display: none; }
+  .rec-table .bank-actual { width: 84px; padding: 4px 6px; }
+}

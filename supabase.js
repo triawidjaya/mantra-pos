@@ -158,6 +158,17 @@ function parseBankNote(raw) {
   return { id: packed[1], note };
 }
 
+// Bank reconciliation amounts: { 'YYYY-MM-DD': number }. Anything else is dropped.
+function normalizeBankRecon(value) {
+  const out = {};
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    Object.entries(value).forEach(([day, amount]) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Number(amount))) out[day] = Number(amount);
+    });
+  }
+  return out;
+}
+
 // ── Config storage ──
 const SB_CONFIG_KEY = 'pos_sb_config';
 // mantra-pos only ever talks to the Mantra Lombok POS project. The URL is not
@@ -332,6 +343,7 @@ const DataStore = {
     adminCategories: [],   // category names that require admin PIN to record
     nonRevenueCategories: [], // category names excluded from revenue/expense totals (transfer, receivable, opening balance)
     categoryTypes:   {},   // { name: 'INCOME' | 'OUTGOING' }; missing = usable on both sides
+    bankRecon:       {},   // { 'YYYY-MM-DD': amount that reached the bank that day } for Card/QRIS/Transfer reconciliation
     logoData:        null, // base64 PNG of custom logo (cloud only); null = use static logo.png
   },
 
@@ -363,6 +375,7 @@ const DataStore = {
     this.settings.adminCategories = [];
     this.settings.nonRevenueCategories = [];
     this.settings.categoryTypes   = {};
+    this.settings.bankRecon       = {};
     this.settings.templateApplied = false;
     this.settings.logoData        = null;
     this.hydrated = false;
@@ -496,6 +509,7 @@ const DataStore = {
     this.settings.adminCategories = map.admin_categories ?? [];
     this.settings.nonRevenueCategories = map.non_revenue_categories ?? [];
     this.settings.categoryTypes   = normalizeCategoryTypes(map.category_types);
+    this.settings.bankRecon       = normalizeBankRecon(map.bank_recon);
     this.settings.templateApplied = map.template_applied === true;
     this.settings.logoData        = map.logo_data        ?? null;
 
@@ -599,6 +613,7 @@ const DataStore = {
     else if (key === 'admin_categories') this.settings.adminCategories = value;
     else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
     else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
+    else if (key === 'bank_recon')       this.settings.bankRecon       = normalizeBankRecon(value);
     else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
     this._fire('settings');
@@ -624,6 +639,7 @@ const DataStore = {
     else if (key === 'admin_categories') this.settings.adminCategories = value;
     else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
     else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
+    else if (key === 'bank_recon')       this.settings.bankRecon       = normalizeBankRecon(value);
     else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
     this._fire('settings');
