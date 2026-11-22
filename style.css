@@ -294,6 +294,17 @@ header .theme-toggle:hover { background-color: var(--primary-50); color: var(--p
   transition: var(--transition);
 }
 
+.filter-group input[type="date"] {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: var(--control-font);
+  min-width: 0;
+}
+.dark-theme .filter-group input[type="date"] { color-scheme: dark; }
+
 .filter-group select:hover,
 .filter-group select:focus {
   border-color: var(--primary);

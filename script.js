@@ -303,7 +303,7 @@ class MantraPOS {
     this.currentEditId = null;
     this.confirmAction = null;
     this.sortState     = { kolom: 'tanggalWaktu', arah: 'desc' };
-    this.filterState   = { type: '', category: '', method: '', query: '' };
+    this.filterState   = { type: '', category: '', method: '', query: '', dateFrom: '', dateTo: '' };
     this.txPage        = 1;
 
     this.initElements();
@@ -1499,8 +1499,19 @@ class MantraPOS {
       this.filterState.category = document.getElementById('filter-category').value;
       this.filterState.method = document.getElementById('filter-method').value;
       this.filterState.query = document.getElementById('filter-search').value;
+      this.filterState.dateFrom = document.getElementById('filter-date-from').value;
+      this.filterState.dateTo = document.getElementById('filter-date-to').value;
       this.txPage = 1;
       this.renderTransaksiTable();
+    });
+    // Date fields apply straight away, like the search box
+    ['filter-date-from', 'filter-date-to'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        this.filterState.dateFrom = document.getElementById('filter-date-from').value;
+        this.filterState.dateTo = document.getElementById('filter-date-to').value;
+        this.txPage = 1;
+        this.renderTransaksiTable();
+      });
     });
     document.getElementById('filter-search').addEventListener('input', (e) => {
       this.filterState.query = e.target.value;
@@ -1514,6 +1525,10 @@ class MantraPOS {
       document.getElementById('filter-category').value = '';
       document.getElementById('filter-method').value = '';
       document.getElementById('filter-search').value = '';
+      document.getElementById('filter-date-from').value = '';
+      document.getElementById('filter-date-to').value = '';
+      this.filterState.dateFrom = '';
+      this.filterState.dateTo = '';
       this.filterState.type = '';
       this.filterState.category = '';
       this.filterState.method = '';
@@ -1953,6 +1968,15 @@ class MantraPOS {
     if (this.filterState.method) {
       txs = txs.filter(tx => tx.metode === this.filterState.method);
     }
+    // Date range: compares the calendar day as shown in the table (device local time)
+    const { dateFrom, dateTo } = this.filterState;
+    if (dateFrom || dateTo) {
+      txs = txs.filter(tx => {
+        const d = new Date(tx.tanggalWaktu);
+        const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return (!dateFrom || day >= dateFrom) && (!dateTo || day <= dateTo);
+      });
+    }
     const q = (this.filterState.query || '').trim().toLowerCase();
     if (q) {
       txs = txs.filter(tx => this._txSearchText(tx).includes(q));
@@ -2033,7 +2057,7 @@ class MantraPOS {
   }
 
   _emptyTxMessage() {
-    const filtered = this.filterState.query || this.filterState.type || this.filterState.category || this.filterState.method;
+    const filtered = this.filterState.query || this.filterState.type || this.filterState.category || this.filterState.method || this.filterState.dateFrom || this.filterState.dateTo;
     return (filtered && this.transactions.length) ? t('noSearchResults') : t('noTransactionsTable');
   }
 
