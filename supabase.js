@@ -567,8 +567,14 @@ const DataStore = {
   },
 
   // ── Realtime ──
+  // null until subscribeRealtime() runs, then 'connecting', then the channel status from
+  // Supabase: 'SUBSCRIBED' when live, 'CHANNEL_ERROR' / 'TIMED_OUT' / 'CLOSED' while it reconnects.
+  realtimeStatus: null,
+
   subscribeRealtime() {
     const sb = getSupabase();
+    this.realtimeStatus = 'connecting';
+    this._fire('connection');
     sb.channel('pos-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_transactions' }, (p) => this._onTxChange(p))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_shifts'       }, (p) => this._onShiftChange(p))
@@ -577,6 +583,8 @@ const DataStore = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_session'      }, (p) => this._onSessionChange(p))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_settings'     }, (p) => this._onSettingsChange(p))
       .subscribe((status) => {
+        this.realtimeStatus = status;
+        this._fire('connection');
         // 'SUBSCRIBED' fires on initial connect AND on every reconnect after
         // network drop / device sleep. Use it as the cue to drain any queued
         // offline writes that piled up while disconnected.

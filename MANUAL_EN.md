@@ -80,7 +80,7 @@ The EN/ID button switches the whole app, including dates and times in the lists 
 
 ## Offline
 
-While the browser is offline, a new transaction, an edit, a delete, and a shift close are kept on this device and sent when the connection returns. A banner shows how many changes are waiting.
+While the browser is offline, a new transaction, an edit, a delete, and a shift close are kept on this device and sent when the connection returns. A banner shows how many changes are waiting. Next to the counter name a small label shows the connection: green **Online**, red **Offline** (with the number waiting), amber **Syncing** while queued changes are sent, amber **Reconnecting** when the internet is up but the live link to the database is not. On a phone only the coloured dot shows; tap or hover for the explanation.
 
 ## Export
 

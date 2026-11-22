@@ -395,7 +395,35 @@ class MantraPOS {
 
   // Render the offline / sync-queue banner. Hidden unless we're offline,
   // a close is stuck, or there are queued writes. Bound to OfflineQueue.
+  // Small status pill next to the brand: online, offline, syncing, reconnecting, or a stuck sync.
+  _renderConnStatus(state) {
+    const el = document.getElementById('conn-status');
+    if (!el) return;
+    const rt = DataStore.realtimeStatus;
+    if (rt === null) { el.hidden = true; return; }   // not connected to a project yet (access gate / setup)
+    const size    = state ? state.size : (window.OfflineQueue ? OfflineQueue.size() : 0);
+    const online  = state ? state.online : (navigator.onLine !== false);
+    const blocked = state ? !!state.blocked : !!(window.OfflineQueue && OfflineQueue.blocked());
+    let kind, label, tip;
+    if (blocked) {
+      kind = 'error'; label = t('connSyncFailed'); tip = t('syncCloseFailed');
+    } else if (!online) {
+      kind = 'offline'; label = size ? t('connOfflineQueued', { n: size }) : t('connOffline'); tip = t('offlineBanner');
+    } else if (size > 0) {
+      kind = 'sync'; label = t('connSyncing', { n: size }); tip = t('syncingQueued').replace('{n}', String(size));
+    } else if (rt === 'SUBSCRIBED') {
+      kind = 'online'; label = t('connOnline'); tip = t('connOnlineTip');
+    } else {
+      kind = 'wait'; label = rt === 'connecting' ? t('connConnecting') : t('connReconnecting'); tip = t('connReconnectingTip');
+    }
+    el.hidden = false;
+    el.className = `conn-status is-${kind}`;
+    el.title = tip;
+    el.querySelector('.conn-label').textContent = label;
+  }
+
   _renderOfflineBanner(state) {
+    this._renderConnStatus(state);
     const el   = document.getElementById('offline-banner');
     const icon = document.getElementById('offline-banner-icon');
     const text = document.getElementById('offline-banner-text');
@@ -493,6 +521,8 @@ class MantraPOS {
   // Wire DataStore realtime events to UI re-render hooks.
   _registerRealtimeListeners() {
     DataStore.on('transactions', () => this.renderAll());
+    DataStore.on('connection', () => this._renderConnStatus());
+    this._renderConnStatus();   // the first 'connecting' fired before this listener existed
 
     DataStore.on('categories', () => {
       // Refresh open Settings categories list (if open)
