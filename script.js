@@ -289,7 +289,7 @@ const Auth = {
 
 // `t()` shorthand is defined globally in lang.js (loaded before this file)
 
-class ChillPOS {
+class MantraPOS {
   constructor() {
     // Defaults — real values bind to DataStore after hydrate() in bootstrap().
     this.transactions = [];
@@ -303,7 +303,7 @@ class ChillPOS {
     this.currentEditId = null;
     this.confirmAction = null;
     this.sortState     = { kolom: 'tanggalWaktu', arah: 'desc' };
-    this.filterState   = { type: '', category: '', method: '', query: '' };
+    this.filterState   = { type: '', category: '', method: '', query: '', dateFrom: '', dateTo: '' };
     this.txPage        = 1;
 
     this.initElements();
@@ -346,14 +346,38 @@ class ChillPOS {
     this._bindDataStore();
     DataStore.subscribeRealtime();
     this._registerRealtimeListeners();
-    // Paint the loaded shop before Auth runs. A reset-link session must not
+    // Paint the loaded counter before Auth runs. A reset-link session must not
     // block the rows that were just read.
+    this._applyFilterFromUrl();
     this.renderAll();
     let pinReset = false;
     try { pinReset = await this._preparePinResetFromEmail(); }
     catch (e) { console.error('[Auth] PIN reset link failed:', e); }
     if (pinReset) return;
     await this.bootstrapAuth();
+  }
+
+  // Report "Summary" links here with ?category=...&from=YYYY-MM-DD&to=YYYY-MM-DD
+  // so a figure can be checked against the rows behind it.
+  _applyFilterFromUrl() {
+    let params;
+    try { params = new URLSearchParams(window.location.search); } catch { return; }
+    const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
+    const category = params.get('category') || '';
+    const from = isDay(params.get('from')) ? params.get('from') : '';
+    const to = isDay(params.get('to')) ? params.get('to') : '';
+    if (!category && !from && !to) return;
+    this.filterState.category = category;
+    this.filterState.dateFrom = from;
+    this.filterState.dateTo = to;
+    this.populateCategoryFilter();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('filter-category', category);
+    set('filter-date-from', from);
+    set('filter-date-to', to);
+    const panel = document.getElementById('filter-panel');
+    if (panel && panel.style.display === 'none') document.getElementById('toggle-filter')?.click();
+    try { window.history.replaceState(null, '', window.location.pathname); } catch { /* ignore */ }
   }
 
   // One-time wiring: OfflineQueue + browser online/offline events both
@@ -1139,7 +1163,7 @@ class ChillPOS {
   // ============================================================
 
   isFirstRun() {
-    // Staff accounts mean the shop is already set up, even if the stored
+    // Staff accounts mean the counter is already set up, even if the stored
     // brand is still the default "My Business".
     return this.brandName === DEFAULT_BRAND && DataStore.users.length === 0;
   }
@@ -1293,9 +1317,7 @@ class ChillPOS {
       document.body.classList.toggle('header-hidden', hidden);
       Storage.set('pos_header_hidden', hidden);
       if (hidden) setFilterOpen(false);
-      const menuLabel = hidden ? 'Show menu' : 'Hide menu';
-      toggleBtn.title = menuLabel;
-      toggleBtn.setAttribute('aria-label', menuLabel);
+      this._updateMenuLabel();
       toggleBtn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
     };
     toggleBtn.addEventListener('click', () => {
@@ -1499,8 +1521,19 @@ class ChillPOS {
       this.filterState.category = document.getElementById('filter-category').value;
       this.filterState.method = document.getElementById('filter-method').value;
       this.filterState.query = document.getElementById('filter-search').value;
+      this.filterState.dateFrom = document.getElementById('filter-date-from').value;
+      this.filterState.dateTo = document.getElementById('filter-date-to').value;
       this.txPage = 1;
       this.renderTransaksiTable();
+    });
+    // Date fields apply straight away, like the search box
+    ['filter-date-from', 'filter-date-to'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        this.filterState.dateFrom = document.getElementById('filter-date-from').value;
+        this.filterState.dateTo = document.getElementById('filter-date-to').value;
+        this.txPage = 1;
+        this.renderTransaksiTable();
+      });
     });
     document.getElementById('filter-search').addEventListener('input', (e) => {
       this.filterState.query = e.target.value;
@@ -1514,6 +1547,10 @@ class ChillPOS {
       document.getElementById('filter-category').value = '';
       document.getElementById('filter-method').value = '';
       document.getElementById('filter-search').value = '';
+      document.getElementById('filter-date-from').value = '';
+      document.getElementById('filter-date-to').value = '';
+      this.filterState.dateFrom = '';
+      this.filterState.dateTo = '';
       this.filterState.type = '';
       this.filterState.category = '';
       this.filterState.method = '';
@@ -1661,6 +1698,14 @@ class ChillPOS {
     this.applyLang();
   }
 
+  _updateMenuLabel() {
+    const btn = document.getElementById('toggle-header');
+    if (!btn) return;
+    const label = t(document.body.classList.contains('header-hidden') ? 'menuShow' : 'menuHide');
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  }
+
   applyLang() {
     const lang = LangManager.current;
     // Update toggle button label — show the OTHER language to indicate what clicking will switch to
@@ -1685,6 +1730,8 @@ class ChillPOS {
       const str = t(el.dataset.i18nAria);
       if (typeof str === 'string') el.setAttribute('aria-label', str);
     });
+
+    this._updateMenuLabel();
 
     // Re-render dynamic parts that contain translated strings
     this.renderDashboard();
@@ -1868,7 +1915,7 @@ class ChillPOS {
 
   buildExcelData() {
     return this.transactions.map(t => ({
-      'Date/Time':  this.sanitizeForExcel(new Date(t.tanggalWaktu).toLocaleString()),
+      'Date/Time':  this.sanitizeForExcel(fmtDateTime(t.tanggalWaktu)),
       'Type':       this.sanitizeForExcel(t.jenis),
       'Category':   this.sanitizeForExcel(t.kategori),
       'Description':this.sanitizeForExcel(rentalDeskripsiDisplay(t)),
@@ -1953,6 +2000,15 @@ class ChillPOS {
     if (this.filterState.method) {
       txs = txs.filter(tx => tx.metode === this.filterState.method);
     }
+    // Date range: compares the calendar day as shown in the table (device local time)
+    const { dateFrom, dateTo } = this.filterState;
+    if (dateFrom || dateTo) {
+      txs = txs.filter(tx => {
+        const d = new Date(tx.tanggalWaktu);
+        const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return (!dateFrom || day >= dateFrom) && (!dateTo || day <= dateTo);
+      });
+    }
     const q = (this.filterState.query || '').trim().toLowerCase();
     if (q) {
       txs = txs.filter(tx => this._txSearchText(tx).includes(q));
@@ -2033,7 +2089,7 @@ class ChillPOS {
   }
 
   _emptyTxMessage() {
-    const filtered = this.filterState.query || this.filterState.type || this.filterState.category || this.filterState.method;
+    const filtered = this.filterState.query || this.filterState.type || this.filterState.category || this.filterState.method || this.filterState.dateFrom || this.filterState.dateTo;
     return (filtered && this.transactions.length) ? t('noSearchResults') : t('noTransactionsTable');
   }
 
@@ -2072,7 +2128,7 @@ class ChillPOS {
         ? 'nonrevenue-badge'
         : (isIncome ? 'income-badge' : 'outgoing-badge');
       row.innerHTML = `
-        <td class="cell-nowrap">${this.escapeHtml(date.toLocaleString())}</td>
+        <td class="cell-nowrap">${this.escapeHtml(fmtDateTime(date))}</td>
         <td><span class="${badgeClass}">${this.escapeHtml(tx.jenis)}</span></td>
         <td>${this.escapeHtml(tx.kategori)}</td>
         <td>${this.escapeHtml(ledgerDescription(tx))}</td>
@@ -2112,7 +2168,7 @@ class ChillPOS {
       card.className = `tx-card ${isIncome ? 'income' : 'outgoing'}`;
       card.innerHTML = `
         <div class="tx-card-header">
-          <span class="tx-card-date">${this.escapeHtml(new Date(tx.tanggalWaktu).toLocaleString())}</span>
+          <span class="tx-card-date">${this.escapeHtml(fmtDateTime(tx.tanggalWaktu))}</span>
           <span class="${badgeClass}">${this.escapeHtml(tx.jenis)}</span>
         </div>
         <div class="tx-card-meta">${this.escapeHtml(tx.kategori)} &middot; ${this.escapeHtml(tx.metode)}</div>
@@ -2939,8 +2995,10 @@ class ChillPOS {
         ? Math.abs(pair.income.jumlah)
         : Math.abs(existingTx.jumlah || 0);
       this._setMoneyInput(amountEl, amount);
+      document.getElementById('bank-note').value = parseBankNote(existingTx.keterangan)?.note || '';
     } else {
       this._setMoneyInput(amountEl, 0);
+      document.getElementById('bank-note').value = '';
     }
     this._renderFixedFlows();
     document.getElementById('bank-modal').style.display = 'flex';
@@ -2967,7 +3025,7 @@ class ChillPOS {
 
     const editing = this._bankEdit;
     const bankId = editing?.id || crypto.randomUUID();
-    const keterangan = packBankNote({ id: bankId });
+    const keterangan = packBankNote({ id: bankId, note: document.getElementById('bank-note').value });
     const deskripsi = BANK_CATEGORY;
     const tanggalWaktu = new Date().toISOString();
     const incomeBase = editing?.income || null;
@@ -3463,4 +3521,4 @@ class ChillPOS {
   }
 }
 
-const app = new ChillPOS();
+const app = new MantraPOS();

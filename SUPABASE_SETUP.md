@@ -1,6 +1,6 @@
 # Supabase — Mantra Lombok
 
-One shop, one project, always cloud. The app talks only to the Mantra Lombok project (`https://ohcnosdjgkkctripdzlj.supabase.co`). Do not create a second project and do not point this app at another shop.
+One counter, one project, always cloud. The app talks only to the Mantra Lombok project (`https://ohcnosdjgkkctripdzlj.supabase.co`). Do not create a second project and do not point this app at another counter.
 
 The browser stores the publishable key once per device. That key can read and write every row, so it is not committed.
 
@@ -34,7 +34,7 @@ Until this column exists, saving a user with an email fails. Admins need an emai
 
 Forgot PIN calls Supabase Auth `signInWithOtp` and sends the message to **that user's own email**. The link uses the implicit flow so it can be opened in a new tab. The same email's code can be typed on the reset screen. There is no shared reset code.
 
-In Authentication → URL configuration, allow the addresses the shop actually opens, including:
+In Authentication → URL configuration, allow the addresses the counter actually opens, including:
 
 - `https://triawidjaya.github.io/mantra-pos/`
 - `https://triawidjaya.github.io/mantra-pos/index.html`

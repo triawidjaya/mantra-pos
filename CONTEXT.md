@@ -1,18 +1,18 @@
-# CHILL POS APP — Claude Code Context
+# MANTRA POS APP — Claude Code Context
 
 ## Overview
-The cashbook for **one shop, Mantra Lombok**. Always cloud, one Supabase project, two roles (admin and cashier). Vanilla JS, HTML, CSS — no framework, no build step.
+The cashbook for **one counter, Mantra Lombok**. Always cloud, one Supabase project, two roles (admin and cashier). Vanilla JS, HTML, CSS — no framework, no build step.
 
-**Data model:** one shop, one Supabase project (`MANTRA_SUPABASE_URL`), many browsers sharing that project. There is no local mode and no per-business project picker.
+**Data model:** one counter, one Supabase project (`MANTRA_SUPABASE_URL`), many browsers sharing that project. There is no local mode and no per-business project picker.
 
 Originally built for a hostel, then refactored as a white-label template, now extended with Supabase as the source of truth + realtime sync. UI prefs (theme, language, header visibility, access gate, Supabase config) stay in `localStorage` as per-browser state.
 
 ## File Structure
 ```
-chill-pos/
+mantra-pos/
   index.html    — Main POS page (loads supabase.min.js, supabase.js, lang.js, script.js)
   history.html  — Shift history page (same script chain, inline page logic)
-  script.js     — App logic (class ChillPOS) — bootstrap, UI, transaction CRUD
+  script.js     — App logic (class MantraPOS) — bootstrap, UI, transaction CRUD
   supabase.js   — SupabaseConfig + DataStore + Storage/AuthStorage Supabase-backed shims
   style.css     — Shared styles (light + dark theme)
   lang.js       — EN/ID language strings + LangManager
@@ -51,9 +51,9 @@ chill-pos/
 2. **`getSupabase()`** — lazy singleton client. Reset whenever config changes.
 3. **`DataStore`** — in-memory cache + realtime subscriber + per-operation CRUD.
    - **Hydration:** `await DataStore.hydrate()` fetches all 6 tables in parallel on app bootstrap.
-   - **Cache arrays are mutated in place** (`push`, `splice`, `length=0`) — never reassigned. `ChillPOS` holds shared references via `_bindDataStore()` so realtime updates reach the UI without re-fetches.
+   - **Cache arrays are mutated in place** (`push`, `splice`, `length=0`) — never reassigned. `MantraPOS` holds shared references via `_bindDataStore()` so realtime updates reach the UI without re-fetches.
    - **Translators:** `toAppX`/`toDbX` map snake_case ↔ camelCase between DB and app objects.
-   - **Realtime:** subscribes to `postgres_changes` on all 6 tables under one channel; events update the cache and fire per-entity listeners (`DataStore.on(entity, cb)`) that `ChillPOS` uses to re-render.
+   - **Realtime:** subscribes to `postgres_changes` on all 6 tables under one channel; events update the cache and fire per-entity listeners (`DataStore.on(entity, cb)`) that `MantraPOS` uses to re-render.
 
 **`Storage` & `AuthStorage` shims** (also in `supabase.js`):
 - `Storage.get(key)` is synchronous — returns from `DataStore` cache for Supabase-backed keys, from `localStorage` for UI-only keys.
@@ -61,7 +61,7 @@ chill-pos/
 - Bulk array overwrites (`Storage.set('pos_transactions', arr)`) are no-ops — callers must use `DataStore.insertTransaction` / `updateTransaction` / `deleteTransaction` / `clearTransactions` directly.
 - `AuthStorage` keeps the original `getUsers / saveUsers / getSession / saveSession / clearSession` surface; `saveUsers` diffs against the cache and dispatches to `DataStore.insertUser / updateUser / deleteUser`.
 
-**Bootstrap sequence (`ChillPOS.bootstrap()`):**
+**Bootstrap sequence (`MantraPOS.bootstrap()`):**
 1. Access gate (local) — show prompt if `pos_access_granted` is false.
 2. Supabase config check — show first-run wizard if none.
 3. `await DataStore.hydrate()` — error modal with retry / reset on failure.
@@ -89,7 +89,7 @@ chill-pos/
 | `CLOSE_SHIFT` | ✅ | ✅ |
 | `CREATE_TRANSACTION` | ✅ | ✅ |
 
-**Disclaimer:** The RLS policy used by `SUPABASE_SETUP.md` is permissive (`anon full access`). The publishable key is the access secret for this one shop.
+**Disclaimer:** The RLS policy used by `SUPABASE_SETUP.md` is permissive (`anon full access`). The publishable key is the access secret for this one counter.
 
 **PIN hashing:** SubtleCrypto SHA-256 with random 16-byte salt per user. Format: `sha256:<base64-salt>:<base64-hash>`. Cashier role can have `pinHash: null` (login by name only).
 
@@ -160,7 +160,7 @@ t(key, arg)           // global shorthand (defined ONCE in lang.js)
 ```
 All UI strings use `data-i18n="key"` attributes. `applyLang()` loops them and sets `textContent`.
 
-### ChillPOS class (script.js)
+### MantraPOS class (script.js)
 Main app class. Key methods:
 - `renderAll()` — re-renders date, brand, dashboard, filter, table
 - `applyLang()` — updates all i18n elements + re-renders dynamic parts
@@ -208,6 +208,27 @@ DEFAULT_BRAND      = 'My Business'
 - Filter/search/sort unified via `getVisibleTransactions()` (single source of truth)
 - First-run modal: no close button, no Escape, no click-outside — forces completion
 
+## Operating Model (since November 2026)
+- **One shift = one month.** There is no daily open/close. The shift runs from the start of the books to the end of the month (28, 29, 30 or 31 days) and is closed once at month end. Old "daily shift" wording in the code and manuals still says "shift".
+- **Card and QRIS settle through the EDC.** Staff run settlement on the EDC at close of business. The bank pays it out the **next day**. A forgotten settlement is forced by the EDC at the next transaction, so two days can arrive together.
+- **Card fee.** The renter pays rental **+ 3%** on the EDC. The app records only the rental amount, never the 3%. The bank keeps **1.8%** of the amount charged, so about 1.146% stays in the account unrecorded. This is deliberate: leave it unrecorded.
+- **QRIS.** Recorded whole in the app and on the EDC. The bank pays out **0.7% less**. The counter absorbs that 0.7% (also on TarikTunai paid by QRIS). Deliberate for now.
+- **TarikTunai (guest cash-out).** The guest pays on the EDC (amount + 3% for Card); the counter hands over cash from the cashbox. Two rows: Card/QRIS in, Cash out. Non-revenue. The 3% applies to a Card TarikTunai as well (verified on the 8 Nov settlement).
+- **Damage compensation.** The guest hands cash straight to the owner, outside the cashbox. Nothing is recorded in the app for that step.
+- **PETTY-CASH.** Cash taken from the bank into the cashbox: Card out, Cash in, same timestamp, tag `[bank:<id>]` or `[bank:<id>|<note>]` (optional note). Non-revenue. Do not record it as one `_other` row: the Card side would be missing and the bank balance drifts.
+- **Opening hours.** The counter closes at 19:00. Deploy (merge to `main`) only after that.
+
+## Report page (history.html)
+Three tabs share one date range (This Month is the default, Last Month is a preset): **Summary**, **Bank**, **Shifts**.
+- **Summary:** KPI cards and daily chart, then tables by category, non-revenue categories, method movement and a daily table. Category and day links open `index.html?category=..&from=YYYY-MM-DD&to=YYYY-MM-DD` already filtered (only the open shift lives on the main page).
+- **Bank (reconciliation):** one row per transaction day with Card, QRIS, Transfer, money taken from the bank (information only) and the **expected payout**:
+  `Card x (1 + surcharge) x (1 - cardMdr) + QRIS x (1 - qrisMdr) + Transfer`, rounded to whole rupiah. Defaults 3 / 1.8 / 0.7 percent, checked to the rupiah against the bank on 8, 9, 12 and 18 Nov 2026. An admin types the amount that really arrived for that day's settlement; the difference and a **cumulative** difference are shown (cumulative stays right when settlements arrive late or together).
+- Storage, no schema change, both in `pos_settings` (key/value): `bank_recon` = `{ 'YYYY-MM-DD': amount }`, `bank_rates` = `{ cardSurcharge, cardMdr, qrisMdr }`. Only an admin can edit them.
+- **Shifts:** the old closed-shift list (50 shift cap unchanged).
+
+## Main page filter
+Type, Category, Search (first field), Method, From date, To date. Dates compare the calendar day as shown in the table (device local time, WITA in the shop). Search and dates apply live.
+
 ## Features Complete
 - [x] White-label template (generic defaults, no business-specific terms)
 - [x] Vendored deps (Font Awesome, xlsx, papaparse) → offline-capable
@@ -247,29 +268,35 @@ DEFAULT_BRAND      = 'My Business'
 - [x] Text search and pagination on the open shift (25 rows) and on Report (10 shifts). History stays capped at 50 shifts.
 - [ ] Connection status indicator in header (online / offline / reconnecting)
 - [ ] Chart: Income vs Outgoing bar chart on dashboard (Chart.js — would need to be vendored)
-- [ ] Date range filter
+- [x] Date range filter (main page and Report)
 - [ ] Soft delete (flag deleted:true, restore option)
 - [ ] Auto daily backup snapshot to localStorage
-- [ ] Mobile responsive card view for table on small screens
+- [x] Mobile responsive card view for table on small screens
 - [ ] Optional: cancel-shift action (delete START BALANCE without recording history)
+
+## Open items (not decided yet)
+- Commission formula (the chart uses RENTAL PAYMENT + PAY TO OWNER) still to be confirmed.
+- Month-end close and carrying the opening balance into the next month.
+- Optional daily cash count without closing the shift.
+- Eight `_other` rows (all expenses) still need a proper category.
 
 ## How to Run Locally
 Serve via any static HTTP server (the Supabase JS SDK won't run reliably from `file://`):
 `python -m http.server 8080` or `npx serve .` → open `http://localhost:8080/index.html`.
 
-## Opening the shop on a device
+## Opening the counter on a device
 1. The database is the existing Mantra Lombok project. Do not create another one.
 2. Open the app, enter the browser access code, then paste the publishable key once.
-3. If the shop is not set up yet, the wizard asks for brand, admin name, admin email, and PIN.
+3. If the counter is not set up yet, the wizard asks for brand, admin name, admin email, and PIN.
 4. Each browser stores `pos_sb_config` for itself. Another device pastes the same key.
 
 ## Notes for Claude Code
 - Cross-device data lives in Supabase. Local `pos_*` keys are UI prefs only (see localStorage Keys table).
 - The `t()` shorthand is a global function defined at the bottom of `lang.js` — it must load before `script.js`. Do **not** redeclare `const t` in `script.js` (causes SyntaxError).
 - Script load order in HTML: `papaparse → xlsx → supabase.min.js → supabase.js → lang.js → script.js`. `supabase.js` declares `const Storage / AuthStorage / DataStore / SupabaseConfig` in the global lexical environment so subsequent classic scripts can reference them directly.
-- DataStore cache arrays (`transactions`, `shifts`, `categories`, `users`) are mutated in place. `ChillPOS` holds shared references — **never reassign** these on the instance; use `.length = 0; .push(...)` or DataStore CRUD instead.
+- DataStore cache arrays (`transactions`, `shifts`, `categories`, `users`) are mutated in place. `MantraPOS` holds shared references — **never reassign** these on the instance; use `.length = 0; .push(...)` or DataStore CRUD instead.
 - Indonesian variable names (jenis, kategori, deskripsi, jumlah, metode, keterangan, tanggalWaktu, staff) are kept as-is on the client; the DB uses snake_case (`tanggal_waktu`, `pin_hash`, etc.). Translators live in `supabase.js`.
 - `history.html` has its own inline `<script>` and does not load `script.js`, but it does load `supabase.js` and uses the same `DataStore`.
 - When adding new UI strings: add to both `en` and `id` blocks in `lang.js`, add `data-i18n="key"` to the element, and call `applyLang()` if needed.
-- Class is `ChillPOS` (was `KasirHostel` before white-label refactor).
+- Class is `MantraPOS` (was `KasirHostel` before white-label refactor).
 - `START BALANCE` is a required category — `mulaiShift()` depends on it. Wizard re-inserts if removed.

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CHILL POS APP — Report</title>
+  <title>MANTRA POS APP — Report</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
   <script src="vendor/xlsx.full.min.js"></script>
@@ -20,10 +20,10 @@
   <div class="history-header">
     <h1><i class="fas fa-chart-column"></i> <span id="history-title">Report</span></h1>
     <div class="history-header-actions">
-      <button class="btn theme-toggle" id="lang-toggle" title="Switch language">
+      <button class="btn theme-toggle" id="lang-toggle" data-i18n-title="switchLang" data-i18n-aria="switchLang" title="Switch language" aria-label="Switch language">
         <span id="lang-label">ID</span>
       </button>
-      <button class="btn theme-toggle" id="theme-toggle" title="Toggle theme">
+      <button class="btn theme-toggle" id="theme-toggle" data-i18n-title="themeToggle" data-i18n-aria="themeToggle" title="Toggle theme" aria-label="Toggle theme">
         <i class="fas fa-moon"></i>
       </button>
       <button class="btn primary" id="btn-back">
@@ -41,19 +41,34 @@
         <button type="button" class="btn small date-preset" data-preset="today">Today</button>
         <button type="button" class="btn small date-preset" data-preset="week">This Week</button>
         <button type="button" class="btn small date-preset active" data-preset="month">This Month</button>
+        <button type="button" class="btn small date-preset" data-preset="lastmonth">Last Month</button>
         <button type="button" class="btn small date-preset" data-preset="custom">Custom...</button>
       </div>
     </div>
     <div class="filter-group date-custom" id="date-custom-group" style="display:none">
-      <div class="date-field"><input type="date" id="date-from" title="From"></div>
+      <div class="date-field"><input type="date" id="date-from" data-i18n-title="dateFromTitle" data-i18n-aria="dateFromTitle" title="From" aria-label="From"></div>
       <span class="date-custom-sep">&ndash;</span>
-      <div class="date-field"><input type="date" id="date-to" title="To"></div>
+      <div class="date-field"><input type="date" id="date-to" data-i18n-title="dateToTitle" data-i18n-aria="dateToTitle" title="To" aria-label="To"></div>
     </div>
   </div>
 
+  <div class="report-tabs" role="tablist">
+    <button type="button" class="report-tab active" id="tab-btn-summary" role="tab" aria-selected="true" aria-controls="tab-summary" data-tab="summary">Summary</button>
+    <button type="button" class="report-tab" id="tab-btn-bank" role="tab" aria-selected="false" aria-controls="tab-bank" data-tab="bank">Bank</button>
+    <button type="button" class="report-tab" id="tab-btn-shifts" role="tab" aria-selected="false" aria-controls="tab-shifts" data-tab="shifts">Shifts</button>
+  </div>
+
+  <div id="tab-summary" role="tabpanel" aria-labelledby="tab-btn-summary">
   <!-- Daily cash flow summary -->
   <div class="chart-container" id="chart-container"></div>
+  <div id="summary-container"></div>
+  </div>
 
+  <div id="tab-bank" role="tabpanel" aria-labelledby="tab-btn-bank" hidden>
+    <div id="bank-container"></div>
+  </div>
+
+  <div id="tab-shifts" role="tabpanel" aria-labelledby="tab-btn-shifts" hidden>
   <!-- Non-admin toolbar hiding is deferred to async init below (post-auth). -->
   <div class="history-toolbar" id="history-toolbar">
     <label class="select-all-wrap">
@@ -72,6 +87,7 @@
 
   <div class="shift-list" id="shift-list"></div>
   <div id="report-pager" class="list-pager" hidden></div>
+  </div>
 
 </div>
 <div id="alert-container"></div>
@@ -147,10 +163,15 @@ function applyLang() {
   document.getElementById('select-all-label').textContent = t('selectAll');
   document.getElementById('delete-selected-label').textContent = t('deleteSelected');
   // Date filter labels
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
   document.getElementById('hist-date-label').textContent = t('dateRange');
   document.getElementById('report-search-label').textContent = t('search');
   document.getElementById('report-search').placeholder = t('reportSearchPlaceholder');
-  const presetMap = { all: 'dateAll', today: 'dateToday', week: 'dateWeek', month: 'dateMonth', custom: 'dateCustom' };
+  document.getElementById('tab-btn-summary').textContent = t('tabSummary');
+  document.getElementById('tab-btn-bank').textContent = t('tabBank');
+  document.getElementById('tab-btn-shifts').textContent = t('tabShifts');
+  const presetMap = { all: 'dateAll', today: 'dateToday', week: 'dateWeek', month: 'dateMonth', lastmonth: 'dateLastMonth', custom: 'dateCustom' };
   document.querySelectorAll('.date-preset').forEach(b => {
     b.textContent = t(presetMap[b.dataset.preset]);
   });
@@ -207,6 +228,11 @@ function dateBounds() {
   if (preset === 'month') {
     const d = new Date(now.getFullYear(), now.getMonth(), 1);
     return [startOfDay(d), endOfDay(now)];
+  }
+  if (preset === 'lastmonth') {
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last  = new Date(now.getFullYear(), now.getMonth(), 0);
+    return [startOfDay(first), endOfDay(last)];
   }
   if (preset === 'custom' && from && to) {
     return [startOfDay(new Date(from)), endOfDay(new Date(to))];
@@ -449,7 +475,267 @@ function exportDailyCashFlow() {
   showAlert(t('alertExcelOk'), 'success');
 }
 
+// ── Summary tab: per-category, per-method and per-day tables for the chosen period ──
+function renderSummary() {
+  const el = document.getElementById('summary-container');
+  if (!el) return;
+  const days = buildDailyCashFlow();
+  const txs = days.flatMap(d => d.txs);
+  if (!txs.length) { el.innerHTML = ''; return; }
+
+  const lang = LangManager.current === 'id' ? 'id-ID' : 'en-US';
+  const firstKey = days[0].key, lastKey = days[days.length - 1].key;
+  const link = (params) => 'index.html?' + new URLSearchParams(params).toString();
+  const num = (v, cls = '') => `<td class="hs-num ${cls}">${fmt(v)}</td>`;
+
+  // Per category
+  const cats = new Map();
+  txs.forEach(tx => {
+    const key = tx.kategori || '—';
+    if (!cats.has(key)) cats.set(key, { name: key, count: 0, inn: 0, out: 0, nonRev: isNonRevenueCategory(tx.kategori) });
+    const c = cats.get(key);
+    const amount = Number(tx.jumlah) || 0;
+    c.count++;
+    if (tx.jenis === 'INCOME') c.inn += amount; else c.out += Math.abs(amount);
+  });
+  const sortCats = (list) => list.sort((a, b) => (b.inn + b.out) - (a.inn + a.out));
+  const revCats = sortCats([...cats.values()].filter(c => !c.nonRev));
+  const nonRevCats = sortCats([...cats.values()].filter(c => c.nonRev));
+  const sumRows = (list) => list.reduce((s, c) => ({ count: s.count + c.count, inn: s.inn + c.inn, out: s.out + c.out }), { count: 0, inn: 0, out: 0 });
+  const catRow = (c) => `
+    <tr>
+      <td><a class="sum-link" href="${escapeHtml(link({ category: c.name, from: firstKey, to: lastKey }))}">${escapeHtml(c.name)}</a></td>
+      <td class="hs-num">${c.count}</td>${num(c.inn)}${num(c.out)}${num(c.inn - c.out)}
+    </tr>`;
+  const catTotal = (list) => { const s = sumRows(list); return `
+    <tr class="sum-total"><td>${t('xlTotal')}</td><td class="hs-num">${s.count}</td>${num(s.inn)}${num(s.out)}${num(s.inn - s.out)}</tr>`; };
+  const catHead = `<thead><tr><th>${t('filterCategory')}</th><th class="hs-num">${t('sumCount')}</th><th class="hs-num">${t('chartIncome')}</th><th class="hs-num">${t('chartOutgoing')}</th><th class="hs-num">${t('chartNet')}</th></tr></thead>`;
+
+  // Per method (net movement, includes non-revenue rows so it matches the cash actually held)
+  const METHODS = ['Cash', 'Card', 'Transfer', 'Qris'];
+  const canon = (m) => METHODS.find(x => x.toLowerCase() === String(m || '').trim().toLowerCase()) || String(m || '—').trim() || '—';
+  const byMethod = {};
+  txs.forEach(tx => { const k = canon(tx.metode); byMethod[k] = (byMethod[k] || 0) + (Number(tx.jumlah) || 0); });
+  const methodKeys = [...METHODS, ...Object.keys(byMethod).filter(k => !METHODS.includes(k))].filter(k => byMethod[k] !== undefined);
+  const methodTotal = methodKeys.reduce((s, k) => s + byMethod[k], 0);
+
+  // Per day
+  const dayLabel = (key) => {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(lang, { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+  };
+  const activeDays = days.filter(d => d.txs.length);
+  const dayRows = activeDays.map(d => `
+    <tr>
+      <td class="cell-nowrap"><a class="sum-link" href="${escapeHtml(link({ from: d.key, to: d.key }))}">${escapeHtml(dayLabel(d.key))}</a></td>
+      <td class="hs-num">${d.txs.length}</td>${num(d.income)}${num(d.outgoing)}${num(d.income - d.outgoing)}${num(dayCommission(d))}
+      <td class="hs-num">${d.balance === null ? '—' : fmt(d.balance)}</td>
+    </tr>`).join('');
+  const totalIn = days.reduce((s, d) => s + d.income, 0);
+  const totalOut = days.reduce((s, d) => s + d.outgoing, 0);
+  const endBalance = days[days.length - 1].balance;
+
+  el.innerHTML = `
+    <div class="sum-section">
+      <h3>${t('sumCategoryTitle')}</h3>
+      <div class="sum-table-wrap"><table class="sum-table">${catHead}<tbody>
+        ${revCats.map(catRow).join('')}${catTotal(revCats)}
+      </tbody></table></div>
+    </div>
+    ${nonRevCats.length ? `
+    <div class="sum-section">
+      <h3>${t('sumNonRevenueTitle')}</h3>
+      <p class="sum-note">${t('sumNonRevenueNote')}</p>
+      <div class="sum-table-wrap"><table class="sum-table">${catHead}<tbody>
+        ${nonRevCats.map(catRow).join('')}${catTotal(nonRevCats)}
+      </tbody></table></div>
+    </div>` : ''}
+    <div class="sum-section">
+      <h3>${t('sumMethodTitle')}</h3>
+      <div class="sum-table-wrap"><table class="sum-table"><thead><tr><th>${t('method')}</th><th class="hs-num">${t('sumMovement')}</th></tr></thead><tbody>
+        ${methodKeys.map(k => `<tr><td>${escapeHtml(k)}</td>${num(byMethod[k])}</tr>`).join('')}
+        <tr class="sum-total"><td>${t('xlTotal')}</td>${num(methodTotal)}</tr>
+      </tbody></table></div>
+    </div>
+    <div class="sum-section">
+      <h3>${t('sumDailyTitle')}</h3>
+      <div class="sum-table-wrap"><table class="sum-table"><thead><tr>
+        <th>${t('xlDate')}</th><th class="hs-num">${t('sumCount')}</th><th class="hs-num">${t('chartIncome')}</th><th class="hs-num">${t('chartOutgoing')}</th><th class="hs-num">${t('chartNet')}</th><th class="hs-num">${t('chartCommission')}</th><th class="hs-num">${t('chartEndBalance')}</th>
+      </tr></thead><tbody>
+        ${dayRows}
+        <tr class="sum-total"><td>${t('xlTotal')}</td><td class="hs-num">${txs.length}</td>${num(totalIn)}${num(totalOut)}${num(totalIn - totalOut)}${num(rentalCommission(days))}<td class="hs-num">${endBalance === null ? '—' : fmt(endBalance)}</td></tr>
+      </tbody></table></div>
+    </div>`;
+}
+
+// ── Bank reconciliation: Card + QRIS + Transfer all settle into one account ──
+const BANK_METHODS = ['Card', 'Qris', 'Transfer'];
+const canonBankMethod = (m) => BANK_METHODS.find(x => x.toLowerCase() === String(m || '').trim().toLowerCase()) || null;
+
+function buildBankRecon() {
+  const actuals = DataStore.settings.bankRecon || {};
+  const rows = [];
+  buildDailyCashFlow().forEach(day => {
+    // Settlement = Card + QRIS + Transfer taken that day; the bank pays it out the next day after the EDC settlement.
+    // Money taken out of the bank (PETTY-CASH) is a same-day debit, shown for information and kept out of the difference.
+    const by = { Card: 0, Qris: 0, Transfer: 0, Out: 0 };
+    let touched = false;
+    day.txs.forEach(tx => {
+      const m = canonBankMethod(tx.metode);
+      if (!m) return;
+      const amount = Number(tx.jumlah) || 0;
+      if (amount >= 0) by[m] += amount; else by.Out += amount;
+      touched = true;
+    });
+    const actual = Object.prototype.hasOwnProperty.call(actuals, day.key) ? Number(actuals[day.key]) : null;
+    if (!touched && actual === null) return;
+    // What the bank should pay: the EDC charges the renter Card + surcharge, the bank keeps its cut of that
+    // total; QRIS arrives minus the bank's cut; Transfer arrives whole. Rounded to whole rupiah.
+    const rt = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 };
+    const expected = Math.round(by.Card * (1 + rt.cardSurcharge / 100) * (1 - rt.cardMdr / 100)
+      + by.Qris * (1 - rt.qrisMdr / 100) + by.Transfer);
+    rows.push({ key: day.key, ...by, expected, actual });
+  });
+  let cum = 0;
+  rows.forEach(r => {
+    cum += (r.actual ?? 0) - r.expected;
+    r.diff = r.actual === null ? null : r.actual - r.expected;
+    r.cum = cum;
+  });
+  return rows;
+}
+
+function renderBankRecon() {
+  const el = document.getElementById('bank-container');
+  if (!el) return;
+  const typing = document.activeElement;
+  if (typing && (typing.classList?.contains('bank-actual') || typing.classList?.contains('bank-rate')) && el.contains(typing)) return; // do not wipe a field being typed in
+  const rows = buildBankRecon();
+  const head = `<div class="chart-header"><h3>${t('recTitle')}</h3>
+      <button type="button" class="btn small success" id="bank-export"><i class="fas fa-file-excel"></i> ${t('recExport')}</button></div>
+    <p class="sum-note">${t('recIntro')}</p>`;
+  if (!rows.length) { el.innerHTML = `<div class="chart-container">${head}<div class="chart-empty">${t('recNone')}</div></div>`; return; }
+
+  const lang = LangManager.current === 'id' ? 'id-ID' : 'en-US';
+  const group = (n) => new Intl.NumberFormat('id-ID').format(n);
+  const fmtN = group;   // table cells show plain numbers; the unit is in the note under the table
+  const dayLabel = (key) => {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(lang, { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+  };
+  const sum = (f) => rows.reduce((s, r) => s + f(r), 0);
+  const totalExpected = sum(r => r.expected);
+  const totalActual = sum(r => r.actual ?? 0);
+  const gap = totalExpected - totalActual;               // > 0: money still missing
+  const admin = !!window._isAdmin;
+  const rates = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 };
+  const diffCell = (r) => {
+    if (r.diff === null) return '<td class="hs-num">—</td>';
+    const cls = r.diff === 0 ? 'rec-ok' : (r.diff < 0 ? 'rec-short' : 'rec-over');
+    return `<td class="hs-num ${cls}">${r.diff === 0 ? '✓ ' : ''}${fmtN(r.diff)}</td>`;
+  };
+  const cumCls = (v) => v === 0 ? 'rec-ok' : (v < 0 ? 'rec-short' : 'rec-over');
+  const body = rows.map(r => `
+    <tr>
+      <td class="cell-nowrap">${escapeHtml(dayLabel(r.key)).replace(/^([^,]+,\s*)/, '<span class="rec-wd">$1</span>')}</td>
+      <td class="hs-num rec-detail">${fmtN(r.Card)}</td><td class="hs-num rec-detail">${fmtN(r.Qris)}</td><td class="hs-num rec-detail">${fmtN(r.Transfer)}</td>
+      <td class="hs-num rec-detail">${fmtN(r.Out)}</td>
+      <td class="hs-num"><strong>${fmtN(r.expected)}</strong></td>
+      <td class="hs-num">${admin
+        ? `<input type="text" inputmode="numeric" class="bank-actual" data-day="${r.key}" value="${r.actual === null ? '' : group(r.actual)}" placeholder="—" autocomplete="off" aria-label="${escapeHtml(t('recColActual'))} ${escapeHtml(dayLabel(r.key))}">`
+        : (r.actual === null ? '—' : fmtN(r.actual))}</td>
+      ${diffCell(r)}
+      <td class="hs-num ${cumCls(r.cum)}">${fmtN(r.cum)}</td>
+    </tr>`).join('');
+
+  el.innerHTML = `<div class="chart-container">${head}
+    <div class="chart-kpis rec-kpis">
+      <div class="chart-kpi"><div class="chart-kpi-label">${t('recKpiApp')}</div><div class="chart-kpi-value">${fmt(totalExpected)}</div></div>
+      <div class="chart-kpi in"><div class="chart-kpi-label">${t('recKpiActual')}</div><div class="chart-kpi-value">${fmt(totalActual)}</div></div>
+      <div class="chart-kpi ${gap === 0 ? 'in' : (gap > 0 ? 'out' : '')}"><div class="chart-kpi-label">${gap < 0 ? t('recAhead') : (gap === 0 ? t('recMatched') : t('recKpiDiff'))}</div><div class="chart-kpi-value">${fmt(Math.abs(gap))}</div></div>
+    </div>
+    ${admin ? '' : `<p class="sum-note">${t('recAdminOnly')}</p>`}
+    <div class="rec-rates">
+      ${[['cardSurcharge', 'recRateSurcharge'], ['cardMdr', 'recRateCardMdr'], ['qrisMdr', 'recRateQris']].map(([k, label]) => `
+        <label class="rec-rate"><span>${t(label)}</span>
+          ${admin ? `<input type="text" inputmode="decimal" class="bank-rate" data-rate="${k}" value="${String(rates[k]).replace('.', ',')}" autocomplete="off">` : `<strong>${String(rates[k]).replace('.', ',')}</strong>`}
+        </label>`).join('')}
+    </div>
+    <p class="sum-note">${t('recFormula')} = Card × (1 + ${String(rates.cardSurcharge).replace('.', ',')}%) × (1 − ${String(rates.cardMdr).replace('.', ',')}%) + QRIS × (1 − ${String(rates.qrisMdr).replace('.', ',')}%) + Transfer</p>
+    <div class="sum-table-wrap"><table class="sum-table rec-table"><thead><tr>
+      <th>${t('xlDate')}</th><th class="hs-num rec-detail">Card</th><th class="hs-num rec-detail">QRIS</th><th class="hs-num rec-detail">Transfer</th><th class="hs-num rec-detail">${t('recColOut')}</th>
+      <th class="hs-num">${t('recColApp')}</th><th class="hs-num">${t('recColActual')}</th><th class="hs-num">${t('recColDiff')}</th><th class="hs-num">${t('recColCum')}</th>
+    </tr></thead><tbody>${body}
+      <tr class="sum-total"><td>${t('xlTotal')}</td>
+        <td class="hs-num rec-detail">${fmtN(sum(r => r.Card))}</td><td class="hs-num rec-detail">${fmtN(sum(r => r.Qris))}</td><td class="hs-num rec-detail">${fmtN(sum(r => r.Transfer))}</td><td class="hs-num rec-detail">${fmtN(sum(r => r.Out))}</td>
+        <td class="hs-num">${fmtN(totalExpected)}</td><td class="hs-num">${fmtN(totalActual)}</td><td class="hs-num"></td><td class="hs-num ${cumCls(rows[rows.length - 1].cum)}">${fmtN(rows[rows.length - 1].cum)}</td></tr>
+    </tbody></table></div>
+    <p class="sum-note">${t('recWithdrawn')}: ${fmtN(-sum(r => r.Out))} · ${t('recUnit')} · ${t('recNeg')}</p></div>`;
+}
+
+async function saveBankRate(key, raw) {
+  const n = Number(String(raw).trim().replace(',', '.'));
+  const next = { ...(DataStore.settings.bankRates || {}) };
+  if (String(raw).trim() !== '' && Number.isFinite(n) && n >= 0 && n <= 20) next[key] = n;
+  try {
+    await DataStore.saveSetting('bank_rates', next);
+    showAlert(t('recRatesSaved'), 'success');
+  } catch (err) {
+    showAlert(`${t('recSaveFail')} (${err?.message || err})`, 'error');
+  }
+  renderBankRecon();
+}
+
+async function saveBankActual(day, raw) {
+  const cleaned = String(raw).replace(/[^\d-]/g, '');
+  const next = { ...(DataStore.settings.bankRecon || {}) };
+  if (cleaned === '' || cleaned === '-' || !Number.isFinite(parseInt(cleaned, 10))) delete next[day];
+  else next[day] = parseInt(cleaned, 10);
+  try {
+    await DataStore.saveSetting('bank_recon', next);
+  } catch (err) {
+    showAlert(`${t('recSaveFail')} (${err?.message || err})`, 'error');
+  }
+  renderBankRecon();
+}
+
+function exportBankRecon() {
+  const rows = buildBankRecon();
+  if (!rows.length) { showAlert(t('recNone'), 'info'); return; }
+  const money = '#,##0;-#,##0';
+  const header = [t('xlDate'), 'Card', 'QRIS', 'Transfer', t('recColOut'), t('recColApp'), t('recColActual'), t('recColDiff'), t('recColCum')];
+  const data = rows.map(r => [r.key, r.Card, r.Qris, r.Transfer, r.Out, r.expected, r.actual ?? '', r.diff ?? '', r.cum]);
+  data.push([t('xlTotal'), rows.reduce((s, r) => s + r.Card, 0), rows.reduce((s, r) => s + r.Qris, 0), rows.reduce((s, r) => s + r.Transfer, 0), rows.reduce((s, r) => s + r.Out, 0),
+    rows.reduce((s, r) => s + r.expected, 0), rows.reduce((s, r) => s + (r.actual ?? 0), 0), '', rows[rows.length - 1].cum]);
+  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let r = 1; r <= range.e.r; r++) for (let c = 1; c <= range.e.c; c++) {
+    const cell = ws[XLSX.utils.encode_cell({ r, c })];
+    if (cell && cell.t === 'n') { cell.z = money; delete cell.w; }
+  }
+  ws['!cols'] = header.map((h, i) => ({ wch: i === 0 ? 12 : Math.max(14, String(h).length + 2) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, t('recSheet').slice(0, 31));
+  XLSX.writeFile(wb, `bank-reconciliation_${rows[0].key}_${rows[rows.length - 1].key}.xlsx`);
+  showAlert(t('alertExcelOk'), 'success');
+}
+
+document.getElementById('bank-container').addEventListener('change', (e) => {
+  const rate = e.target.closest('.bank-rate');
+  if (rate) { const k = rate.dataset.rate, raw = rate.value; rate.blur(); saveBankRate(k, raw); return; }
+  const input = e.target.closest('.bank-actual');
+  if (!input) return;
+  const day = input.dataset.day, raw = input.value;
+  input.blur();
+  saveBankActual(day, raw);
+});
+document.getElementById('bank-container').addEventListener('click', (e) => {
+  if (e.target.closest('#bank-export')) exportBankRecon();
+});
+
 function renderChart() {
+  renderSummary();
+  renderBankRecon();
   const c = document.getElementById('chart-container');
   if (!c) return;
   const days = buildDailyCashFlow();
@@ -924,7 +1210,7 @@ function sanitizeForExcel(value) {
 
 function exportShift(shift, format) {
   const rows = (shift.transactions || []).map(tx => ({
-    'Date/Time':   sanitizeForExcel(new Date(tx.tanggalWaktu).toLocaleString()),
+    'Date/Time':   sanitizeForExcel(fmtDateTime(tx.tanggalWaktu)),
     'Type':        sanitizeForExcel(tx.jenis),
     'Category':    sanitizeForExcel(tx.kategori),
     'Description': sanitizeForExcel(rentalDeskripsiDisplay(tx)),
@@ -952,6 +1238,22 @@ function exportShift(shift, format) {
     link.click();
   }
 }
+
+// ── Tabs ──
+function setTab(tab) {
+  document.querySelectorAll('.report-tab').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.getElementById('tab-summary').hidden = tab !== 'summary';
+  document.getElementById('tab-bank').hidden = tab !== 'bank';
+  document.getElementById('tab-shifts').hidden = tab !== 'shifts';
+  if (tab === 'summary') renderChart(); // chart width needs a visible container
+}
+document.querySelectorAll('.report-tab').forEach(btn => {
+  btn.addEventListener('click', () => setTab(btn.dataset.tab));
+});
 
 // ── Date filter wiring ──
 function setDatePreset(preset) {

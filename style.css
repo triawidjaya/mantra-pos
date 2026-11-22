@@ -294,6 +294,17 @@ header .theme-toggle:hover { background-color: var(--primary-50); color: var(--p
   transition: var(--transition);
 }
 
+.filter-group input[type="date"] {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: var(--control-font);
+  min-width: 0;
+}
+.dark-theme .filter-group input[type="date"] { color-scheme: dark; }
+
 .filter-group select:hover,
 .filter-group select:focus {
   border-color: var(--primary);
@@ -1215,3 +1226,67 @@ th[data-kolom]:focus-visible {
 .tx-card.outgoing { border-left: 4px solid var(--danger); }
 .modal { background-color: rgba(26, 26, 26, 0.45); }
 .dark-theme #transaksi-form .type-btn { background: var(--card-bg); color: var(--text-color); }
+
+/* ── Report tabs + Summary tab ── */
+.report-tabs { display: flex; gap: var(--space-2); margin: var(--space-4) 0; border-bottom: 1px solid var(--border-color); }
+.report-tab {
+  padding: var(--space-2) var(--space-4); border: 0; border-bottom: 3px solid transparent; background: transparent;
+  color: var(--gray); font-size: 0.95rem; font-weight: 600; cursor: pointer; margin-bottom: -1px;
+}
+.report-tab:hover { color: var(--text-color); }
+.report-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.sum-section { margin-bottom: var(--space-5); }
+.sum-section h3 { color: var(--gray); font-size: 0.95rem; margin-bottom: var(--space-2); }
+.sum-note { color: var(--gray); font-size: 0.8rem; margin-bottom: var(--space-2); }
+.sum-table-wrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch; background: var(--card-bg);
+  border: 1px solid var(--border-color); border-radius: var(--radius);
+}
+.sum-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.sum-table th, .sum-table td { padding: var(--space-2) var(--space-3); text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.sum-table th { color: var(--gray); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.4px; }
+.sum-table .hs-num { text-align: right; font-variant-numeric: tabular-nums; }
+.sum-table tbody tr:last-child td { border-bottom: 0; }
+.sum-table .sum-total td { font-weight: 700; background: var(--neutral-50); }
+.sum-link { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
+.sum-link:hover { color: var(--primary); }
+
+.sum-table th:first-child, .sum-table td:first-child { position: sticky; left: 0; background: var(--card-bg); z-index: 1; }
+.sum-table .sum-total td:first-child { background: var(--neutral-50); }
+@media (max-width: 600px) {
+  .sum-table { font-size: 0.8rem; }
+  .sum-table th, .sum-table td { padding: 6px 8px; }
+  .sum-table th { font-size: 0.7rem; letter-spacing: 0; }
+}
+
+/* ── Bank reconciliation ── */
+.rec-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rec-table .bank-actual {
+  width: 130px; max-width: 100%; height: 34px; box-sizing: border-box; text-align: right;
+  padding: 4px 8px; border: 1px solid var(--border-color); border-radius: var(--radius-xs);
+  background: var(--card-bg); color: var(--text-color); font-size: 0.88rem; font-variant-numeric: tabular-nums;
+}
+.rec-table .bank-actual:focus { border-color: var(--primary); box-shadow: var(--focus-ring); outline: none; }
+.rec-ok { color: var(--success); font-weight: 600; }
+.rec-short { color: var(--danger); font-weight: 600; }
+.rec-over { color: var(--warning-700); font-weight: 600; }
+@media (max-width: 600px) { .rec-kpis { grid-template-columns: minmax(0, 1fr); } .rec-table .bank-actual { width: 104px; } }
+@media (max-width: 600px) { .rec-table .rec-detail { display: none; } }
+@media (max-width: 600px) {
+  .rec-table th, .rec-table td { padding: 6px 5px; font-size: 0.76rem; }
+  .rec-table th { font-size: 0.64rem; }
+  .rec-table .bank-actual { width: 92px; font-size: 0.8rem; }
+}
+@media (max-width: 600px) {
+  .rec-table .rec-wd { display: none; }
+  .rec-table .bank-actual { width: 84px; padding: 4px 6px; }
+}
+.rec-rates { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-4); margin: var(--space-3) 0 var(--space-2); }
+.rec-rate { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--gray); }
+.rec-rate .bank-rate {
+  width: 90px; height: 34px; box-sizing: border-box; text-align: right; padding: 4px 8px;
+  border: 1px solid var(--border-color); border-radius: var(--radius-xs); background: var(--card-bg);
+  color: var(--text-color); font-size: 0.9rem;
+}
+.rec-rate .bank-rate:focus { border-color: var(--primary); box-shadow: var(--focus-ring); outline: none; }
+.rec-rate strong { color: var(--text-color); font-size: 0.95rem; }

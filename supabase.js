@@ -25,7 +25,7 @@ const appStorage = {
   remove(key)     { localStorage.removeItem(STORAGE_PREFIX + key); },
 };
 
-// Category names follow the shop's own cashbook (October 2026 export).
+// Category names follow the counter's own cashbook (October 2026 export).
 const RENTAL_GUEST_CATEGORY = 'RENTAL PAYMENT';
 const RENTAL_OWNER_CATEGORY = 'PAY TO OWNER';
 const CASHOUT_CATEGORY = 'TarikTunai';
@@ -33,7 +33,7 @@ const BANK_CATEGORY = 'PETTY-CASH';
 // Money moving between methods, never a sale or an expense, even if Settings unchecks them.
 const SYSTEM_NON_REVENUE = [CASHOUT_CATEGORY, BANK_CATEGORY];
 
-// New-shop setup for a scooter rental, taken from the October 2026 cashbook.
+// New-counter setup for a scooter rental, taken from the October 2026 cashbook.
 // types: which side of the toggle a category belongs to; missing = both sides.
 const RENTAL_SHOP_DEFAULTS = {
   categories: [
@@ -140,17 +140,47 @@ function parseCashoutNote(raw) {
 
 // Card settlement moved into the cash box. Not a sale and not tarik tunai.
 // Methods are fixed (Card out, Cash in), so the tag only keeps the pair id.
-function packBankNote({ id }) {
-  return `[bank:${id}]`;
+// An optional note travels in the same tag: [bank:<id>|<note>]. Rows written
+// before the note existed ([bank:<id>]) still parse.
+function packBankNote({ id, note }) {
+  const text = String(note ?? '').trim();
+  return text ? `[bank:${id}|${encodeURIComponent(text)}]` : `[bank:${id}]`;
 }
 
 function parseBankNote(raw) {
   const text = String(raw ?? '').trim();
   if (!text) return null;
   const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-  const packed = text.match(new RegExp(`^\\[bank:(${uuid})\\]$`, 'i'));
+  const packed = text.match(new RegExp(`^\\[bank:(${uuid})(?:\\|([^\\]]*))?\\]$`, 'i'));
   if (!packed) return null;
-  return { id: packed[1] };
+  let note = packed[2] || '';
+  try { note = decodeURIComponent(note); } catch { /* keep raw */ }
+  return { id: packed[1], note };
+}
+
+// Bank reconciliation amounts: { 'YYYY-MM-DD': number }. Anything else is dropped.
+function normalizeBankRecon(value) {
+  const out = {};
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    Object.entries(value).forEach(([day, amount]) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Number(amount))) out[day] = Number(amount);
+    });
+  }
+  return out;
+}
+
+// Percentages for the bank reconciliation. cardSurcharge is what the EDC adds for the renter,
+// cardMdr and qrisMdr are what the bank keeps. Missing or invalid values fall back to the defaults.
+const BANK_RATE_DEFAULTS = { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 };
+function normalizeBankRates(value) {
+  const out = { ...BANK_RATE_DEFAULTS };
+  if (value && typeof value === 'object') {
+    Object.keys(BANK_RATE_DEFAULTS).forEach(k => {
+      const n = Number(value[k]);
+      if (value[k] !== null && value[k] !== '' && Number.isFinite(n) && n >= 0 && n <= 20) out[k] = n;
+    });
+  }
+  return out;
 }
 
 // ── Config storage ──
@@ -213,7 +243,7 @@ function _requireSupabaseConfig() {
 function getSupabase() {
   if (_client) return _client;
   const cfg = _requireSupabaseConfig();
-  // Shop rows are readable by the anon key only (RLS policy "anon full access").
+  // Counter rows are readable by the anon key only (RLS policy "anon full access").
   // A user JWT from a PIN-reset link would make every select return no rows,
   // so the till looks empty and the brand falls back to "My Business".
   // accessToken null keeps the publishable key on data and realtime requests.
@@ -223,7 +253,7 @@ function getSupabase() {
   });
   return _client;
 }
-// Separate Auth client. Its session must never authorize shop queries.
+// Separate Auth client. Its session must never authorize counter queries.
 function getResetAuth() {
   if (_resetAuth) return _resetAuth;
   const cfg = _requireSupabaseConfig();
@@ -327,6 +357,8 @@ const DataStore = {
     adminCategories: [],   // category names that require admin PIN to record
     nonRevenueCategories: [], // category names excluded from revenue/expense totals (transfer, receivable, opening balance)
     categoryTypes:   {},   // { name: 'INCOME' | 'OUTGOING' }; missing = usable on both sides
+    bankRecon:       {},   // { 'YYYY-MM-DD': amount that reached the bank that day } for Card/QRIS/Transfer reconciliation
+    bankRates:       { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 }, // percentages used to work out what the bank should pay out
     logoData:        null, // base64 PNG of custom logo (cloud only); null = use static logo.png
   },
 
@@ -358,6 +390,8 @@ const DataStore = {
     this.settings.adminCategories = [];
     this.settings.nonRevenueCategories = [];
     this.settings.categoryTypes   = {};
+    this.settings.bankRecon       = {};
+    this.settings.bankRates       = normalizeBankRates(null);
     this.settings.templateApplied = false;
     this.settings.logoData        = null;
     this.hydrated = false;
@@ -403,7 +437,7 @@ const DataStore = {
       const next = rename(name);
       if (!nextCats.includes(next)) nextCats.push(next);
     });
-    // A shop set up before the rental template has no category sides at all:
+    // A counter set up before the rental template has no category sides at all:
     // give it the template's categories once; its own extra categories stay.
     // template_applied keeps an owner's later "In & out everywhere" choice.
     const hasTypes = Object.keys(this.settings.categoryTypes || {}).length > 0;
@@ -491,6 +525,8 @@ const DataStore = {
     this.settings.adminCategories = map.admin_categories ?? [];
     this.settings.nonRevenueCategories = map.non_revenue_categories ?? [];
     this.settings.categoryTypes   = normalizeCategoryTypes(map.category_types);
+    this.settings.bankRecon       = normalizeBankRecon(map.bank_recon);
+    this.settings.bankRates       = normalizeBankRates(map.bank_rates);
     this.settings.templateApplied = map.template_applied === true;
     this.settings.logoData        = map.logo_data        ?? null;
 
@@ -594,6 +630,8 @@ const DataStore = {
     else if (key === 'admin_categories') this.settings.adminCategories = value;
     else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
     else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
+    else if (key === 'bank_recon')       this.settings.bankRecon       = normalizeBankRecon(value);
+    else if (key === 'bank_rates')       this.settings.bankRates       = normalizeBankRates(value);
     else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
     this._fire('settings');
@@ -619,6 +657,8 @@ const DataStore = {
     else if (key === 'admin_categories') this.settings.adminCategories = value;
     else if (key === 'non_revenue_categories') this.settings.nonRevenueCategories = value;
     else if (key === 'category_types')   this.settings.categoryTypes   = normalizeCategoryTypes(value);
+    else if (key === 'bank_recon')       this.settings.bankRecon       = normalizeBankRecon(value);
+    else if (key === 'bank_rates')       this.settings.bankRates       = normalizeBankRates(value);
     else if (key === 'template_applied') this.settings.templateApplied = value === true;
     else if (key === 'logo_data')        this.settings.logoData        = value;
     this._fire('settings');
