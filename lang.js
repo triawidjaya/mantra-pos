@@ -159,19 +159,42 @@ const STRINGS = {
 
 <h3><i class="fas fa-user-lock"></i> Login &amp; roles</h3>
 <ul>
-  <li><b>Admin</b> can manage settings, users, edit/delete transactions, delete shift history.</li>
-  <li><b>Cashier</b> can only create transactions, close shift, and export. No settings, no edit/delete.</li>
+  <li><b>Admin</b> can manage settings, users, edit/delete transactions, delete shift history, and type the bank amounts in the Bank reconciliation.</li>
+  <li><b>Cashier</b> can create and edit transactions, close the shift, and export. No settings, no delete, no bank amounts.</li>
   <li>Cashiers without a PIN can log in by just selecting their name. Admin can set PINs later via <b>Manage Users</b>.</li>
   <li>Switch user via the user button in the header (top right) → Sign Out.</li>
 </ul>
 
-<h3><i class="fas fa-play-circle"></i> Daily flow</h3>
+<h3><i class="fas fa-play-circle"></i> The month</h3>
 <ol>
-  <li><b>Start Shift:</b> enter the actual cash you start with. Saved as a START BALANCE transaction.</li>
+  <li>The counter runs <b>one shift for the whole month</b>. There is no daily open and close.</li>
+  <li><b>Start Shift</b> once, at the start of the books: enter the cash in the till. It is saved as START BALANCE.</li>
   <li><b>Add transactions</b> as they happen. Pick Income or Outgoing, fill amount + category + payment method.</li>
-  <li><b>Close Shift</b> at the end: enter actual cash &amp; card → see expected vs actual → confirm.</li>
-  <li>Shift is auto-saved to <b>history</b> (max 50 shifts kept). CSV is auto-downloaded.</li>
+  <li><b>Close Shift</b> once, at month end: enter the counted cash, card, transfer and QRIS → see expected vs actual → confirm.</li>
+  <li>The shift is saved to <b>Report</b> (the last 50 closed shifts are kept) and a CSV is downloaded.</li>
 </ol>
+
+<h3><i class="fas fa-hand-holding-usd"></i> TarikTunai &amp; PETTY-CASH</h3>
+<ul>
+  <li><b>TarikTunai</b> (guest cash-out): the guest pays on the EDC, the counter hands over cash. Enter the <b>amount given to the guest</b>, not the EDC amount. Two rows are saved: Card/QRIS in, Cash out. It is not a sale.</li>
+  <li><b>PETTY-CASH</b>: cash taken from the bank into the cashbox. Card out, Cash in. The <b>Note</b> is optional; write what it is for.</li>
+  <li>Never record cash from the bank as a plain income: the bank side would be missing.</li>
+</ul>
+
+<h3><i class="fas fa-filter"></i> Finding and correcting a transaction</h3>
+<ul>
+  <li>Tap the <b>funnel</b> icon. Fields: Search, Type, Category, Method, From date, To date.</li>
+  <li>Search and dates apply as you type or pick. <b>Reset</b> clears everything.</li>
+  <li>To correct something, filter to that day, find the row, and use its edit button.</li>
+</ul>
+
+<h3><i class="fas fa-chart-column"></i> Report</h3>
+<ul>
+  <li>The <b>chart</b> icon opens Report. Pick a period at the top (All, Today, This Week, This Month, Last Month, Custom). It applies to all tabs.</li>
+  <li><b>Summary:</b> totals by category, cash movements that are not revenue, movement by method, and a day-by-day table. Tap a category or day to open the list filtered.</li>
+  <li><b>Bank:</b> compares what the app expects to reach the bank (Card, QRIS, Transfer after fees) with what actually arrived. An admin types the amount from the bank statement for each day; the difference and the cumulative difference show if anything is missing.</li>
+  <li><b>Shifts:</b> closed shifts, with search and export.</li>
+</ul>
 
 <h3><i class="fas fa-users-cog"></i> Managing users</h3>
 <ul>
@@ -193,7 +216,7 @@ const STRINGS = {
   <li>Mantra Lombok is always connected to its cloud database. The last 50 closed shifts are kept.</li>
   <li><b>Forgot PIN?</b> On the login screen choose the person. If they have an email, we send a reset link to that address. A cashier with no email asks an admin to set the PIN.</li>
   <li>While offline, new transactions, edits, deletes, and closing the shift stay on this device and sync when the connection returns.</li>
-  <li>Open <code>history.html</code> to see closed shifts and re-export their data.</li>
+  <li>The EN/ID button switches the whole app, including dates and times.</li>
 </ul>
 `,
     addCategory:'Add Category',
@@ -447,34 +470,57 @@ const STRINGS = {
   <li>Klik <b>Selesai</b>. Anda otomatis login sebagai Admin dan layar Mulai Shift muncul.</li>
 </ol>
 
-<h3><i class="fas fa-user-lock"></i> Login &amp; role</h3>
+<h3><i class="fas fa-user-lock"></i> Login &amp; peran</h3>
 <ul>
-  <li><b>Admin</b> bisa kelola pengaturan, users, edit/hapus transaksi, hapus histori shift.</li>
-  <li><b>Kasir</b> hanya bisa buat transaksi, tutup shift, dan export. Tidak bisa pengaturan, edit/hapus.</li>
+  <li><b>Admin</b> bisa kelola pengaturan, pengguna, edit/hapus transaksi, hapus histori shift, dan mengisi jumlah rekening di Rekonsiliasi Bank.</li>
+  <li><b>Kasir</b> bisa membuat dan mengedit transaksi, tutup shift, dan ekspor. Tidak bisa pengaturan, hapus, atau mengisi jumlah rekening.</li>
   <li>Kasir tanpa PIN bisa login hanya dengan pilih nama. Admin bisa set PIN nanti via <b>Kelola Pengguna</b>.</li>
-  <li>Ganti user lewat tombol user di header (kanan atas) → Keluar.</li>
+  <li>Ganti pengguna lewat tombol pengguna di header (kanan atas) → Keluar.</li>
 </ul>
 
-<h3><i class="fas fa-play-circle"></i> Alur harian</h3>
+<h3><i class="fas fa-play-circle"></i> Satu bulan</h3>
 <ol>
-  <li><b>Mulai Shift:</b> isi jumlah cash yang ada di laci. Tersimpan sebagai transaksi START BALANCE.</li>
-  <li><b>Tambah transaksi</b> tiap kali ada penjualan. Pilih Pemasukan atau Pengeluaran, isi nominal + kategori + metode pembayaran.</li>
-  <li><b>Tutup Shift</b> di akhir hari: input cash &amp; card aktual → lihat expected vs aktual → konfirmasi.</li>
-  <li>Shift otomatis tersimpan ke <b>histori</b> (max 50 shift). CSV otomatis terdownload.</li>
+  <li>Konter menjalankan <b>satu shift untuk satu bulan penuh</b>. Tidak ada buka dan tutup shift setiap hari.</li>
+  <li><b>Mulai Shift</b> sekali, di awal pembukuan: isi jumlah cash di laci. Tersimpan sebagai START BALANCE.</li>
+  <li><b>Tambah transaksi</b> tiap kali terjadi. Pilih Pemasukan atau Pengeluaran, isi nominal + kategori + metode pembayaran.</li>
+  <li><b>Tutup Shift</b> sekali, di akhir bulan: isi hitungan cash, card, transfer dan QRIS → lihat seharusnya vs aktual → konfirmasi.</li>
+  <li>Shift tersimpan ke <b>Laporan</b> (50 shift terakhir disimpan) dan CSV otomatis terunduh.</li>
 </ol>
+
+<h3><i class="fas fa-hand-holding-usd"></i> TarikTunai &amp; PETTY-CASH</h3>
+<ul>
+  <li><b>TarikTunai</b> (tamu menarik tunai): tamu membayar di EDC, konter memberi cash. Isi <b>nominal yang diberikan ke tamu</b>, bukan nominal EDC. Dua baris tersimpan: Card/QRIS masuk, Cash keluar. Ini bukan penjualan.</li>
+  <li><b>PETTY-CASH</b>: uang diambil dari bank ke cashbox. Card keluar, Cash masuk. <b>Catatan</b> boleh diisi, tulis untuk apa.</li>
+  <li>Jangan catat uang dari bank sebagai pemasukan biasa: sisi banknya tidak tercatat.</li>
+</ul>
+
+<h3><i class="fas fa-filter"></i> Mencari dan mengoreksi transaksi</h3>
+<ul>
+  <li>Ketuk ikon <b>corong</b>. Isiannya: Cari, Jenis, Kategori, Metode, Dari tanggal, Sampai tanggal.</li>
+  <li>Pencarian dan tanggal langsung berlaku saat diketik atau dipilih. <b>Reset</b> mengosongkan semuanya.</li>
+  <li>Untuk mengoreksi, saring ke hari itu, cari barisnya, lalu pakai tombol edit.</li>
+</ul>
+
+<h3><i class="fas fa-chart-column"></i> Laporan</h3>
+<ul>
+  <li>Ikon <b>grafik</b> membuka Laporan. Pilih periode di atas (Semua, Hari Ini, Minggu Ini, Bulan Ini, Bulan Lalu, Kustom). Berlaku untuk semua tab.</li>
+  <li><b>Ringkasan:</b> total per kategori, perpindahan kas yang bukan omzet, pergerakan per metode, dan tabel harian. Ketuk kategori atau hari untuk membuka daftar yang tersaring.</li>
+  <li><b>Rekonsiliasi Bank:</b> mencocokkan uang yang seharusnya masuk ke bank (Card, QRIS, Transfer setelah potongan) dengan yang benar-benar masuk. Admin mengisi jumlah dari mutasi rekening tiap hari; selisih dan kumulatif menunjukkan kalau ada yang kurang.</li>
+  <li><b>Daftar Shift:</b> shift yang sudah tertutup, dengan pencarian dan ekspor.</li>
+</ul>
 
 <h3><i class="fas fa-users-cog"></i> Mengelola pengguna</h3>
 <ul>
   <li>Buka <b>Pengaturan</b> (ikon gear) → <b>Kelola Pengguna</b>.</li>
-  <li>Tambah user: nama + role + email + PIN opsional. Email admin wajib. Kasir boleh tanpa email.</li>
+  <li>Tambah pengguna: nama + peran + email + PIN opsional. Email admin wajib. Kasir boleh tanpa email.</li>
   <li>Ikon pena = ganti nama. Amplop = email. Ikon kunci = set/reset PIN. Tong sampah = hapus.</li>
-  <li>Tidak bisa hapus atau demote admin terakhir. Tidak bisa hapus diri sendiri.</li>
+  <li>Tidak bisa hapus atau menurunkan admin terakhir. Tidak bisa hapus diri sendiri.</li>
 </ul>
 
 <h3><i class="fas fa-tags"></i> Mengelola kategori</h3>
 <ul>
-  <li>Buka <b>Pengaturan</b> → kategori tampil sebagai card list.</li>
-  <li>Drag handle di kiri untuk reorder. Klik pena untuk ganti nama, X untuk hapus.</li>
+  <li>Buka <b>Pengaturan</b> → kategori tampil sebagai daftar kartu.</li>
+  <li>Seret pegangan di kiri untuk mengurutkan. Klik pena untuk ganti nama, X untuk hapus.</li>
   <li><b>START BALANCE</b> terkunci — diperlukan logika shift, tidak bisa dihapus.</li>
 </ul>
 
@@ -483,7 +529,7 @@ const STRINGS = {
   <li>Mantra Lombok selalu terhubung ke database cloud. 50 shift terakhir yang ditutup yang disimpan.</li>
   <li><b>Lupa PIN?</b> Di layar masuk pilih orangnya. Kalau ada email, tautan reset dikirim ke alamat itu. Kasir tanpa email minta admin untuk set PIN.</li>
   <li>Saat offline, transaksi baru, edit, hapus, dan tutup shift tetap di perangkat ini dan tersinkron saat koneksi kembali.</li>
-  <li>Buka <code>history.html</code> untuk lihat shift yang sudah tertutup dan export ulang datanya.</li>
+  <li>Tombol EN/ID mengganti seluruh aplikasi, termasuk tanggal dan jam.</li>
 </ul>
 `,
     addCategory:'Tambah Kategori',
