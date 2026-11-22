@@ -486,7 +486,8 @@ function renderSummary() {
   const lang = LangManager.current === 'id' ? 'id-ID' : 'en-US';
   const firstKey = days[0].key, lastKey = days[days.length - 1].key;
   const link = (params) => 'index.html?' + new URLSearchParams(params).toString();
-  const num = (v, cls = '') => `<td class="hs-num ${cls}">${fmt(v)}</td>`;
+  const num = (v, cls = '') => `<td class="hs-num ${v < 0 ? 'sum-neg' : ''} ${cls}">${fmt(v)}</td>`;
+  const bal = (v) => v === null ? '<td class="hs-num">—</td>' : num(v);   // ending balance, red when below zero
 
   // Per category
   const cats = new Map();
@@ -529,7 +530,7 @@ function renderSummary() {
     <tr>
       <td class="cell-nowrap"><a class="sum-link" href="${escapeHtml(link({ from: d.key, to: d.key }))}">${escapeHtml(dayLabel(d.key))}</a></td>
       <td class="hs-num">${d.txs.length}</td>${num(d.income)}${num(d.outgoing)}${num(d.income - d.outgoing)}${num(dayCommission(d))}
-      <td class="hs-num">${d.balance === null ? '—' : fmt(d.balance)}</td>
+      ${bal(d.balance)}
     </tr>`).join('');
   const totalIn = days.reduce((s, d) => s + d.income, 0);
   const totalOut = days.reduce((s, d) => s + d.outgoing, 0);
@@ -563,7 +564,7 @@ function renderSummary() {
         <th>${t('xlDate')}</th><th class="hs-num">${t('sumCount')}</th><th class="hs-num">${t('chartIncome')}</th><th class="hs-num">${t('chartOutgoing')}</th><th class="hs-num">${t('chartNet')}</th><th class="hs-num">${t('chartCommission')}</th><th class="hs-num">${t('chartEndBalance')}</th>
       </tr></thead><tbody>
         ${dayRows}
-        <tr class="sum-total"><td>${t('xlTotal')}</td><td class="hs-num">${txs.length}</td>${num(totalIn)}${num(totalOut)}${num(totalIn - totalOut)}${num(rentalCommission(days))}<td class="hs-num">${endBalance === null ? '—' : fmt(endBalance)}</td></tr>
+        <tr class="sum-total"><td>${t('xlTotal')}</td><td class="hs-num">${txs.length}</td>${num(totalIn)}${num(totalOut)}${num(totalIn - totalOut)}${num(rentalCommission(days))}${bal(endBalance)}</tr>
       </tbody></table></div>
     </div>`;
 }
@@ -720,6 +721,22 @@ function exportBankRecon() {
   showAlert(t('alertExcelOk'), 'success');
 }
 
+// Show thousand separators while typing (788939 -> 788.939), keeping the cursor where the user is typing.
+document.getElementById('bank-container').addEventListener('input', (e) => {
+  const input = e.target.closest('.bank-actual');
+  if (!input) return;
+  const raw = input.value;
+  const caret = input.selectionStart ?? raw.length;
+  const digitsBefore = raw.slice(0, caret).replace(/\D/g, '').length;
+  const neg = raw.trim().startsWith('-');
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) { input.value = neg ? '-' : ''; return; }
+  const formatted = (neg ? '-' : '') + new Intl.NumberFormat('id-ID').format(parseInt(digits, 10));
+  input.value = formatted;
+  let pos = 0, seen = 0;
+  while (pos < formatted.length && seen < digitsBefore) { if (/\d/.test(formatted[pos])) seen++; pos++; }
+  try { input.setSelectionRange(pos, pos); } catch { /* not focusable */ }
+});
 document.getElementById('bank-container').addEventListener('change', (e) => {
   const rate = e.target.closest('.bank-rate');
   if (rate) { const k = rate.dataset.rate, raw = rate.value; rate.blur(); saveBankRate(k, raw); return; }

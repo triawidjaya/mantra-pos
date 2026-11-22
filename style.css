@@ -1290,3 +1290,4 @@ th[data-kolom]:focus-visible {
 }
 .rec-rate .bank-rate:focus { border-color: var(--primary); box-shadow: var(--focus-ring); outline: none; }
 .rec-rate strong { color: var(--text-color); font-size: 0.95rem; }
+.sum-table .sum-neg { color: var(--danger); }
