@@ -574,7 +574,8 @@ function buildBankRecon() {
   const actuals = DataStore.settings.bankRecon || {};
   const rows = [];
   buildDailyCashFlow().forEach(day => {
-    // Money in is shown per method. Money taken out of the bank (PETTY-CASH) is one separate column.
+    // Settlement = Card + QRIS + Transfer taken that day; the bank pays it out the next day after the EDC settlement.
+    // Money taken out of the bank (PETTY-CASH) is a same-day debit, shown for information and kept out of the difference.
     const by = { Card: 0, Qris: 0, Transfer: 0, Out: 0 };
     let touched = false;
     day.txs.forEach(tx => {
@@ -586,7 +587,7 @@ function buildBankRecon() {
     });
     const actual = Object.prototype.hasOwnProperty.call(actuals, day.key) ? Number(actuals[day.key]) : null;
     if (!touched && actual === null) return;
-    rows.push({ key: day.key, ...by, expected: by.Card + by.Qris + by.Transfer + by.Out, actual });
+    rows.push({ key: day.key, ...by, expected: by.Card + by.Qris + by.Transfer, actual });
   });
   let cum = 0;
   rows.forEach(r => {
@@ -654,7 +655,7 @@ function renderBankRecon() {
         <td class="hs-num rec-detail">${fmtN(sum(r => r.Card))}</td><td class="hs-num rec-detail">${fmtN(sum(r => r.Qris))}</td><td class="hs-num rec-detail">${fmtN(sum(r => r.Transfer))}</td><td class="hs-num rec-detail">${fmtN(sum(r => r.Out))}</td>
         <td class="hs-num">${fmtN(totalExpected)}</td><td class="hs-num">${fmtN(totalActual)}</td><td class="hs-num"></td><td class="hs-num ${cumCls(rows[rows.length - 1].cum)}">${fmtN(rows[rows.length - 1].cum)}</td></tr>
     </tbody></table></div>
-    <p class="sum-note">${t('recUnit')} · ${t('recNeg')}</p></div>`;
+    <p class="sum-note">${t('recWithdrawn')}: ${fmtN(-sum(r => r.Out))} · ${t('recUnit')} · ${t('recNeg')}</p></div>`;
 }
 
 async function saveBankActual(day, raw) {
