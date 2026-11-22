@@ -589,7 +589,7 @@ function buildBankRecon() {
     if (!touched && actual === null) return;
     // What the bank should pay: the EDC charges the renter Card + surcharge, the bank keeps its cut of that
     // total; QRIS arrives minus the bank's cut; Transfer arrives whole. Rounded to whole rupiah.
-    const rt = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 3, qrisMdr: 1 };
+    const rt = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 };
     const expected = Math.round(by.Card * (1 + rt.cardSurcharge / 100) * (1 - rt.cardMdr / 100)
       + by.Qris * (1 - rt.qrisMdr / 100) + by.Transfer);
     rows.push({ key: day.key, ...by, expected, actual });
@@ -626,7 +626,7 @@ function renderBankRecon() {
   const totalActual = sum(r => r.actual ?? 0);
   const gap = totalExpected - totalActual;               // > 0: money still missing
   const admin = !!window._isAdmin;
-  const rates = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 3, qrisMdr: 1 };
+  const rates = DataStore.settings.bankRates || { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 };
   const diffCell = (r) => {
     if (r.diff === null) return '<td class="hs-num">—</td>';
     const cls = r.diff === 0 ? 'rec-ok' : (r.diff < 0 ? 'rec-short' : 'rec-over');

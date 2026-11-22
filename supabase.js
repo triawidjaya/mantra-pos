@@ -171,7 +171,7 @@ function normalizeBankRecon(value) {
 
 // Percentages for the bank reconciliation. cardSurcharge is what the EDC adds for the renter,
 // cardMdr and qrisMdr are what the bank keeps. Missing or invalid values fall back to the defaults.
-const BANK_RATE_DEFAULTS = { cardSurcharge: 3, cardMdr: 3, qrisMdr: 1 };
+const BANK_RATE_DEFAULTS = { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 };
 function normalizeBankRates(value) {
   const out = { ...BANK_RATE_DEFAULTS };
   if (value && typeof value === 'object') {
@@ -358,7 +358,7 @@ const DataStore = {
     nonRevenueCategories: [], // category names excluded from revenue/expense totals (transfer, receivable, opening balance)
     categoryTypes:   {},   // { name: 'INCOME' | 'OUTGOING' }; missing = usable on both sides
     bankRecon:       {},   // { 'YYYY-MM-DD': amount that reached the bank that day } for Card/QRIS/Transfer reconciliation
-    bankRates:       { cardSurcharge: 3, cardMdr: 3, qrisMdr: 1 }, // percentages used to work out what the bank should pay out
+    bankRates:       { cardSurcharge: 3, cardMdr: 1.8, qrisMdr: 0.7 }, // percentages used to work out what the bank should pay out
     logoData:        null, // base64 PNG of custom logo (cloud only); null = use static logo.png
   },
 
