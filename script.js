@@ -289,7 +289,7 @@ const Auth = {
 
 // `t()` shorthand is defined globally in lang.js (loaded before this file)
 
-class ChillPOS {
+class MantraPOS {
   constructor() {
     // Defaults — real values bind to DataStore after hydrate() in bootstrap().
     this.transactions = [];
@@ -3463,4 +3463,4 @@ class ChillPOS {
   }
 }
 
-const app = new ChillPOS();
+const app = new MantraPOS();

@@ -6,7 +6,7 @@
 
 const STRINGS = {
   en: {
-    historyShift:'Report',appTitle:'CHILL POS APP',
+    historyShift:'Report',appTitle:'MANTRA POS APP',
     newTransaction:'New Transaction',exportExcel:'Export Excel',
     hideAll:'Hide All',showAll:'Show All',closeShift:'Close Shift',
     cashBalance:'Cash',cardBalance:'Card',transferBalance:'Transfer',qrisBalance:'QRIS',otherBalance:'Other',
@@ -295,7 +295,7 @@ const STRINGS = {
     rentalShareEach:'each',
   },
   id: {
-    historyShift:'Laporan',appTitle:'CHILL POS APP',
+    historyShift:'Laporan',appTitle:'MANTRA POS APP',
     newTransaction:'Transaksi Baru',exportExcel:'Export Excel',
     hideAll:'Sembunyikan',showAll:'Tampilkan',closeShift:'Tutup Shift',
     cashBalance:'Cash',cardBalance:'Card',transferBalance:'Transfer',qrisBalance:'QRIS',otherBalance:'Lainnya',

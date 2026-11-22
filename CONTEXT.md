@@ -1,4 +1,4 @@
-# CHILL POS APP — Claude Code Context
+# MANTRA POS APP — Claude Code Context
 
 ## Overview
 The cashbook for **one shop, Mantra Lombok**. Always cloud, one Supabase project, two roles (admin and cashier). Vanilla JS, HTML, CSS — no framework, no build step.
@@ -9,10 +9,10 @@ Originally built for a hostel, then refactored as a white-label template, now ex
 
 ## File Structure
 ```
-chill-pos/
+mantra-pos/
   index.html    — Main POS page (loads supabase.min.js, supabase.js, lang.js, script.js)
   history.html  — Shift history page (same script chain, inline page logic)
-  script.js     — App logic (class ChillPOS) — bootstrap, UI, transaction CRUD
+  script.js     — App logic (class MantraPOS) — bootstrap, UI, transaction CRUD
   supabase.js   — SupabaseConfig + DataStore + Storage/AuthStorage Supabase-backed shims
   style.css     — Shared styles (light + dark theme)
   lang.js       — EN/ID language strings + LangManager
@@ -51,9 +51,9 @@ chill-pos/
 2. **`getSupabase()`** — lazy singleton client. Reset whenever config changes.
 3. **`DataStore`** — in-memory cache + realtime subscriber + per-operation CRUD.
    - **Hydration:** `await DataStore.hydrate()` fetches all 6 tables in parallel on app bootstrap.
-   - **Cache arrays are mutated in place** (`push`, `splice`, `length=0`) — never reassigned. `ChillPOS` holds shared references via `_bindDataStore()` so realtime updates reach the UI without re-fetches.
+   - **Cache arrays are mutated in place** (`push`, `splice`, `length=0`) — never reassigned. `MantraPOS` holds shared references via `_bindDataStore()` so realtime updates reach the UI without re-fetches.
    - **Translators:** `toAppX`/`toDbX` map snake_case ↔ camelCase between DB and app objects.
-   - **Realtime:** subscribes to `postgres_changes` on all 6 tables under one channel; events update the cache and fire per-entity listeners (`DataStore.on(entity, cb)`) that `ChillPOS` uses to re-render.
+   - **Realtime:** subscribes to `postgres_changes` on all 6 tables under one channel; events update the cache and fire per-entity listeners (`DataStore.on(entity, cb)`) that `MantraPOS` uses to re-render.
 
 **`Storage` & `AuthStorage` shims** (also in `supabase.js`):
 - `Storage.get(key)` is synchronous — returns from `DataStore` cache for Supabase-backed keys, from `localStorage` for UI-only keys.
@@ -61,7 +61,7 @@ chill-pos/
 - Bulk array overwrites (`Storage.set('pos_transactions', arr)`) are no-ops — callers must use `DataStore.insertTransaction` / `updateTransaction` / `deleteTransaction` / `clearTransactions` directly.
 - `AuthStorage` keeps the original `getUsers / saveUsers / getSession / saveSession / clearSession` surface; `saveUsers` diffs against the cache and dispatches to `DataStore.insertUser / updateUser / deleteUser`.
 
-**Bootstrap sequence (`ChillPOS.bootstrap()`):**
+**Bootstrap sequence (`MantraPOS.bootstrap()`):**
 1. Access gate (local) — show prompt if `pos_access_granted` is false.
 2. Supabase config check — show first-run wizard if none.
 3. `await DataStore.hydrate()` — error modal with retry / reset on failure.
@@ -160,7 +160,7 @@ t(key, arg)           // global shorthand (defined ONCE in lang.js)
 ```
 All UI strings use `data-i18n="key"` attributes. `applyLang()` loops them and sets `textContent`.
 
-### ChillPOS class (script.js)
+### MantraPOS class (script.js)
 Main app class. Key methods:
 - `renderAll()` — re-renders date, brand, dashboard, filter, table
 - `applyLang()` — updates all i18n elements + re-renders dynamic parts
@@ -267,9 +267,9 @@ Serve via any static HTTP server (the Supabase JS SDK won't run reliably from `f
 - Cross-device data lives in Supabase. Local `pos_*` keys are UI prefs only (see localStorage Keys table).
 - The `t()` shorthand is a global function defined at the bottom of `lang.js` — it must load before `script.js`. Do **not** redeclare `const t` in `script.js` (causes SyntaxError).
 - Script load order in HTML: `papaparse → xlsx → supabase.min.js → supabase.js → lang.js → script.js`. `supabase.js` declares `const Storage / AuthStorage / DataStore / SupabaseConfig` in the global lexical environment so subsequent classic scripts can reference them directly.
-- DataStore cache arrays (`transactions`, `shifts`, `categories`, `users`) are mutated in place. `ChillPOS` holds shared references — **never reassign** these on the instance; use `.length = 0; .push(...)` or DataStore CRUD instead.
+- DataStore cache arrays (`transactions`, `shifts`, `categories`, `users`) are mutated in place. `MantraPOS` holds shared references — **never reassign** these on the instance; use `.length = 0; .push(...)` or DataStore CRUD instead.
 - Indonesian variable names (jenis, kategori, deskripsi, jumlah, metode, keterangan, tanggalWaktu, staff) are kept as-is on the client; the DB uses snake_case (`tanggal_waktu`, `pin_hash`, etc.). Translators live in `supabase.js`.
 - `history.html` has its own inline `<script>` and does not load `script.js`, but it does load `supabase.js` and uses the same `DataStore`.
 - When adding new UI strings: add to both `en` and `id` blocks in `lang.js`, add `data-i18n="key"` to the element, and call `applyLang()` if needed.
-- Class is `ChillPOS` (was `KasirHostel` before white-label refactor).
+- Class is `MantraPOS` (was `KasirHostel` before white-label refactor).
 - `START BALANCE` is a required category — `mulaiShift()` depends on it. Wizard re-inserts if removed.
