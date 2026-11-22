@@ -138,7 +138,7 @@ const STRINGS = {
     // Settings UI polish
     staffViewOnly:'Staff (managed via Manage Users — view only)',
     dateRange:'Date',dateAll:'All',dateToday:'Today',dateWeek:'This Week',dateMonth:'This Month',dateLastMonth:'Last Month',dateCustom:'Custom...',
-    sumCount:'Qty',bankReasonLabel:'Note (optional)',bankReasonPh:'What is it for?',tabBank:'Bank reconciliation',recTitle:'Bank reconciliation: Card, QRIS and Transfer',recIntro:'Each row is one transaction day. Card and QRIS taken that day are paid into the bank account after the EDC settlement, usually the next day. Type the amount that arrived for that day\'s settlement (from the bank statement). If a settlement was forgotten and two days arrive together, type the total on one day: the cumulative column stays correct.',recColOut:'Taken from bank',recWithdrawn:'Taken from the bank this period (information, not in the difference)',recColApp:'Expected after fees',recRateSurcharge:'Card fee added for the renter (%)',recRateCardMdr:'Bank cut on Card (%)',recRateQris:'Bank cut on QRIS (%)',recFormula:'Expected in bank',recRatesSaved:'Rates saved',recColActual:'Received in bank',recColDiff:'Difference',recColCum:'Cumulative',recKpiApp:'Expected in bank',recKpiActual:'Entered from bank',recKpiDiff:'Still missing',recAhead:'More than expected',recMatched:'Matches',recNone:'No Card, QRIS or Transfer transactions in this period.',recAdminOnly:'Only an admin can enter the bank amounts.',recSaveFail:'Could not save the bank amount',recExport:'Download Excel',recSheet:'Bank reconciliation',recUnit:'Amounts in Rupiah',recNeg:'negative = not received yet',tabSummary:'Summary',tabShifts:'Shifts',sumCategoryTitle:'Summary by category',sumNonRevenueTitle:'Not counted as revenue',sumNonRevenueNote:'Cash movements that are not sales or costs. They change the balance but stay out of the totals above.',sumMethodTitle:'Movement by method',sumMovement:'Net movement',sumDailyTitle:'Daily summary',
+    sumCount:'Qty',bankReasonLabel:'Note (optional)',bankReasonPh:'What is it for?',menuHide:'Hide menu',menuShow:'Show menu',switchLang:'Switch language',accountTitle:'Account',themeToggle:'Toggle theme',dateFromTitle:'From',dateToTitle:'To',adminPinPh:'Admin PIN',brandPh:'e.g. Warung Pak Budi',tabBank:'Bank reconciliation',recTitle:'Bank reconciliation: Card, QRIS and Transfer',recIntro:'Each row is one transaction day. Card and QRIS taken that day are paid into the bank account after the EDC settlement, usually the next day. Type the amount that arrived for that day\'s settlement (from the bank statement). If a settlement was forgotten and two days arrive together, type the total on one day: the cumulative column stays correct.',recColOut:'Taken from bank',recWithdrawn:'Taken from the bank this period (information, not in the difference)',recColApp:'Expected after fees',recRateSurcharge:'Card fee added for the renter (%)',recRateCardMdr:'Bank cut on Card (%)',recRateQris:'Bank cut on QRIS (%)',recFormula:'Expected in bank',recRatesSaved:'Rates saved',recColActual:'Received in bank',recColDiff:'Difference',recColCum:'Cumulative',recKpiApp:'Expected in bank',recKpiActual:'Entered from bank',recKpiDiff:'Still missing',recAhead:'More than expected',recMatched:'Matches',recNone:'No Card, QRIS or Transfer transactions in this period.',recAdminOnly:'Only an admin can enter the bank amounts.',recSaveFail:'Could not save the bank amount',recExport:'Download Excel',recSheet:'Bank reconciliation',recUnit:'Amounts in Rupiah',recNeg:'negative = not received yet',tabSummary:'Summary',tabShifts:'Shifts',sumCategoryTitle:'Summary by category',sumNonRevenueTitle:'Not counted as revenue',sumNonRevenueNote:'Cash movements that are not sales or costs. They change the balance but stay out of the totals above.',sumMethodTitle:'Movement by method',sumMovement:'Net movement',sumDailyTitle:'Daily summary',
     chartTitle:'Daily cash flow',chartIncome:'Income',chartOutgoing:'Outgoing',chartNoData:'No transactions yet',
     chartNet:'Net',chartCommission:'Commission',chartAvgDay:'Avg net / day',chartEndBalance:'Ending balance',chartBalance:'Balance (end of day)',
     chartScopeAll:'All methods',chartScopeCash:'Cash only',
@@ -317,7 +317,7 @@ const STRINGS = {
     note:'Keterangan (Opsional)',cancel:'Batal',close:'Tutup',save:'Simpan',saving:'Menyimpan...',
     settings:'Pengaturan',brandName:'Nama Brand',brandLogo:'Logo Usaha',brandLogoHint:'Otomatis diubah ke PNG',
     categoriesPerLine:'Kategori',staffPerLine:'Staff',
-    resetDefault:'Reset Default',
+    resetDefault:'Kembalikan Default',
     startShift:'Mulai Shift',staffOnDuty:'Staff Bertugas',
     initialCashBalance:'Saldo Cash Awal',startShiftBtn:'Mulai Shift',
     cashHint:'Jumlah uang fisik di laci saat ini.',
@@ -343,9 +343,9 @@ const STRINGS = {
     alertNoteRequired:'Mohon berikan catatan alasan selisih sebelum menutup shift.',
     back:'Kembali',viewSummary:'Lihat Summary',confirmClose:'Tutup Shift',
     shiftSummary:'📊 Summary Penutupan Shift',method:'Metode',
-    expected:'Expected',actual:'Aktual',difference:'Selisih',
+    expected:'Seharusnya',actual:'Aktual',difference:'Selisih',
     exact:'✓ Pas',over:'(lebih)',short:'(kurang)',
-    totalExpected:'Total Expected:',
+    totalExpected:'Total Seharusnya:',
     balanceReset:'* Saldo akan direset ke 0 setelah shift ditutup',
     confirmDefault:'Apakah Anda yakin?',yes:'Ya',
     confirmResetDefault:'Reset brand & kategori ke default? Masukkan PIN admin Anda untuk konfirmasi.',resetPinWrong:'PIN admin salah. Reset dibatalkan.',
@@ -354,8 +354,8 @@ const STRINGS = {
     deletePinLabel:'PIN admin',
     deletePinWrong:'PIN admin salah. Tidak ada yang dihapus.',
     noHistoryHint:'Histori akan muncul setelah shift pertama ditutup.',
-    transactions:'transaksi',cashExpected:'Cash (Expected)',
-    cardExpected:'Card (Expected)',transferExpected:'Transfer (Expected)',qrisExpected:'QRIS (Expected)',totalSaldo:'Total Expected',
+    transactions:'transaksi',cashExpected:'Cash (Seharusnya)',
+    cardExpected:'Card (Seharusnya)',transferExpected:'Transfer (Seharusnya)',qrisExpected:'QRIS (Seharusnya)',totalSaldo:'Total Seharusnya',
     exportExcelBtn:'Export Excel',exportCsvBtn:'Export CSV',
     noTransactions:'Tidak ada transaksi',
     alertStartShiftFirst:'Mulai shift terlebih dahulu!',
@@ -402,7 +402,7 @@ const STRINGS = {
     email:'Email',
     emailHint:'Wajib untuk admin. Kasir boleh dikosongkan; PIN-nya diatur admin.',
     emailNone:'Tanpa email',
-    setEmail:'Set email',
+    setEmail:'Atur email',
     emailPrompt:'Alamat email (kosongkan untuk menghapus email kasir):',
     invalidEmail:'Masukkan alamat email yang valid.',
     adminEmailRequired:'Admin wajib punya alamat email.',
@@ -422,17 +422,17 @@ const STRINGS = {
     wrongPin:'PIN salah',userNotFound:'Pengguna tidak ditemukan',
     setupAdminTitle:'Setup Akun Admin',
     setupAdminHint:'Data yang ada terdeteksi. Pilih admin dan set PIN untuk melanjutkan.',
-    username:'Nama Pengguna',role:'Role',pin:'PIN',
+    username:'Nama Pengguna',role:'Peran',pin:'PIN',
     confirmDeleteUser:(n) => `Hapus pengguna "${n}"? Tindakan ini tidak bisa dibatalkan.`,
     userDeleted:'Pengguna dihapus',userCreated:'Pengguna ditambahkan',userUpdated:'Pengguna diperbarui',
     // Settings UI polish
     staffViewOnly:'Staff (dikelola via Manage Users — tampilan saja)',
-    dateRange:'Tanggal',dateAll:'Semua',dateToday:'Hari Ini',dateWeek:'Minggu Ini',dateMonth:'Bulan Ini',dateLastMonth:'Bulan Lalu',dateCustom:'Custom...',
-    sumCount:'Jml',bankReasonLabel:'Catatan (opsional)',bankReasonPh:'Untuk apa?',tabBank:'Rekonsiliasi Bank',recTitle:'Rekonsiliasi bank: Card, QRIS dan Transfer',recIntro:'Satu baris = satu hari transaksi. Card dan QRIS hari itu masuk ke rekening setelah settlement EDC, biasanya keesokan harinya. Isi jumlah yang masuk untuk settlement hari itu (dari mutasi rekening). Kalau settlement terlupa dan uang dua hari masuk sekaligus, isi totalnya di salah satu hari: kolom kumulatif tetap benar.',recColOut:'Ditarik dari bank',recWithdrawn:'Ditarik dari bank pada periode ini (informasi, tidak masuk selisih)',recColApp:'Seharusnya (setelah potongan)',recRateSurcharge:'Biaya kartu ditambah ke penyewa (%)',recRateCardMdr:'Potongan bank untuk Card (%)',recRateQris:'Potongan bank untuk QRIS (%)',recFormula:'Seharusnya masuk',recRatesSaved:'Tarif tersimpan',recColActual:'Masuk di rekening',recColDiff:'Selisih',recColCum:'Kumulatif',recKpiApp:'Seharusnya masuk',recKpiActual:'Diisi dari rekening',recKpiDiff:'Belum masuk',recAhead:'Lebih dari seharusnya',recMatched:'Cocok',recNone:'Tidak ada transaksi Card, QRIS atau Transfer pada periode ini.',recAdminOnly:'Hanya admin yang bisa mengisi jumlah di rekening.',recSaveFail:'Jumlah di rekening gagal disimpan',recExport:'Download Excel',recSheet:'Rekonsiliasi bank',recUnit:'Jumlah dalam Rupiah',recNeg:'negatif = belum masuk',tabSummary:'Ringkasan',tabShifts:'Daftar Shift',sumCategoryTitle:'Ringkasan per kategori',sumNonRevenueTitle:'Tidak dihitung sebagai omzet',sumNonRevenueNote:'Perpindahan kas yang bukan penjualan atau biaya. Mengubah saldo, tetapi tidak masuk total di atas.',sumMethodTitle:'Pergerakan per metode',sumMovement:'Pergerakan bersih',sumDailyTitle:'Ringkasan harian',
+    dateRange:'Tanggal',dateAll:'Semua',dateToday:'Hari Ini',dateWeek:'Minggu Ini',dateMonth:'Bulan Ini',dateLastMonth:'Bulan Lalu',dateCustom:'Kustom...',
+    sumCount:'Jml',bankReasonLabel:'Catatan (opsional)',bankReasonPh:'Untuk apa?',menuHide:'Sembunyikan menu',menuShow:'Tampilkan menu',switchLang:'Ganti bahasa',accountTitle:'Akun',themeToggle:'Ganti tema',dateFromTitle:'Dari',dateToTitle:'Sampai',adminPinPh:'PIN Admin',brandPh:'mis. Warung Pak Budi',tabBank:'Rekonsiliasi Bank',recTitle:'Rekonsiliasi bank: Card, QRIS dan Transfer',recIntro:'Satu baris = satu hari transaksi. Card dan QRIS hari itu masuk ke rekening setelah settlement EDC, biasanya keesokan harinya. Isi jumlah yang masuk untuk settlement hari itu (dari mutasi rekening). Kalau settlement terlupa dan uang dua hari masuk sekaligus, isi totalnya di salah satu hari: kolom kumulatif tetap benar.',recColOut:'Ditarik dari bank',recWithdrawn:'Ditarik dari bank pada periode ini (informasi, tidak masuk selisih)',recColApp:'Seharusnya (setelah potongan)',recRateSurcharge:'Biaya kartu ditambah ke penyewa (%)',recRateCardMdr:'Potongan bank untuk Card (%)',recRateQris:'Potongan bank untuk QRIS (%)',recFormula:'Seharusnya masuk',recRatesSaved:'Tarif tersimpan',recColActual:'Masuk di rekening',recColDiff:'Selisih',recColCum:'Kumulatif',recKpiApp:'Seharusnya masuk',recKpiActual:'Diisi dari rekening',recKpiDiff:'Belum masuk',recAhead:'Lebih dari seharusnya',recMatched:'Cocok',recNone:'Tidak ada transaksi Card, QRIS atau Transfer pada periode ini.',recAdminOnly:'Hanya admin yang bisa mengisi jumlah di rekening.',recSaveFail:'Jumlah di rekening gagal disimpan',recExport:'Download Excel',recSheet:'Rekonsiliasi bank',recUnit:'Jumlah dalam Rupiah',recNeg:'negatif = belum masuk',tabSummary:'Ringkasan',tabShifts:'Daftar Shift',sumCategoryTitle:'Ringkasan per kategori',sumNonRevenueTitle:'Tidak dihitung sebagai omzet',sumNonRevenueNote:'Perpindahan kas yang bukan penjualan atau biaya. Mengubah saldo, tetapi tidak masuk total di atas.',sumMethodTitle:'Pergerakan per metode',sumMovement:'Pergerakan bersih',sumDailyTitle:'Ringkasan harian',
     chartTitle:'Pergerakan kas harian',chartIncome:'Pemasukan',chartOutgoing:'Pengeluaran',chartNoData:'Belum ada transaksi',
     chartNet:'Net',chartCommission:'Komisi',chartAvgDay:'Rata-rata net / hari',chartEndBalance:'Saldo akhir',chartBalance:'Saldo (akhir hari)',
     chartScopeAll:'Semua metode',chartScopeCash:'Cash saja',
-    chartExport:'Download Excel',xlDaily:'Harian',xlMethodSheet:'Pergerakan metode',xlSummary:'Ringkasan',xlTransactions:'Transaksi',xlDate:'Tanggal',xlDay:'Hari',xlTxCount:'Jumlah transaksi',xlTotal:'Total',xlPeriod:'Periode',xlScope:'Metode',xlOpening:'Saldo awal',xlDays:'Jumlah hari',xlDateTime:'Tanggal/Waktu (WITA)',xlType:'Jenis',xlCategory:'Kategori',xlNonRevenue:'Non-revenue',xlYes:'Ya',xlNo:'Tidak',xlDesc:'Deskripsi',xlAmount:'Jumlah',xlMethod:'Metode',xlNote:'Catatan',xlStaff:'Staff',
+    chartExport:'Download Excel',xlDaily:'Harian',xlMethodSheet:'Pergerakan metode',xlSummary:'Ringkasan',xlTransactions:'Transaksi',xlDate:'Tanggal',xlDay:'Hari',xlTxCount:'Jumlah transaksi',xlTotal:'Total',xlPeriod:'Periode',xlScope:'Metode',xlOpening:'Saldo awal',xlDays:'Jumlah hari',xlDateTime:'Tanggal/Waktu (WITA)',xlType:'Jenis',xlCategory:'Kategori',xlNonRevenue:'Non-omzet',xlYes:'Ya',xlNo:'Tidak',xlDesc:'Deskripsi',xlAmount:'Jumlah',xlMethod:'Metode',xlNote:'Catatan',xlStaff:'Staff',
     xlNoteSummary:'Pemasukan dan pengeluaran tidak menghitung kategori non-revenue (START BALANCE, TarikTunai, PETTY-CASH, CashBon). Saldo akhir = saldo awal + net + pergerakan non-revenue.',
     chartNote:'Pemasukan dan pengeluaran tidak menghitung kategori non-revenue (START BALANCE, TarikTunai, PETTY-CASH, CashBon). Garis saldo tetap menghitungnya karena memindahkan uang. Arahkan kursor ke satu hari untuk rinciannya.',
     noResultsRange:'Tidak ada shift di rentang tanggal ini',
@@ -509,7 +509,7 @@ const STRINGS = {
     nonRevenueCategoriesLabel:'Kategori Non-Revenue',
     nonRevenueCategoriesHint:'Kategori yang dicentang tidak dihitung sebagai revenue. Pakai untuk transfer kas, cashbon karyawan, atau saldo awal.',
     revenueBreakdown:'Rincian Revenue',
-    shiftRevenue:'Revenue',
+    shiftRevenue:'Pendapatan',
     shiftOperatingExpense:'Pengeluaran Operasional',
     shiftNetRevenue:'Revenue Bersih',
     shiftNonRevenue:'Non-Revenue (Pergerakan Kas)',
@@ -556,7 +556,7 @@ const STRINGS = {
     confirmDeleteBank:'Hapus kas dari bank ini? Penurunan kartu dan kenaikan kas ikut terhapus.',
     bankFill:'Isi nominal.',
     bankNote:'Card → Kas',
-    rentalTitle:'Rental Payment',
+    rentalTitle:'Pembayaran Sewa',
     rentalEditTitle:'Edit sewa',
     rentalDayOne:'hari',
     rentalDayMany:'hari',
@@ -574,7 +574,7 @@ const STRINGS = {
     rentalMethod:'Metode',
     rentalPickMethod:'Pilih metode',
     rentalDayCount:'Jumlah hari',
-    rentalOwnerField:'Owner',
+    rentalOwnerField:'Pemilik',
     rentalOwnerReceives:'Jumlah yang diterima owner',
     rentalPlate:'Plat motor',
     rentalGuestName:'Nama tamu',
@@ -619,6 +619,13 @@ const LangManager = {
 
 // Global shorthand — works in both index.html and history.html
 const t = (key, arg) => LangManager.t(key, arg);
+
+// Dates and times follow the language chosen in the app, not the device language.
+function appLocale() { return LangManager.current === 'id' ? 'id-ID' : 'en-US'; }
+function fmtDateTime(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString(appLocale());
+}
 
 function rentalDayPhrase(days) {
   const n = Math.max(0, parseInt(days, 10) || 0);

@@ -1317,9 +1317,7 @@ class MantraPOS {
       document.body.classList.toggle('header-hidden', hidden);
       Storage.set('pos_header_hidden', hidden);
       if (hidden) setFilterOpen(false);
-      const menuLabel = hidden ? 'Show menu' : 'Hide menu';
-      toggleBtn.title = menuLabel;
-      toggleBtn.setAttribute('aria-label', menuLabel);
+      this._updateMenuLabel();
       toggleBtn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
     };
     toggleBtn.addEventListener('click', () => {
@@ -1700,6 +1698,14 @@ class MantraPOS {
     this.applyLang();
   }
 
+  _updateMenuLabel() {
+    const btn = document.getElementById('toggle-header');
+    if (!btn) return;
+    const label = t(document.body.classList.contains('header-hidden') ? 'menuShow' : 'menuHide');
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  }
+
   applyLang() {
     const lang = LangManager.current;
     // Update toggle button label — show the OTHER language to indicate what clicking will switch to
@@ -1724,6 +1730,8 @@ class MantraPOS {
       const str = t(el.dataset.i18nAria);
       if (typeof str === 'string') el.setAttribute('aria-label', str);
     });
+
+    this._updateMenuLabel();
 
     // Re-render dynamic parts that contain translated strings
     this.renderDashboard();
@@ -1907,7 +1915,7 @@ class MantraPOS {
 
   buildExcelData() {
     return this.transactions.map(t => ({
-      'Date/Time':  this.sanitizeForExcel(new Date(t.tanggalWaktu).toLocaleString()),
+      'Date/Time':  this.sanitizeForExcel(fmtDateTime(t.tanggalWaktu)),
       'Type':       this.sanitizeForExcel(t.jenis),
       'Category':   this.sanitizeForExcel(t.kategori),
       'Description':this.sanitizeForExcel(rentalDeskripsiDisplay(t)),
@@ -2120,7 +2128,7 @@ class MantraPOS {
         ? 'nonrevenue-badge'
         : (isIncome ? 'income-badge' : 'outgoing-badge');
       row.innerHTML = `
-        <td class="cell-nowrap">${this.escapeHtml(date.toLocaleString())}</td>
+        <td class="cell-nowrap">${this.escapeHtml(fmtDateTime(date))}</td>
         <td><span class="${badgeClass}">${this.escapeHtml(tx.jenis)}</span></td>
         <td>${this.escapeHtml(tx.kategori)}</td>
         <td>${this.escapeHtml(ledgerDescription(tx))}</td>
@@ -2160,7 +2168,7 @@ class MantraPOS {
       card.className = `tx-card ${isIncome ? 'income' : 'outgoing'}`;
       card.innerHTML = `
         <div class="tx-card-header">
-          <span class="tx-card-date">${this.escapeHtml(new Date(tx.tanggalWaktu).toLocaleString())}</span>
+          <span class="tx-card-date">${this.escapeHtml(fmtDateTime(tx.tanggalWaktu))}</span>
           <span class="${badgeClass}">${this.escapeHtml(tx.jenis)}</span>
         </div>
         <div class="tx-card-meta">${this.escapeHtml(tx.kategori)} &middot; ${this.escapeHtml(tx.metode)}</div>

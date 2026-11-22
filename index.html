@@ -40,7 +40,7 @@
   <div class="header-actions-wrap" id="header-actions-wrap">
     <div class="current-date" id="current-date"></div>
     <div class="header-actions">
-      <button class="btn theme-toggle" id="open-settings" title="Settings">
+      <button class="btn theme-toggle" id="open-settings" data-i18n-title="settings" data-i18n-aria="settings" title="Settings" aria-label="Settings">
         <i class="fas fa-cog"></i>
       </button>
       <button class="btn theme-toggle" id="tutup-shift" data-i18n-title="closeShift" data-i18n-aria="closeShift" title="Close Shift" aria-label="Close Shift">
@@ -55,13 +55,13 @@
       <button class="btn theme-toggle" id="btn-histori" data-i18n-title="historyTitle" title="Report">
         <i class="fas fa-chart-column"></i>
       </button>
-      <button class="btn theme-toggle" id="lang-toggle" title="Switch language">
+      <button class="btn theme-toggle" id="lang-toggle" data-i18n-title="switchLang" data-i18n-aria="switchLang" title="Switch language" aria-label="Switch language">
         <span id="lang-label">ID</span>
       </button>
       <button class="btn theme-toggle" id="theme-toggle">
         <i class="fas fa-moon"></i>
       </button>
-      <button class="btn theme-toggle" id="user-menu" title="Account" style="display:none">
+      <button class="btn theme-toggle" id="user-menu" data-i18n-title="accountTitle" data-i18n-aria="accountTitle" title="Account" aria-label="Account" style="display:none">
         <i class="fas fa-user"></i> <span id="user-label"></span>
       </button>
     </div>
@@ -71,7 +71,7 @@
   <div class="dashboard" id="dashboard"></div>
 
   <div class="action-bar">
-    <button class="btn primary" id="new-transaksi" title="New Transaction">
+    <button class="btn primary" id="new-transaksi" data-i18n-title="newTransaction" title="New Transaction">
       <i class="fas fa-plus"></i> <span data-i18n="newTransaction">New Transaction</span>
     </button>
   </div>
@@ -238,7 +238,7 @@
     <form id="first-run-form">
       <div class="form-group">
         <label for="fr-brand"><span data-i18n="brandName">Brand Name</span> <span class="req-marker">*</span></label>
-        <input type="text" id="fr-brand" maxlength="50" required placeholder="e.g. Warung Pak Budi">
+        <input type="text" id="fr-brand" maxlength="50" required data-i18n-ph="brandPh" placeholder="e.g. Warung Pak Budi">
       </div>
       <div class="form-group">
         <label for="fr-admin-name"><span data-i18n="frAdminName">Admin name</span> <span class="req-marker">*</span></label>
@@ -437,7 +437,7 @@
         <small id="ms-pin-hint" style="font-size:0.78rem;margin-top:4px;display:block;color:var(--gray)"></small>
       </div>
       <div class="form-actions" style="grid-column:span 1;display:flex;gap:8px">
-        <button type="button" class="btn" id="ms-logout" style="flex:0 0 auto" title="Logout">
+        <button type="button" class="btn" id="ms-logout" style="flex:0 0 auto" data-i18n-title="logout" title="Logout">
           <i class="fas fa-sign-out-alt"></i> <span data-i18n="logout">Sign Out</span>
         </button>
         <button type="submit" class="btn success" style="flex:1;justify-content:center">
@@ -506,7 +506,7 @@
         <div style="display:flex;gap:8px">
           <select id="f-auth-admin" style="flex:1" required></select>
           <input type="password" id="f-auth-pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6"
-                 placeholder="Admin PIN" autocomplete="off" style="flex:1" required>
+                 data-i18n-ph="adminPinPh" placeholder="Admin PIN" autocomplete="off" style="flex:1" required>
         </div>
         <small style="color:var(--gray);font-size:0.75rem;margin-top:4px;display:block" data-i18n="adminApprovalHint">
           This category requires an admin to approve. Pick an admin and enter their PIN.
@@ -645,7 +645,7 @@
   <div class="modal-content small">
     <div id="confirm-message">Are you sure?</div>
     <div id="confirm-pin-wrap" style="display:none;margin-top:12px">
-      <input type="password" id="confirm-pin" inputmode="numeric" autocomplete="off" placeholder="Admin PIN" style="width:100%">
+      <input type="password" id="confirm-pin" inputmode="numeric" autocomplete="off" data-i18n-ph="adminPinPh" placeholder="Admin PIN" style="width:100%">
     </div>
     <div class="confirm-buttons" style="margin-top:15px;display:flex;gap:10px;justify-content:flex-end">
       <button class="btn" id="confirm-cancel" data-i18n="cancel">Cancel</button>

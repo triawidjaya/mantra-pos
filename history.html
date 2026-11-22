@@ -20,10 +20,10 @@
   <div class="history-header">
     <h1><i class="fas fa-chart-column"></i> <span id="history-title">Report</span></h1>
     <div class="history-header-actions">
-      <button class="btn theme-toggle" id="lang-toggle" title="Switch language">
+      <button class="btn theme-toggle" id="lang-toggle" data-i18n-title="switchLang" data-i18n-aria="switchLang" title="Switch language" aria-label="Switch language">
         <span id="lang-label">ID</span>
       </button>
-      <button class="btn theme-toggle" id="theme-toggle" title="Toggle theme">
+      <button class="btn theme-toggle" id="theme-toggle" data-i18n-title="themeToggle" data-i18n-aria="themeToggle" title="Toggle theme" aria-label="Toggle theme">
         <i class="fas fa-moon"></i>
       </button>
       <button class="btn primary" id="btn-back">
@@ -46,9 +46,9 @@
       </div>
     </div>
     <div class="filter-group date-custom" id="date-custom-group" style="display:none">
-      <div class="date-field"><input type="date" id="date-from" title="From"></div>
+      <div class="date-field"><input type="date" id="date-from" data-i18n-title="dateFromTitle" data-i18n-aria="dateFromTitle" title="From" aria-label="From"></div>
       <span class="date-custom-sep">&ndash;</span>
-      <div class="date-field"><input type="date" id="date-to" title="To"></div>
+      <div class="date-field"><input type="date" id="date-to" data-i18n-title="dateToTitle" data-i18n-aria="dateToTitle" title="To" aria-label="To"></div>
     </div>
   </div>
 
@@ -163,6 +163,8 @@ function applyLang() {
   document.getElementById('select-all-label').textContent = t('selectAll');
   document.getElementById('delete-selected-label').textContent = t('deleteSelected');
   // Date filter labels
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
   document.getElementById('hist-date-label').textContent = t('dateRange');
   document.getElementById('report-search-label').textContent = t('search');
   document.getElementById('report-search').placeholder = t('reportSearchPlaceholder');
@@ -1208,7 +1210,7 @@ function sanitizeForExcel(value) {
 
 function exportShift(shift, format) {
   const rows = (shift.transactions || []).map(tx => ({
-    'Date/Time':   sanitizeForExcel(new Date(tx.tanggalWaktu).toLocaleString()),
+    'Date/Time':   sanitizeForExcel(fmtDateTime(tx.tanggalWaktu)),
     'Type':        sanitizeForExcel(tx.jenis),
     'Category':    sanitizeForExcel(tx.kategori),
     'Description': sanitizeForExcel(rentalDeskripsiDisplay(tx)),
