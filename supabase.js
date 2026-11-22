@@ -140,17 +140,22 @@ function parseCashoutNote(raw) {
 
 // Card settlement moved into the cash box. Not a sale and not tarik tunai.
 // Methods are fixed (Card out, Cash in), so the tag only keeps the pair id.
-function packBankNote({ id }) {
-  return `[bank:${id}]`;
+// An optional note travels in the same tag: [bank:<id>|<note>]. Rows written
+// before the note existed ([bank:<id>]) still parse.
+function packBankNote({ id, note }) {
+  const text = String(note ?? '').trim();
+  return text ? `[bank:${id}|${encodeURIComponent(text)}]` : `[bank:${id}]`;
 }
 
 function parseBankNote(raw) {
   const text = String(raw ?? '').trim();
   if (!text) return null;
   const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-  const packed = text.match(new RegExp(`^\\[bank:(${uuid})\\]$`, 'i'));
+  const packed = text.match(new RegExp(`^\\[bank:(${uuid})(?:\\|([^\\]]*))?\\]$`, 'i'));
   if (!packed) return null;
-  return { id: packed[1] };
+  let note = packed[2] || '';
+  try { note = decodeURIComponent(note); } catch { /* keep raw */ }
+  return { id: packed[1], note };
 }
 
 // ── Config storage ──

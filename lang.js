@@ -138,7 +138,7 @@ const STRINGS = {
     // Settings UI polish
     staffViewOnly:'Staff (managed via Manage Users — view only)',
     dateRange:'Date',dateAll:'All',dateToday:'Today',dateWeek:'This Week',dateMonth:'This Month',dateLastMonth:'Last Month',dateCustom:'Custom...',
-    sumCount:'Qty',tabSummary:'Summary',tabShifts:'Shifts',sumCategoryTitle:'Summary by category',sumNonRevenueTitle:'Not counted as revenue',sumNonRevenueNote:'Cash movements that are not sales or costs. They change the balance but stay out of the totals above.',sumMethodTitle:'Movement by method',sumMovement:'Net movement',sumDailyTitle:'Daily summary',
+    sumCount:'Qty',bankReasonLabel:'Note (optional)',bankReasonPh:'What is it for?',tabSummary:'Summary',tabShifts:'Shifts',sumCategoryTitle:'Summary by category',sumNonRevenueTitle:'Not counted as revenue',sumNonRevenueNote:'Cash movements that are not sales or costs. They change the balance but stay out of the totals above.',sumMethodTitle:'Movement by method',sumMovement:'Net movement',sumDailyTitle:'Daily summary',
     chartTitle:'Daily cash flow',chartIncome:'Income',chartOutgoing:'Outgoing',chartNoData:'No transactions yet',
     chartNet:'Net',chartCommission:'Commission',chartAvgDay:'Avg net / day',chartEndBalance:'Ending balance',chartBalance:'Balance (end of day)',
     chartScopeAll:'All methods',chartScopeCash:'Cash only',
@@ -428,7 +428,7 @@ const STRINGS = {
     // Settings UI polish
     staffViewOnly:'Staff (dikelola via Manage Users — tampilan saja)',
     dateRange:'Tanggal',dateAll:'Semua',dateToday:'Hari Ini',dateWeek:'Minggu Ini',dateMonth:'Bulan Ini',dateLastMonth:'Bulan Lalu',dateCustom:'Custom...',
-    sumCount:'Jml',tabSummary:'Ringkasan',tabShifts:'Daftar Shift',sumCategoryTitle:'Ringkasan per kategori',sumNonRevenueTitle:'Tidak dihitung sebagai omzet',sumNonRevenueNote:'Perpindahan kas yang bukan penjualan atau biaya. Mengubah saldo, tetapi tidak masuk total di atas.',sumMethodTitle:'Pergerakan per metode',sumMovement:'Pergerakan bersih',sumDailyTitle:'Ringkasan harian',
+    sumCount:'Jml',bankReasonLabel:'Catatan (opsional)',bankReasonPh:'Untuk apa?',tabSummary:'Ringkasan',tabShifts:'Daftar Shift',sumCategoryTitle:'Ringkasan per kategori',sumNonRevenueTitle:'Tidak dihitung sebagai omzet',sumNonRevenueNote:'Perpindahan kas yang bukan penjualan atau biaya. Mengubah saldo, tetapi tidak masuk total di atas.',sumMethodTitle:'Pergerakan per metode',sumMovement:'Pergerakan bersih',sumDailyTitle:'Ringkasan harian',
     chartTitle:'Pergerakan kas harian',chartIncome:'Pemasukan',chartOutgoing:'Pengeluaran',chartNoData:'Belum ada transaksi',
     chartNet:'Net',chartCommission:'Komisi',chartAvgDay:'Rata-rata net / hari',chartEndBalance:'Saldo akhir',chartBalance:'Saldo (akhir hari)',
     chartScopeAll:'Semua metode',chartScopeCash:'Cash saja',
@@ -643,6 +643,11 @@ function bankNoteDisplay(raw) {
   return t('bankNote');
 }
 
+function bankReason(raw) {
+  const link = typeof parseBankNote === 'function' ? parseBankNote(raw) : null;
+  return link?.note || '';
+}
+
 function cashoutReason(raw) {
   const link = typeof parseCashoutNote === 'function' ? parseCashoutNote(raw) : null;
   return link?.note || '';
@@ -651,7 +656,9 @@ function cashoutReason(raw) {
 function ledgerNote(raw) {
   const cashout = cashoutNoteDisplay(raw);
   if (cashout) return [cashout, cashoutReason(raw)].filter(Boolean).join(' · ');
-  return bankNoteDisplay(raw) || rentalNoteDisplay(raw);
+  const bank = bankNoteDisplay(raw);
+  if (bank) return [bank, bankReason(raw)].filter(Boolean).join(' · ');
+  return rentalNoteDisplay(raw);
 }
 
 function rentalDeskripsiDisplay(tx) {
@@ -676,7 +683,7 @@ function ledgerDescription(tx) {
 function ledgerNoteShort(tx) {
   const raw = tx?.keterangan;
   if (cashoutNoteDisplay(raw)) return cashoutReason(raw);
-  if (bankNoteDisplay(raw)) return '';
+  if (bankNoteDisplay(raw)) return bankReason(raw);
   const link = typeof parseRentalNote === 'function' ? parseRentalNote(raw) : null;
   if (link) {
     return [

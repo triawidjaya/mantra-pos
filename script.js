@@ -2987,8 +2987,10 @@ class MantraPOS {
         ? Math.abs(pair.income.jumlah)
         : Math.abs(existingTx.jumlah || 0);
       this._setMoneyInput(amountEl, amount);
+      document.getElementById('bank-note').value = parseBankNote(existingTx.keterangan)?.note || '';
     } else {
       this._setMoneyInput(amountEl, 0);
+      document.getElementById('bank-note').value = '';
     }
     this._renderFixedFlows();
     document.getElementById('bank-modal').style.display = 'flex';
@@ -3015,7 +3017,7 @@ class MantraPOS {
 
     const editing = this._bankEdit;
     const bankId = editing?.id || crypto.randomUUID();
-    const keterangan = packBankNote({ id: bankId });
+    const keterangan = packBankNote({ id: bankId, note: document.getElementById('bank-note').value });
     const deskripsi = BANK_CATEGORY;
     const tanggalWaktu = new Date().toISOString();
     const incomeBase = editing?.income || null;
