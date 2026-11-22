@@ -41,6 +41,7 @@
         <button type="button" class="btn small date-preset" data-preset="today">Today</button>
         <button type="button" class="btn small date-preset" data-preset="week">This Week</button>
         <button type="button" class="btn small date-preset active" data-preset="month">This Month</button>
+        <button type="button" class="btn small date-preset" data-preset="lastmonth">Last Month</button>
         <button type="button" class="btn small date-preset" data-preset="custom">Custom...</button>
       </div>
     </div>
@@ -51,9 +52,18 @@
     </div>
   </div>
 
+  <div class="report-tabs" role="tablist">
+    <button type="button" class="report-tab active" id="tab-btn-summary" role="tab" aria-selected="true" aria-controls="tab-summary" data-tab="summary">Summary</button>
+    <button type="button" class="report-tab" id="tab-btn-shifts" role="tab" aria-selected="false" aria-controls="tab-shifts" data-tab="shifts">Shifts</button>
+  </div>
+
+  <div id="tab-summary" role="tabpanel" aria-labelledby="tab-btn-summary">
   <!-- Daily cash flow summary -->
   <div class="chart-container" id="chart-container"></div>
+  <div id="summary-container"></div>
+  </div>
 
+  <div id="tab-shifts" role="tabpanel" aria-labelledby="tab-btn-shifts" hidden>
   <!-- Non-admin toolbar hiding is deferred to async init below (post-auth). -->
   <div class="history-toolbar" id="history-toolbar">
     <label class="select-all-wrap">
@@ -72,6 +82,7 @@
 
   <div class="shift-list" id="shift-list"></div>
   <div id="report-pager" class="list-pager" hidden></div>
+  </div>
 
 </div>
 <div id="alert-container"></div>
@@ -150,7 +161,9 @@ function applyLang() {
   document.getElementById('hist-date-label').textContent = t('dateRange');
   document.getElementById('report-search-label').textContent = t('search');
   document.getElementById('report-search').placeholder = t('reportSearchPlaceholder');
-  const presetMap = { all: 'dateAll', today: 'dateToday', week: 'dateWeek', month: 'dateMonth', custom: 'dateCustom' };
+  document.getElementById('tab-btn-summary').textContent = t('tabSummary');
+  document.getElementById('tab-btn-shifts').textContent = t('tabShifts');
+  const presetMap = { all: 'dateAll', today: 'dateToday', week: 'dateWeek', month: 'dateMonth', lastmonth: 'dateLastMonth', custom: 'dateCustom' };
   document.querySelectorAll('.date-preset').forEach(b => {
     b.textContent = t(presetMap[b.dataset.preset]);
   });
@@ -207,6 +220,11 @@ function dateBounds() {
   if (preset === 'month') {
     const d = new Date(now.getFullYear(), now.getMonth(), 1);
     return [startOfDay(d), endOfDay(now)];
+  }
+  if (preset === 'lastmonth') {
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last  = new Date(now.getFullYear(), now.getMonth(), 0);
+    return [startOfDay(first), endOfDay(last)];
   }
   if (preset === 'custom' && from && to) {
     return [startOfDay(new Date(from)), endOfDay(new Date(to))];
@@ -449,7 +467,101 @@ function exportDailyCashFlow() {
   showAlert(t('alertExcelOk'), 'success');
 }
 
+// ── Summary tab: per-category, per-method and per-day tables for the chosen period ──
+function renderSummary() {
+  const el = document.getElementById('summary-container');
+  if (!el) return;
+  const days = buildDailyCashFlow();
+  const txs = days.flatMap(d => d.txs);
+  if (!txs.length) { el.innerHTML = ''; return; }
+
+  const lang = LangManager.current === 'id' ? 'id-ID' : 'en-US';
+  const firstKey = days[0].key, lastKey = days[days.length - 1].key;
+  const link = (params) => 'index.html?' + new URLSearchParams(params).toString();
+  const num = (v, cls = '') => `<td class="hs-num ${cls}">${fmt(v)}</td>`;
+
+  // Per category
+  const cats = new Map();
+  txs.forEach(tx => {
+    const key = tx.kategori || '—';
+    if (!cats.has(key)) cats.set(key, { name: key, count: 0, inn: 0, out: 0, nonRev: isNonRevenueCategory(tx.kategori) });
+    const c = cats.get(key);
+    const amount = Number(tx.jumlah) || 0;
+    c.count++;
+    if (tx.jenis === 'INCOME') c.inn += amount; else c.out += Math.abs(amount);
+  });
+  const sortCats = (list) => list.sort((a, b) => (b.inn + b.out) - (a.inn + a.out));
+  const revCats = sortCats([...cats.values()].filter(c => !c.nonRev));
+  const nonRevCats = sortCats([...cats.values()].filter(c => c.nonRev));
+  const sumRows = (list) => list.reduce((s, c) => ({ count: s.count + c.count, inn: s.inn + c.inn, out: s.out + c.out }), { count: 0, inn: 0, out: 0 });
+  const catRow = (c) => `
+    <tr>
+      <td><a class="sum-link" href="${escapeHtml(link({ category: c.name, from: firstKey, to: lastKey }))}">${escapeHtml(c.name)}</a></td>
+      <td class="hs-num">${c.count}</td>${num(c.inn)}${num(c.out)}${num(c.inn - c.out)}
+    </tr>`;
+  const catTotal = (list) => { const s = sumRows(list); return `
+    <tr class="sum-total"><td>${t('xlTotal')}</td><td class="hs-num">${s.count}</td>${num(s.inn)}${num(s.out)}${num(s.inn - s.out)}</tr>`; };
+  const catHead = `<thead><tr><th>${t('filterCategory')}</th><th class="hs-num">${t('sumCount')}</th><th class="hs-num">${t('chartIncome')}</th><th class="hs-num">${t('chartOutgoing')}</th><th class="hs-num">${t('chartNet')}</th></tr></thead>`;
+
+  // Per method (net movement, includes non-revenue rows so it matches the cash actually held)
+  const METHODS = ['Cash', 'Card', 'Transfer', 'Qris'];
+  const canon = (m) => METHODS.find(x => x.toLowerCase() === String(m || '').trim().toLowerCase()) || String(m || '—').trim() || '—';
+  const byMethod = {};
+  txs.forEach(tx => { const k = canon(tx.metode); byMethod[k] = (byMethod[k] || 0) + (Number(tx.jumlah) || 0); });
+  const methodKeys = [...METHODS, ...Object.keys(byMethod).filter(k => !METHODS.includes(k))].filter(k => byMethod[k] !== undefined);
+  const methodTotal = methodKeys.reduce((s, k) => s + byMethod[k], 0);
+
+  // Per day
+  const dayLabel = (key) => {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(lang, { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+  };
+  const activeDays = days.filter(d => d.txs.length);
+  const dayRows = activeDays.map(d => `
+    <tr>
+      <td class="cell-nowrap"><a class="sum-link" href="${escapeHtml(link({ from: d.key, to: d.key }))}">${escapeHtml(dayLabel(d.key))}</a></td>
+      <td class="hs-num">${d.txs.length}</td>${num(d.income)}${num(d.outgoing)}${num(d.income - d.outgoing)}${num(dayCommission(d))}
+      <td class="hs-num">${d.balance === null ? '—' : fmt(d.balance)}</td>
+    </tr>`).join('');
+  const totalIn = days.reduce((s, d) => s + d.income, 0);
+  const totalOut = days.reduce((s, d) => s + d.outgoing, 0);
+  const endBalance = days[days.length - 1].balance;
+
+  el.innerHTML = `
+    <div class="sum-section">
+      <h3>${t('sumCategoryTitle')}</h3>
+      <div class="sum-table-wrap"><table class="sum-table">${catHead}<tbody>
+        ${revCats.map(catRow).join('')}${catTotal(revCats)}
+      </tbody></table></div>
+    </div>
+    ${nonRevCats.length ? `
+    <div class="sum-section">
+      <h3>${t('sumNonRevenueTitle')}</h3>
+      <p class="sum-note">${t('sumNonRevenueNote')}</p>
+      <div class="sum-table-wrap"><table class="sum-table">${catHead}<tbody>
+        ${nonRevCats.map(catRow).join('')}${catTotal(nonRevCats)}
+      </tbody></table></div>
+    </div>` : ''}
+    <div class="sum-section">
+      <h3>${t('sumMethodTitle')}</h3>
+      <div class="sum-table-wrap"><table class="sum-table"><thead><tr><th>${t('method')}</th><th class="hs-num">${t('sumMovement')}</th></tr></thead><tbody>
+        ${methodKeys.map(k => `<tr><td>${escapeHtml(k)}</td>${num(byMethod[k])}</tr>`).join('')}
+        <tr class="sum-total"><td>${t('xlTotal')}</td>${num(methodTotal)}</tr>
+      </tbody></table></div>
+    </div>
+    <div class="sum-section">
+      <h3>${t('sumDailyTitle')}</h3>
+      <div class="sum-table-wrap"><table class="sum-table"><thead><tr>
+        <th>${t('xlDate')}</th><th class="hs-num">${t('sumCount')}</th><th class="hs-num">${t('chartIncome')}</th><th class="hs-num">${t('chartOutgoing')}</th><th class="hs-num">${t('chartNet')}</th><th class="hs-num">${t('chartCommission')}</th><th class="hs-num">${t('chartEndBalance')}</th>
+      </tr></thead><tbody>
+        ${dayRows}
+        <tr class="sum-total"><td>${t('xlTotal')}</td><td class="hs-num">${txs.length}</td>${num(totalIn)}${num(totalOut)}${num(totalIn - totalOut)}${num(rentalCommission(days))}<td class="hs-num">${endBalance === null ? '—' : fmt(endBalance)}</td></tr>
+      </tbody></table></div>
+    </div>`;
+}
+
 function renderChart() {
+  renderSummary();
   const c = document.getElementById('chart-container');
   if (!c) return;
   const days = buildDailyCashFlow();
@@ -952,6 +1064,21 @@ function exportShift(shift, format) {
     link.click();
   }
 }
+
+// ── Tabs ──
+function setTab(tab) {
+  document.querySelectorAll('.report-tab').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.getElementById('tab-summary').hidden = tab !== 'summary';
+  document.getElementById('tab-shifts').hidden = tab !== 'shifts';
+  if (tab === 'summary') renderChart(); // chart width needs a visible container
+}
+document.querySelectorAll('.report-tab').forEach(btn => {
+  btn.addEventListener('click', () => setTab(btn.dataset.tab));
+});
 
 // ── Date filter wiring ──
 function setDatePreset(preset) {

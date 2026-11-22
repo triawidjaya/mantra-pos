@@ -137,7 +137,8 @@ const STRINGS = {
     userDeleted:'User deleted',userCreated:'User created',userUpdated:'User updated',
     // Settings UI polish
     staffViewOnly:'Staff (managed via Manage Users — view only)',
-    dateRange:'Date',dateAll:'All',dateToday:'Today',dateWeek:'This Week',dateMonth:'This Month',dateCustom:'Custom...',
+    dateRange:'Date',dateAll:'All',dateToday:'Today',dateWeek:'This Week',dateMonth:'This Month',dateLastMonth:'Last Month',dateCustom:'Custom...',
+    sumCount:'Qty',tabSummary:'Summary',tabShifts:'Shifts',sumCategoryTitle:'Summary by category',sumNonRevenueTitle:'Not counted as revenue',sumNonRevenueNote:'Cash movements that are not sales or costs. They change the balance but stay out of the totals above.',sumMethodTitle:'Movement by method',sumMovement:'Net movement',sumDailyTitle:'Daily summary',
     chartTitle:'Daily cash flow',chartIncome:'Income',chartOutgoing:'Outgoing',chartNoData:'No transactions yet',
     chartNet:'Net',chartCommission:'Commission',chartAvgDay:'Avg net / day',chartEndBalance:'Ending balance',chartBalance:'Balance (end of day)',
     chartScopeAll:'All methods',chartScopeCash:'Cash only',
@@ -426,7 +427,8 @@ const STRINGS = {
     userDeleted:'Pengguna dihapus',userCreated:'Pengguna ditambahkan',userUpdated:'Pengguna diperbarui',
     // Settings UI polish
     staffViewOnly:'Staff (dikelola via Manage Users — tampilan saja)',
-    dateRange:'Tanggal',dateAll:'Semua',dateToday:'Hari Ini',dateWeek:'Minggu Ini',dateMonth:'Bulan Ini',dateCustom:'Custom...',
+    dateRange:'Tanggal',dateAll:'Semua',dateToday:'Hari Ini',dateWeek:'Minggu Ini',dateMonth:'Bulan Ini',dateLastMonth:'Bulan Lalu',dateCustom:'Custom...',
+    sumCount:'Jml',tabSummary:'Ringkasan',tabShifts:'Daftar Shift',sumCategoryTitle:'Ringkasan per kategori',sumNonRevenueTitle:'Tidak dihitung sebagai omzet',sumNonRevenueNote:'Perpindahan kas yang bukan penjualan atau biaya. Mengubah saldo, tetapi tidak masuk total di atas.',sumMethodTitle:'Pergerakan per metode',sumMovement:'Pergerakan bersih',sumDailyTitle:'Ringkasan harian',
     chartTitle:'Pergerakan kas harian',chartIncome:'Pemasukan',chartOutgoing:'Pengeluaran',chartNoData:'Belum ada transaksi',
     chartNet:'Net',chartCommission:'Komisi',chartAvgDay:'Rata-rata net / hari',chartEndBalance:'Saldo akhir',chartBalance:'Saldo (akhir hari)',
     chartScopeAll:'Semua metode',chartScopeCash:'Cash saja',

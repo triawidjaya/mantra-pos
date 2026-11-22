@@ -348,12 +348,36 @@ class MantraPOS {
     this._registerRealtimeListeners();
     // Paint the loaded shop before Auth runs. A reset-link session must not
     // block the rows that were just read.
+    this._applyFilterFromUrl();
     this.renderAll();
     let pinReset = false;
     try { pinReset = await this._preparePinResetFromEmail(); }
     catch (e) { console.error('[Auth] PIN reset link failed:', e); }
     if (pinReset) return;
     await this.bootstrapAuth();
+  }
+
+  // Report "Summary" links here with ?category=...&from=YYYY-MM-DD&to=YYYY-MM-DD
+  // so a figure can be checked against the rows behind it.
+  _applyFilterFromUrl() {
+    let params;
+    try { params = new URLSearchParams(window.location.search); } catch { return; }
+    const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
+    const category = params.get('category') || '';
+    const from = isDay(params.get('from')) ? params.get('from') : '';
+    const to = isDay(params.get('to')) ? params.get('to') : '';
+    if (!category && !from && !to) return;
+    this.filterState.category = category;
+    this.filterState.dateFrom = from;
+    this.filterState.dateTo = to;
+    this.populateCategoryFilter();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('filter-category', category);
+    set('filter-date-from', from);
+    set('filter-date-to', to);
+    const panel = document.getElementById('filter-panel');
+    if (panel && panel.style.display === 'none') document.getElementById('toggle-filter')?.click();
+    try { window.history.replaceState(null, '', window.location.pathname); } catch { /* ignore */ }
   }
 
   // One-time wiring: OfflineQueue + browser online/offline events both
