@@ -3289,7 +3289,7 @@ class MantraPOS {
     const appTotal = ['Cash', 'Card', 'Transfer', 'Qris'].reduce((sum, m) => sum + this.calculateSaldo(m, list), 0);
 
     const fmtSelisih = (val) => {
-      if (val === null) return `<span class="ts-diff-wait">${t('closeWaitingBank')}</span>`;
+      if (val === null) return '<span class="ts-diff-wait">—</span>';   // the row label already says "waiting"
       if (val === 0) return `<span class="ts-diff-exact">${t('exact')}</span>`;
       const sign  = val > 0 ? '+' : '';
       const cls   = val > 0 ? 'ts-diff-over' : 'ts-diff-short';
