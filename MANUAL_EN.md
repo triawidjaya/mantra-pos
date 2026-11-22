@@ -27,11 +27,21 @@ Scooter-rental categories are created for you. Add other staff later in Manage U
 2. **Record** income and outgoing as they happen. Rental, TarikTunai, and PETTY-CASH each have their own button and write the paired rows together.
 3. **Close shift.** Enter the counted cash, card, transfer, and QRIS. If a count does not match, a note is required. Confirming close saves the shift and clears the open list.
 
+The counter runs **one shift for the whole month**, from the start of the books to the end of the month (28, 29, 30 or 31 days). There is no daily open and close. Close the shift once, at month end.
+
 The screen and the database stay on the same answer about whether the shift is open. If the connection drops during close, the shift stays closed on this screen and the close is sent again when the connection returns.
+
+## TarikTunai and PETTY-CASH
+
+**TarikTunai (guest cash-out).** The guest pays on the EDC (amount + 3% for Card) and the counter hands over cash from the cashbox. Enter the **amount handed to the guest**, not the amount on the EDC. The app writes two rows: Card (or QRIS) in and Cash out. It is not a sale. The money reaches the bank the next day.
+
+**PETTY-CASH (cash from the bank).** Use it when cash is taken from the bank into the cashbox. The app writes Card out and Cash in together. The **Note** is optional; write what the cash is for. Do not record this as a plain income: the bank side would be missing and the bank balance would be wrong.
 
 ## Transactions on the open shift
 
-Filter by type, category, and method. The search box matches description, category, staff, method, and note (including guest name and plate on a rental). The list shows **25 rows per page**.
+Open the filter with the funnel icon. Fields, in order: **Search**, Type, Category, Method, From date, To date. The search box matches description, category, staff, method, and note (including guest name and plate on a rental). Search and dates apply as you type or pick. Use **Reset** to clear everything. The list shows **25 rows per page**.
+
+Dates use the day shown in the table. To correct something, filter to that day, find the row, and use its edit button.
 
 ## Users and PIN
 
@@ -45,7 +55,28 @@ Admins must have an email. Cashiers can have an email; if they do not, an admin 
 
 ## Report
 
-The history icon opens Report. It shows the **last 50 closed shifts**. Older shifts are dropped. Filter by date, search by staff, note, plate, or description, and move through **10 shifts per page**. The chart follows the date range. Admins delete a shift only after entering their PIN.
+The chart icon opens Report. Pick a period at the top (All, Today, This Week, This Month, **Last Month**, or Custom). It applies to all three tabs.
+
+**Summary** (opens first)
+- The daily chart with income, outgoing, commission and ending balance. Download Excel is here.
+- **Summary by category:** number of transactions, income, outgoing and net for each category.
+- **Not counted as revenue:** START BALANCE, TarikTunai and PETTY-CASH. They move cash but are not sales or costs.
+- **Movement by method** and a **daily summary** with totals.
+- Tap a category or a day to open the main list already filtered to it.
+
+**Bank** (reconciliation of Card, QRIS and Transfer)
+- Card, QRIS and Transfer are paid into the bank after the EDC settlement, usually **the next day**. Each row is one **transaction day**.
+- **Expected after fees** is what the bank should pay for that day: Card + 3% fee charged to the renter, minus the bank's cut (1.8%); QRIS minus the bank's cut (0.7%); Transfer as is. The rates are shown above the table and an admin can change them.
+- An **admin** types **Received in bank** for each day, from the bank statement. The row shows the **Difference**, with a green tick when it matches.
+- If a settlement was forgotten and two days arrive together, type the total on one of the days. The **Cumulative** column stays correct. Negative means money has not arrived yet.
+- **Taken from bank** (PETTY-CASH) is shown for information. It is a same-day withdrawal and is not part of the difference.
+
+**Shifts**
+- The **last 50 closed shifts**. Older shifts are dropped. Search by staff, note, plate, or description, and move through **10 shifts per page**. Admins delete a shift only after entering their PIN.
+
+## Language and dates
+
+The EN/ID button switches the whole app, including dates and times in the lists and in Excel exports.
 
 ## Offline
 
@@ -53,4 +84,4 @@ While the browser is offline, a new transaction, an edit, a delete, and a shift 
 
 ## Export
 
-Export Excel on the open shift, or export one closed shift from Report. Closing a shift also downloads a CSV of that shift.
+Export Excel on the open shift, export one closed shift from Report, or download the Summary and Bank tables from their tabs. Closing a shift also downloads a CSV of that shift.
