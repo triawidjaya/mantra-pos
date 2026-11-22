@@ -80,7 +80,7 @@ Tombol EN/ID mengganti seluruh aplikasi, termasuk tanggal dan jam di daftar dan 
 
 ## Offline
 
-Saat browser offline, transaksi baru, edit, hapus, dan tutup shift disimpan di perangkat ini dan dikirim saat koneksi kembali. Spanduk menunjukkan berapa perubahan yang menunggu.
+Saat browser offline, transaksi baru, edit, hapus, dan tutup shift disimpan di perangkat ini dan dikirim saat koneksi kembali. Spanduk menunjukkan berapa perubahan yang menunggu. Di samping nama konter ada label koneksi: hijau **Online**, merah **Offline** (dengan jumlah yang menunggu), kuning **Menyinkronkan** saat perubahan dikirim, kuning **Menyambung ulang** saat internet ada tetapi koneksi langsung ke database belum. Di HP hanya titik berwarnanya yang tampil.
 
 ## Ekspor
 

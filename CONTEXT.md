@@ -268,7 +268,7 @@ Type, Category, Search (first field), Method, From date, To date. Dates compare 
 - [x] Offline queue for new transactions, edits, deletes, and shift close
 - [x] PIN reset by Supabase Auth email to that user's own address. The browser access code is unchanged and is not a PIN reset.
 - [x] Text search and pagination on the open shift (25 rows) and on Report (10 shifts). History stays capped at 50 shifts.
-- [ ] Connection status indicator in header (online / offline / reconnecting)
+- [x] Connection status indicator in header: `#conn-status` pill next to the brand. `DataStore.realtimeStatus` (null → 'connecting' → Supabase channel status) fires a 'connection' event; `_renderConnStatus()` combines it with the OfflineQueue state (online, size, blocked). Order: sync stuck > offline > syncing > online (SUBSCRIBED) > connecting/reconnecting. Phone shows the dot only.
 - [ ] Chart: Income vs Outgoing bar chart on dashboard (Chart.js — would need to be vendored)
 - [x] Date range filter (main page and Report)
 - [ ] Soft delete (flag deleted:true, restore option)

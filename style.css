@@ -1309,3 +1309,15 @@ th[data-kolom]:focus-visible {
 .ts-badge i { font-size: 0.7rem; }
 .ts-badge.short { background: var(--danger-100); color: var(--danger-700); }
 .ts-badge.over  { background: var(--warning-100, rgba(250, 176, 5, 0.15)); color: var(--warning-700); }
+/* ── Connection status pill (header) ── */
+.conn-status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0; line-height: 1.4; white-space: nowrap; vertical-align: middle; border: 1px solid transparent; }
+.conn-status[hidden] { display: none; }
+.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.conn-status.is-online  { background: var(--success-100); color: var(--success-700); }
+.conn-status.is-offline { background: var(--danger-100);  color: var(--danger-700); }
+.conn-status.is-error   { background: var(--danger-100);  color: var(--danger-700); border-color: currentColor; }
+.conn-status.is-sync, .conn-status.is-wait { background: var(--warning-100); color: var(--warning-700); }
+.conn-status.is-sync .conn-dot, .conn-status.is-wait .conn-dot { animation: conn-pulse 1.2s ease-in-out infinite; }
+@keyframes conn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .conn-status .conn-dot { animation: none; } }
+@media (max-width: 600px) { .conn-status { padding: 5px; } .conn-status .conn-label { display: none; } }
