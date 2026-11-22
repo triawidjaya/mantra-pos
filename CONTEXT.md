@@ -223,7 +223,6 @@ Three tabs share one date range (This Month is the default, Last Month is a pres
 - **Summary:** KPI cards and daily chart, then tables by category, non-revenue categories, method movement and a daily table. Category and day links open `index.html?category=..&from=YYYY-MM-DD&to=YYYY-MM-DD` already filtered (only the open shift lives on the main page).
 - **Bank (reconciliation):** one row per transaction day with Card, QRIS, Transfer, money taken from the bank (information only) and the **expected payout**:
   `Card x (1 + surcharge) x (1 - cardMdr) + QRIS x (1 - qrisMdr) + Transfer`, rounded to whole rupiah. Defaults 3 / 1.8 / 0.7 percent, checked to the rupiah against the bank on 8, 9, 12 and 18 Nov 2026. An admin types the amount that really arrived for that day's settlement; the difference and a **cumulative** difference are shown (cumulative stays right when settlements arrive late or together).
-- **Banking days:** the bank is closed Saturday and Sunday, so a settlement from Friday, Saturday or Sunday is paid on Monday (Mon-Thu pay the next day). Each row shows the expected arrival; an unfilled row whose arrival day is not over yet is "waiting" and counts in the Waiting KPI instead of as missing money. Public holidays are not known to the app.
 - Storage, no schema change, both in `pos_settings` (key/value): `bank_recon` = `{ 'YYYY-MM-DD': amount }`, `bank_rates` = `{ cardSurcharge, cardMdr, qrisMdr }`. Only an admin can edit them.
 - **Shifts:** the old closed-shift list (50 shift cap unchanged).
 

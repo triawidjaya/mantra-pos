@@ -66,8 +66,7 @@ The chart icon opens Report. Pick a period at the top (All, Today, This Week, Th
 
 **Bank** (reconciliation of Card, QRIS and Transfer)
 - Card, QRIS and Transfer are paid into the bank after the EDC settlement, usually **the next day**. Each row is one **transaction day**.
-- **Expected** is what the bank should pay for that day: Card + 3% fee charged to the renter, minus the bank's cut (1.8%); QRIS minus the bank's cut (0.7%); Transfer as is. The rates are shown above the table and an admin can change them.
-- **Expected arrival** is the next banking day. The bank is closed on Saturday and Sunday, so Friday, Saturday and Sunday are paid together on Monday. Until that day the row shows **waiting** and counts under *Waiting (not due yet)*, not as missing money. Public holidays are not counted.
+- **Expected after fees** is what the bank should pay for that day: Card + 3% fee charged to the renter, minus the bank's cut (1.8%); QRIS minus the bank's cut (0.7%); Transfer as is. The rates are shown above the table and an admin can change them.
 - An **admin** types **Received in bank** for each day, from the bank statement. The row shows the **Difference**, with a green tick when it matches.
 - If a settlement was forgotten and two days arrive together, type the total on one of the days. The **Cumulative** column stays correct. Negative means money has not arrived yet.
 - **Taken from bank** (PETTY-CASH) is shown for information. It is a same-day withdrawal and is not part of the difference.

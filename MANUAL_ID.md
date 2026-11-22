@@ -66,8 +66,7 @@ Ikon grafik membuka Laporan. Pilih periode di bagian atas (Semua, Hari Ini, Ming
 
 **Rekonsiliasi Bank** (mencocokkan Card, QRIS dan Transfer)
 - Card, QRIS dan Transfer masuk ke bank setelah settlement EDC, biasanya **keesokan harinya**. Satu baris = satu **hari transaksi**.
-- **Seharusnya** adalah uang yang seharusnya dibayar bank untuk hari itu: Card + biaya 3% yang ditagih ke penyewa, dikurangi potongan bank (1,8%); QRIS dikurangi potongan bank (0,7%); Transfer apa adanya. Tarifnya tampil di atas tabel dan bisa diubah admin.
-- **Perkiraan masuk** adalah hari kerja bank berikutnya. Bank tutup Sabtu dan Minggu, jadi settlement Jumat, Sabtu dan Minggu masuk bersama pada hari Senin. Sampai hari itu baris tampil **menunggu** dan dihitung di *Menunggu (belum waktunya)*, bukan sebagai uang yang hilang. Hari libur nasional tidak dihitung.
+- **Seharusnya (setelah potongan)** adalah uang yang seharusnya dibayar bank untuk hari itu: Card + biaya 3% yang ditagih ke penyewa, dikurangi potongan bank (1,8%); QRIS dikurangi potongan bank (0,7%); Transfer apa adanya. Tarifnya tampil di atas tabel dan bisa diubah admin.
 - **Admin** mengisi **Masuk di rekening** tiap hari dari mutasi rekening. Baris menampilkan **Selisih**, dengan tanda centang hijau kalau cocok.
 - Kalau settlement terlupa dan uang dua hari masuk sekaligus, isi totalnya di salah satu hari. Kolom **Kumulatif** tetap benar. Negatif berarti uang belum masuk.
 - **Ditarik dari bank** (PETTY-CASH) hanya sebagai informasi. Itu penarikan di hari yang sama dan tidak masuk selisih.
