@@ -183,6 +183,39 @@ function normalizeBankRates(value) {
   return out;
 }
 
+// What the bank should pay for a set of transactions, and which days already have an amount typed in
+// Report > Bank. Card + surcharge less the bank's cut, QRIS less its cut, Transfer as is, per WITA day.
+const BANK_WITA_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit' });
+function summariseBank(txs, recon, rates) {
+  const rt = rates || BANK_RATE_DEFAULTS;
+  const byDay = new Map();
+  (txs || []).forEach(tx => {
+    const m = String(tx.metode || '').trim().toLowerCase();
+    const key = m === 'card' ? 'Card' : m === 'qris' ? 'Qris' : m === 'transfer' ? 'Transfer' : null;
+    const amount = Number(tx.jumlah) || 0;
+    const ms = new Date(tx.tanggalWaktu).getTime();
+    if (!key || amount <= 0 || !Number.isFinite(ms)) return;
+    const day = BANK_WITA_DAY.format(new Date(ms));
+    const o = byDay.get(day) || { Card: 0, Qris: 0, Transfer: 0 };
+    o[key] += amount;
+    byDay.set(day, o);
+  });
+  const out = { days: 0, expected: 0, filledDays: 0, filledExpected: 0, received: 0, pendingDays: 0, pendingExpected: 0, diff: 0 };
+  byDay.forEach((o, day) => {
+    const expected = Math.round(o.Card * (1 + rt.cardSurcharge / 100) * (1 - rt.cardMdr / 100)
+      + o.Qris * (1 - rt.qrisMdr / 100) + o.Transfer);
+    if (expected <= 0) return;
+    out.days++; out.expected += expected;
+    if (recon && Object.prototype.hasOwnProperty.call(recon, day)) {
+      out.filledDays++; out.filledExpected += expected; out.received += Number(recon[day]) || 0;
+    } else {
+      out.pendingDays++; out.pendingExpected += expected;
+    }
+  });
+  out.diff = out.received - out.filledExpected;
+  return out;
+}
+
 // ── Config storage ──
 const SB_CONFIG_KEY = 'pos_sb_config';
 // mantra-pos only ever talks to the Mantra Lombok POS project. The URL is not

@@ -25,7 +25,7 @@ Kategori sewa motor sudah disiapkan. Staf lain ditambah nanti di Kelola Pengguna
 
 1. **Mulai shift.** Pilih yang bertugas, isi kas di laci, dan masukkan PIN orang itu (admin boleh memakai PIN sendiri).
 2. **Catat** pemasukan dan pengeluaran saat terjadi. Sewa, TarikTunai, dan PETTY-CASH punya tombol sendiri dan menulis kedua barisnya sekaligus.
-3. **Tutup shift.** Isi hitungan kas, kartu, transfer, dan QRIS. Kalau ada selisih, catatan wajib diisi. Setelah dikonfirmasi, shift tersimpan dan daftar yang terbuka dikosongkan.
+3. **Tutup shift** (sekali, di akhir bulan: pada tanggal terakhir atau di awal bulan berikutnya). Pilih **Sampai tanggal** (bawaannya hari ini); transaksi setelah tanggal itu tetap di shift berikutnya. Isi hitungan cash. Card, Transfer, dan QRIS **tidak diketik**: jendela menampilkan berapa yang seharusnya dibayar bank (setelah potongan), berapa yang sudah masuk, dan berapa yang **menunggu bank**, semuanya dibaca dari Laporan > Rekonsiliasi Bank. Isi jumlah dari bank di sana saat uangnya tiba; shift yang sudah tertutup menampilkan banner sampai semua hari terisi. Kalau cash, atau hari yang sudah diisi di tab Bank, tidak cocok, catatan wajib diisi. Setelah dikonfirmasi, shift tersimpan dan transaksi yang ditutup keluar dari daftar yang terbuka.
 
 Konter menjalankan **satu shift untuk satu bulan penuh**, dari awal pembukuan sampai akhir bulan (28, 29, 30 atau 31 hari). Tidak ada buka dan tutup shift setiap hari. Shift ditutup sekali, di akhir bulan.
 

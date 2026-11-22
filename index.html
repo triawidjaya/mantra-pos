@@ -666,25 +666,16 @@
         Verify the actual balance for each payment method.
       </p>
       <div class="form-group">
+        <label for="ts-cutoff" data-i18n="closeCutoff">Period end date</label>
+        <input type="date" id="ts-cutoff">
+        <small style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block" data-i18n="closeCutoffHint">Transactions after this date stay in the next shift.</small>
+      </div>
+      <div class="form-group">
         <label for="ts-actual-cash" data-i18n="actualCash">Actual Cash</label>
         <input type="text" id="ts-actual-cash" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
         <small id="ts-actual-cash-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
       </div>
-      <div class="form-group">
-        <label for="ts-actual-card" data-i18n="actualCard">Actual Card</label>
-        <input type="text" id="ts-actual-card" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
-        <small id="ts-actual-card-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
-      </div>
-      <div class="form-group">
-        <label for="ts-actual-transfer" data-i18n="actualTransfer">Actual Transfer</label>
-        <input type="text" id="ts-actual-transfer" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
-        <small id="ts-actual-transfer-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
-      </div>
-      <div class="form-group">
-        <label for="ts-actual-qris" data-i18n="actualQris">Actual QRIS</label>
-        <input type="text" id="ts-actual-qris" inputmode="numeric" autocomplete="off" placeholder="e.g. 500.000" data-i18n-ph="cashPlaceholder">
-        <small id="ts-actual-qris-preview" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block"></small>
-      </div>
+      <div class="ts-bank-box" id="ts-bank-box"></div>
       <div class="form-actions" style="grid-column:span 1;margin-top:8px">
         <button type="button" class="btn" id="ts-batal-input">
           <i class="fas fa-times"></i> <span data-i18n="cancel">Cancel</span>

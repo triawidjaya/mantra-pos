@@ -1284,14 +1284,10 @@ class MantraPOS {
       tutupShiftModal:     document.getElementById('tutup-shift-modal'),
       tsStepInput:         document.getElementById('ts-step-input'),
       tsStepSummary:       document.getElementById('ts-step-summary'),
+      tsCutoff:                document.getElementById('ts-cutoff'),
       tsActualCash:            document.getElementById('ts-actual-cash'),
       tsActualCashPreview:     document.getElementById('ts-actual-cash-preview'),
-      tsActualCard:            document.getElementById('ts-actual-card'),
-      tsActualCardPreview:     document.getElementById('ts-actual-card-preview'),
-      tsActualTransfer:        document.getElementById('ts-actual-transfer'),
-      tsActualTransferPreview: document.getElementById('ts-actual-transfer-preview'),
-      tsActualQris:            document.getElementById('ts-actual-qris'),
-      tsActualQrisPreview:     document.getElementById('ts-actual-qris-preview'),
+      tsBankBox:               document.getElementById('ts-bank-box'),
       tsSummaryContent:        document.getElementById('ts-summary-content'),
     };
   }
@@ -1478,9 +1474,8 @@ class MantraPOS {
       });
     };
     fmtInput(this.elements.tsActualCash,     this.elements.tsActualCashPreview);
-    fmtInput(this.elements.tsActualCard,     this.elements.tsActualCardPreview);
-    fmtInput(this.elements.tsActualTransfer, this.elements.tsActualTransferPreview);
-    fmtInput(this.elements.tsActualQris,     this.elements.tsActualQrisPreview);
+    // Card, Transfer and QRIS are read from Report > Bank. Changing the end date recounts them.
+    this.elements.tsCutoff.addEventListener('change', () => this._renderCloseBankBox());
 
     document.getElementById('ts-next').addEventListener('click',         () => this.showTutupShiftSummary());
     document.getElementById('ts-back').addEventListener('click',         () => {
@@ -1876,6 +1871,9 @@ class MantraPOS {
       staff,
       tanggalWaktu: new Date().toISOString()
     };
+    // Rows carried over from a past-day close are older than "now": open the new shift just before them.
+    const carried = this.transactions.map(tx => new Date(tx.tanggalWaktu).getTime()).filter(Number.isFinite);
+    if (carried.length) startTx.tanggalWaktu = new Date(Math.min(Date.now(), ...carried) - 1000).toISOString();
 
     try {
       await DataStore.insertTransaction(startTx);
@@ -2339,10 +2337,26 @@ class MantraPOS {
     }).format(amount);
   }
 
-  calculateSaldo(metode) {
-    return this.transactions
+  calculateSaldo(metode, list = this.transactions) {
+    return list
       .filter(tx => tx.metode === metode)
       .reduce((sum, tx) => sum + tx.jumlah, 0);
+  }
+
+  // Calendar day of a transaction as shown in the table (device local time), YYYY-MM-DD.
+  _dayKey(value) {
+    const d = value instanceof Date ? value : new Date(value);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  _todayKey() { return this._dayKey(new Date()); }
+
+  // Month-end close with a cutoff day: rows up to that day close with the shift,
+  // later rows stay on screen and belong to the next shift.
+  _closeSplit(cutoff) {
+    const cut = cutoff || this._todayKey();
+    const closing = [], remaining = [];
+    this.transactions.forEach(tx => (this._dayKey(tx.tanggalWaktu) <= cut ? closing : remaining).push(tx));
+    return { cutoff: cut, closing, remaining };
   }
 
   // Categories flagged in Settings as cash movements (transfer, receivable, opening
@@ -3228,49 +3242,72 @@ class MantraPOS {
       preview.textContent = '';
     };
     resetField(this.elements.tsActualCash,     this.elements.tsActualCashPreview);
-    resetField(this.elements.tsActualCard,     this.elements.tsActualCardPreview);
-    resetField(this.elements.tsActualTransfer, this.elements.tsActualTransferPreview);
-    resetField(this.elements.tsActualQris,     this.elements.tsActualQrisPreview);
+    // Period end date: today by default, never in the future, never before the opening row.
+    const today = this._todayKey();
+    const opening = this.transactions.find(tx => tx.kategori === 'START BALANCE');
+    this.elements.tsCutoff.max   = today;
+    this.elements.tsCutoff.min   = opening ? this._dayKey(opening.tanggalWaktu) : '';
+    this.elements.tsCutoff.value = today;
+    this._renderCloseBankBox();
     this.elements.tsStepInput.style.display     = '';
     this.elements.tsStepSummary.style.display   = 'none';
     this.elements.tutupShiftModal.style.display = 'flex';
   }
 
+  // Read-only bank figures for the close dialog. They come from Report > Bank and cannot be typed here.
+  _renderCloseBankBox() {
+    const box = this.elements.tsBankBox;
+    if (!box) return;
+    const cutoff = (this.elements.tsCutoff && this.elements.tsCutoff.value) || this._todayKey();
+    const bank = summariseBank(this._closeSplit(cutoff).closing, DataStore.settings.bankRecon, DataStore.settings.bankRates);
+    const money = (v) => this.formatCurrency(v);
+    if (!bank.days) {
+      box.innerHTML = `<h4>${t('closeBankTitle')}</h4><p class="ts-bank-note">${t('closeBankNone')}</p>`;
+      return;
+    }
+    const line = (label, value, cls = '') => `<div class="ts-bank-line ${cls}"><span>${label}</span><strong>${value}</strong></div>`;
+    box.innerHTML = `
+      <h4>${t('closeBankTitle')}</h4>
+      ${line(t('closeBankExpected'), money(bank.expected))}
+      ${line(t('closeBankReceived'), money(bank.received))}
+      ${bank.filledDays ? line(t('closeBankDiff'), `${bank.diff > 0 ? '+' : ''}${money(bank.diff)}`, bank.diff === 0 ? 'ok' : (bank.diff < 0 ? 'short' : 'over')) : ''}
+      ${bank.pendingDays ? line(t('closeBankWaiting', { days: bank.pendingDays }), money(bank.pendingExpected), 'wait') : ''}
+      <p class="ts-bank-note">${t('closeBankSource')}</p>`;
+  }
+
   showTutupShiftSummary() {
-    const actualCash     = parseFloat(this.elements.tsActualCash.dataset.raw     || '0') || 0;
-    const actualCard     = parseFloat(this.elements.tsActualCard.dataset.raw     || '0') || 0;
-    const actualTransfer = parseFloat(this.elements.tsActualTransfer.dataset.raw || '0') || 0;
-    const actualQris     = parseFloat(this.elements.tsActualQris.dataset.raw     || '0') || 0;
+    // Period end date and the rows that close with it
+    const cutoff = (this.elements.tsCutoff && this.elements.tsCutoff.value) || this._todayKey();
+    const split  = this._closeSplit(cutoff);
+    const list   = split.closing;
 
-    const expectedCash     = this.calculateSaldo('Cash');
-    const expectedCard     = this.calculateSaldo('Card');
-    const expectedTransfer = this.calculateSaldo('Transfer');
-    const expectedQris     = this.calculateSaldo('Qris');
-
-    const selisihCash     = actualCash     - expectedCash;
-    const selisihCard     = actualCard     - expectedCard;
-    const selisihTransfer = actualTransfer - expectedTransfer;
-    const selisihQris     = actualQris     - expectedQris;
+    const actualCash   = parseFloat(this.elements.tsActualCash.dataset.raw || '0') || 0;
+    const expectedCash = this.calculateSaldo('Cash', list);
+    const selisihCash  = actualCash - expectedCash;
+    // Card, Transfer and QRIS are checked against the bank figures typed in Report > Bank, never typed here.
+    const bank = summariseBank(list, DataStore.settings.bankRecon, DataStore.settings.bankRates);
+    const appTotal = ['Cash', 'Card', 'Transfer', 'Qris'].reduce((sum, m) => sum + this.calculateSaldo(m, list), 0);
 
     const fmtSelisih = (val) => {
-      if (val === 0) return `<span class="ts-diff-exact">${t('exact')}</span>`;
-      const sign  = val > 0 ? '+' : '';
-      const cls   = val > 0 ? 'ts-diff-over' : 'ts-diff-short';
-      const label = val > 0 ? t('over') : t('short');
-      // Two lines: amount on top, label below — keeps Difference column narrow.
-      return `<span class="${cls}"><span class="diff-amt">${sign}${this.formatCurrency(val)}</span><span class="diff-label">${label}</span></span>`;
+      if (val === null) return '<span class="ts-diff-wait">—</span>';   // the row label already says "waiting"
+      if (val === 0) return `<span class="ts-ok" title="${t('exact')}" aria-label="${t('exact')}"><i class="fas fa-circle-check"></i></span>`;
+      // Over / short: one coloured pill with an arrow and the amount; the word stays in the tooltip.
+      const over  = val > 0;
+      const label = String(over ? t('over') : t('short')).replace(/[()]/g, '').trim();
+      return `<span class="ts-badge ${over ? 'over' : 'short'}" title="${label}" aria-label="${label} ${this.formatCurrency(Math.abs(val))}">`
+        + `<i class="fas fa-arrow-${over ? 'up' : 'down'}"></i>${this.formatCurrency(Math.abs(val))}</span>`;
     };
 
-    const hasSelisih = selisihCash !== 0 || selisihCard !== 0 ||
-                       selisihTransfer !== 0 || selisihQris !== 0;
+    // Only an amount that really arrived can be short or over; "waiting for bank" never needs an explanation.
+    const hasSelisih = selisihCash !== 0 || (bank.filledDays > 0 && bank.diff !== 0);
 
-    this._pendingActual = { actualCash, actualCard, actualTransfer, actualQris, hasSelisih };
+    this._pendingActual = { actualCash, hasSelisih, cutoff };
 
     const row = (icon, label, expected, actual, selisih) => `
       <tr>
         <td><i class="fas ${icon}"></i> ${label}</td>
         <td>${this.formatCurrency(expected)}</td>
-        <td class="actual-cell">${this.formatCurrency(actual)}</td>
+        <td class="actual-cell">${actual === null ? '—' : this.formatCurrency(actual)}</td>
         <td>${fmtSelisih(selisih)}</td>
       </tr>`;
 
@@ -3278,10 +3315,10 @@ class MantraPOS {
     const noteHintText  = hasSelisih ? t('closingNoteRequired') : t('closingNoteOptional');
 
     // Revenue breakdown — split raw income/outgoing into business revenue vs cash movements.
-    const totalNonRevenueIn  = this.transactions.filter(tx => tx.jenis === 'INCOME'   &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
-    const totalNonRevenueOut = this.transactions.filter(tx => tx.jenis === 'OUTGOING' &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
-    const totalIncomeAll     = this.transactions.filter(tx => tx.jenis === 'INCOME'  ).reduce((s, tx) => s + tx.jumlah, 0);
-    const totalOutgoingAll   = this.transactions.filter(tx => tx.jenis === 'OUTGOING').reduce((s, tx) => s + tx.jumlah, 0);
+    const totalNonRevenueIn  = list.filter(tx => tx.jenis === 'INCOME'   &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalNonRevenueOut = list.filter(tx => tx.jenis === 'OUTGOING' &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalIncomeAll     = list.filter(tx => tx.jenis === 'INCOME'  ).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalOutgoingAll   = list.filter(tx => tx.jenis === 'OUTGOING').reduce((s, tx) => s + tx.jumlah, 0);
     const revenue            = totalIncomeAll   - totalNonRevenueIn;
     const operatingExpense   = totalOutgoingAll - totalNonRevenueOut; // negative
     const netRevenue         = revenue + operatingExpense;
@@ -3328,22 +3365,23 @@ class MantraPOS {
               </tr>
             </thead>
             <tbody>
-              ${row('fa-money-bill-wave', 'Cash',     expectedCash,     actualCash,     selisihCash)}
-              ${row('fa-credit-card',     'Card',     expectedCard,     actualCard,     selisihCard)}
-              ${row('fa-exchange-alt',    'Transfer', expectedTransfer, actualTransfer, selisihTransfer)}
-              ${row('fa-qrcode',          'QRIS',     expectedQris,     actualQris,     selisihQris)}
+              ${row('fa-money-bill-wave', 'Cash', expectedCash, actualCash, selisihCash)}
+              ${bank.filledDays ? row('fa-building-columns', t('closeBankReceivedRow'), bank.filledExpected, bank.received, bank.diff) : ''}
+              ${bank.pendingDays ? row('fa-hourglass-half', t('closeBankWaitingRow', { days: bank.pendingDays }), bank.pendingExpected, null, null) : ''}
             </tbody>
           </table>
         </div>
         <div class="total-summary">
           <span>${t('totalExpected')}</span>
-          <span class="total-amount">${this.formatCurrency(expectedCash + expectedCard + expectedTransfer + expectedQris)}</span>
+          <span class="total-amount">${this.formatCurrency(appTotal)}</span>
         </div>
         <div class="form-group ts-note-group">
           <label for="ts-closing-note">${t('closingNote')}${hasSelisih ? ' <span class="req-marker">*</span>' : ''}</label>
           <textarea id="ts-closing-note" rows="2" maxlength="500"></textarea>
           <small class="${noteHintClass}">${noteHintText}</small>
         </div>
+        ${bank.pendingDays ? `<p class="summary-info">${t('closeBankPendingNote', { days: bank.pendingDays })}</p>` : ''}
+        ${split.remaining.length ? `<p class="summary-info">${t('closeCarryOver', { n: split.remaining.length, date: cutoff })}</p>` : ''}
         <p class="summary-info">${t('balanceReset')}</p>
       </div>
     `;
@@ -3353,8 +3391,8 @@ class MantraPOS {
   }
 
   async eksekusiTutupShift() {
-    const { actualCash, actualCard, actualTransfer, actualQris, hasSelisih } =
-      this._pendingActual || { actualCash: 0, actualCard: 0, actualTransfer: 0, actualQris: 0, hasSelisih: false };
+    const { actualCash, hasSelisih, cutoff } =
+      this._pendingActual || { actualCash: 0, hasSelisih: false, cutoff: this._todayKey() };
 
     // Note is mandatory when there's a difference — staff must explain why.
     const noteEl = document.getElementById('ts-closing-note');
@@ -3365,24 +3403,23 @@ class MantraPOS {
       return;
     }
 
-    const expectedCash     = this.calculateSaldo('Cash');
-    const expectedCard     = this.calculateSaldo('Card');
-    const expectedTransfer = this.calculateSaldo('Transfer');
-    const expectedQris     = this.calculateSaldo('Qris');
+    const { closing } = this._closeSplit(cutoff);
+    const expectedCash = this.calculateSaldo('Cash', closing);
+    const bank = summariseBank(closing, DataStore.settings.bankRecon, DataStore.settings.bankRates);
 
+    // Card, Transfer and QRIS are not counted at the till: their figures live in Report > Bank.
     this._actualForHistory = {
-      actualCash, actualCard, actualTransfer, actualQris,
-      selisihCash:     actualCash     - expectedCash,
-      selisihCard:     actualCard     - expectedCard,
-      selisihTransfer: actualTransfer - expectedTransfer,
-      selisihQris:     actualQris     - expectedQris,
-      closingNote:     note,
+      actualCash, actualCard: null, actualTransfer: null, actualQris: null,
+      selisihCash: actualCash - expectedCash, selisihCard: null, selisihTransfer: null, selisihQris: null,
+      bankPending: bank.pendingDays > 0,
+      bankSnapshot: { expected: bank.expected, received: bank.received, diff: bank.diff, pendingDays: bank.pendingDays, pendingExpected: bank.pendingExpected },
+      closingNote: note,
     };
 
     const confirmBtn = document.getElementById('ts-confirm-close');
     if (confirmBtn) confirmBtn.disabled = true;
     try {
-      const shiftRecord = this.buildShiftRecord();
+      const shiftRecord = this.buildShiftRecord(closing, cutoff);
       await DataStore.closeShift({
         shift: shiftRecord,
         transactionIds: shiftRecord.transactions.map(tx => tx.id),
@@ -3410,30 +3447,37 @@ class MantraPOS {
   // Max 50 shifts — oldest is auto-removed
   // ============================================================
 
-  buildShiftRecord() {
-    const staff    = [...new Set(this.transactions.map(tx => tx.staff))];
-    const cash     = this.calculateSaldo('Cash');
-    const card     = this.calculateSaldo('Card');
-    const transfer = this.calculateSaldo('Transfer');
-    const qris     = this.calculateSaldo('Qris');
+  buildShiftRecord(list = list, cutoff = null) {
+    const staff    = [...new Set(list.map(tx => tx.staff))];
+    const cash     = this.calculateSaldo('Cash', list);
+    const card     = this.calculateSaldo('Card', list);
+    const transfer = this.calculateSaldo('Transfer', list);
+    const qris     = this.calculateSaldo('Qris', list);
 
     // startedAt sourced from the START BALANCE tx — it's always inserted at shift start.
-    const startedAt = this.transactions.find(tx => tx.kategori === 'START BALANCE')?.tanggalWaktu ?? null;
+    const startedAt = list.find(tx => tx.kategori === 'START BALANCE')?.tanggalWaktu ?? null;
 
     // Revenue breakdown — splits raw INCOME/OUTGOING into business revenue vs
     // non-revenue (transfers, receivables, opening balance). totalIncome/totalOutgoing
     // are kept for backward compat with shifts closed before this feature shipped.
-    const totalIncome      = this.transactions.filter(tx => tx.jenis === 'INCOME').reduce((s, tx) => s + tx.jumlah, 0);
-    const totalOutgoing    = this.transactions.filter(tx => tx.jenis === 'OUTGOING').reduce((s, tx) => s + tx.jumlah, 0);
-    const totalNonRevenueIn  = this.transactions.filter(tx => tx.jenis === 'INCOME'   &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
-    const totalNonRevenueOut = this.transactions.filter(tx => tx.jenis === 'OUTGOING' &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalIncome      = list.filter(tx => tx.jenis === 'INCOME').reduce((s, tx) => s + tx.jumlah, 0);
+    const totalOutgoing    = list.filter(tx => tx.jenis === 'OUTGOING').reduce((s, tx) => s + tx.jumlah, 0);
+    const totalNonRevenueIn  = list.filter(tx => tx.jenis === 'INCOME'   &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
+    const totalNonRevenueOut = list.filter(tx => tx.jenis === 'OUTGOING' &&  this.isNonRevenue(tx.kategori)).reduce((s, tx) => s + tx.jumlah, 0);
     const totalRevenue          = totalIncome   - totalNonRevenueIn;
     const totalOperatingExpense = totalOutgoing - totalNonRevenueOut;
+
+    // Closing a past day (cutoff before today): the shift ends at the end of that day.
+    let closedAt = new Date();
+    if (cutoff && cutoff < this._todayKey()) {
+      const [y, m, d] = cutoff.split('-').map(Number);
+      closedAt = new Date(y, m - 1, d, 23, 59, 59, 999);
+    }
 
     const shiftRecord = {
       id:        `shift_${Date.now()}`,
       startedAt,
-      closedAt:  new Date().toISOString(),
+      closedAt:  closedAt.toISOString(),
       staff,
       summary: {
         cash, card, transfer, qris,
@@ -3444,7 +3488,7 @@ class MantraPOS {
         totalOperatingExpense,
         totalNonRevenueIn,
         totalNonRevenueOut,
-        jumlahTransaksi:  this.transactions.length,
+        jumlahTransaksi:  list.length,
         actualCash:      this._actualForHistory?.actualCash      ?? null,
         actualCard:      this._actualForHistory?.actualCard      ?? null,
         actualTransfer:  this._actualForHistory?.actualTransfer  ?? null,
@@ -3453,9 +3497,11 @@ class MantraPOS {
         selisihCard:     this._actualForHistory?.selisihCard     ?? null,
         selisihTransfer: this._actualForHistory?.selisihTransfer ?? null,
         selisihQris:     this._actualForHistory?.selisihQris     ?? null,
+        bankPending:     this._actualForHistory?.bankPending     ?? false,
+        bank:            this._actualForHistory?.bankSnapshot    ?? null,
         closingNote:     this._actualForHistory?.closingNote     ?? '',
       },
-      transactions: this.transactions.map(tx => ({ ...tx }))
+      transactions: list.map(tx => ({ ...tx }))
     };
 
     return shiftRecord;
